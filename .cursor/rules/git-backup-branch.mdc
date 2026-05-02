@@ -1,0 +1,10 @@
+---
+description: All code changes go on backup branch; main is updated only via PR/merge from backup.
+alwaysApply: true
+---
+
+# Git branch policy
+
+- **Do not commit directly to `main`.** All edits and commits must be on the `backup` branch (or a feature branch off `backup` if the user prefers).
+- Before making changes, ensure the working branch is `backup`: `git checkout backup` and `git pull origin backup` when needed.
+- The user promotes work to `main` by opening a pull request or merging `backup` → `main` on GitHub—not by committing on `main` locally.
