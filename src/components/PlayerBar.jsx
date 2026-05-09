@@ -26,12 +26,22 @@ export default function PlayerBar({
   onExpandFullPlayer,
 }) {
   const isMobile = useMediaQuery("(max-width: 720px)");
-  if (!track) return null;
-  const user = users.find((u) => u.id === track.userId);
   const { auth, trackEvent } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
+  const trackId = track?.id;
+  const user = track ? users.find((u) => u.id === track.userId) : null;
   const guest = !auth.session?.user?.id;
+  const shareUrl = useMemo(() => {
+    if (!trackId) return "";
+    try {
+      return `${window.location.origin}/mix/${trackId}`;
+    } catch {
+      return `/mix/${trackId}`;
+    }
+  }, [trackId]);
+
+  if (!track) return null;
 
   const hasAudioSource = episodeHasAudioSource(track);
   const guestPlaybackOk = episodeHasGuestPlayback(track);
@@ -42,13 +52,6 @@ export default function PlayerBar({
     durationSec > 0 ? durationSec : guest ? Math.floor(guestEffDuration) : Math.floor(Math.max(0, track.durationSecs || 0));
   const elapsedSec = totalSec > 0 ? Math.min(totalSec, Math.floor((totalSec * progress) / 100)) : 0;
   const remainingSec = Math.max(0, totalSec - elapsedSec);
-  const shareUrl = useMemo(() => {
-    try {
-      return `${window.location.origin}/mix/${track.id}`;
-    } catch {
-      return `/mix/${track.id}`;
-    }
-  }, [track.id]);
 
   const handleDownload = async () => {
     if (guest) {
