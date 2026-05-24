@@ -21,6 +21,7 @@ export default function TopBar({
     const map = {
       "/": "Home",
       "/discover": "Discover",
+      "/foryou": "For You",
       "/live": "Live Streams",
       "/top10": "Top 10",
       "/upload": "Upload",
@@ -36,6 +37,8 @@ export default function TopBar({
     return map[location.pathname] || "Dropzone";
   }, [location.pathname]);
 
+  const hideSearch = location.pathname === "/foryou";
+
   const searchInput = (
     <div style={{ position: "relative", width: isMobile ? "100%" : "auto" }}>
       <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }}>
@@ -47,6 +50,7 @@ export default function TopBar({
         defaultValue={params.get("q") || ""}
         onChange={(e) => {
           const q = e.target.value;
+          if (!currentUser) return;
           if (location.pathname !== "/discover") navigate("/discover");
           const next = new URLSearchParams(params);
           if (q) next.set("q", q);
@@ -126,7 +130,7 @@ export default function TopBar({
           {title}
         </h2>
 
-        {!isMobile ? searchInput : null}
+        {!isMobile && currentUser && !hideSearch ? searchInput : null}
 
         {!currentUser ? (
           <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "nowrap" }}>
@@ -191,7 +195,7 @@ export default function TopBar({
         )}
       </div>
 
-      {isMobile ? searchInput : null}
+      {isMobile && currentUser && !hideSearch ? searchInput : null}
     </div>
   );
 }

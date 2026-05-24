@@ -93,6 +93,21 @@ export default function RegisterPage() {
           <Icon name="x" size={20} />
         </Link>
 
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+          <img
+            src="/logo.png"
+            alt="Music Vault"
+            width={90}
+            height={90}
+            style={{
+              width: 90,
+              height: 90,
+              borderRadius: 10,
+              objectFit: "contain",
+            }}
+          />
+        </div>
+
         <div style={{ marginBottom: 28, paddingRight: 28 }}>
           <div
             style={{

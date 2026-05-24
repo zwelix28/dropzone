@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import useAuth from "../hooks/useAuth.js";
 import usePlayer from "../hooks/usePlayer.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
@@ -19,6 +20,9 @@ function nextMilestoneHit(value, lastNotified) {
 
 export function AppProvider({ children }) {
   const auth = useAuth();
+  const location = useLocation();
+  const forYouRouteRef = useRef(false);
+  forYouRouteRef.current = location.pathname === "/foryou";
   const episodesRef = useRef([]);
   const getPlaylist = useCallback(() => episodesRef.current, []);
 
@@ -26,7 +30,14 @@ export function AppProvider({ children }) {
     guestPreviewOnly: !auth.session?.user?.id,
     isAuthenticated: Boolean(auth.session?.user?.id),
     getPlaylist,
+    getSuspendPlayback: () => forYouRouteRef.current,
   });
+
+  useEffect(() => {
+    if (location.pathname === "/foryou") {
+      player.pause();
+    }
+  }, [location.pathname, player.pause]);
 
   const [episodes, setEpisodes] = useState([]);
   episodesRef.current = episodes;
@@ -171,6 +182,45 @@ export function AppProvider({ children }) {
       });
     },
     [auth.session?.user?.id, refreshLikes],
+  );
+
+  const fetchMixComments = useCallback(async (mixId) => {
+    if (!mixId || !isSupabaseConfigured()) return [];
+    const { data, error } = await supabase
+      .from("mix_comments")
+      .select("id, mix_id, user_id, body, created_at")
+      .eq("mix_id", mixId)
+      .order("created_at", { ascending: true })
+      .limit(200);
+    if (error) {
+      console.warn("fetchMixComments", error.message);
+      return [];
+    }
+    return (data || []).map((row) => ({
+      id: row.id,
+      mixId: row.mix_id,
+      userId: row.user_id,
+      body: row.body,
+      createdAt: row.created_at,
+    }));
+  }, []);
+
+  const addMixComment = useCallback(
+    async (mixId, body) => {
+      const uid = auth.session?.user?.id;
+      const text = (body || "").trim();
+      if (!uid || !mixId || !text || !isSupabaseConfigured()) {
+        return { ok: false, error: "Sign in to comment." };
+      }
+      const { error } = await supabase.from("mix_comments").insert({
+        mix_id: mixId,
+        user_id: uid,
+        body: text,
+      });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    },
+    [auth.session?.user?.id],
   );
 
   useEffect(() => {
@@ -399,6 +449,8 @@ export function AppProvider({ children }) {
       likedMixIds,
       refreshLikes,
       toggleLike,
+      fetchMixComments,
+      addMixComment,
       dmUnreadCount,
       refreshDmUnreadCount,
       markDmThreadRead,
@@ -423,6 +475,8 @@ export function AppProvider({ children }) {
       likedMixIds,
       refreshLikes,
       toggleLike,
+      fetchMixComments,
+      addMixComment,
       dmUnreadCount,
       refreshDmUnreadCount,
       markDmThreadRead,

@@ -7,7 +7,7 @@ import useMediaQuery from "../hooks/useMediaQuery.js";
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { episodes, users, liveStreams, player } = useApp();
+  const { episodes, users, liveStreams, player, auth } = useApp();
   /** Larger trending tiles + full TrackCard on desktop */
   const trendingDesktop = useMediaQuery("(min-width: 900px)");
   const mobileHero = useMediaQuery("(max-width: 640px)");
@@ -64,32 +64,34 @@ export default function HomePage() {
             {!mobileHero ? <span style={{ fontSize: 13, color: "var(--text2)" }}>{liveStreams.length} streams active</span> : null}
           </div>
 
-          <div style={{ display: "flex", gap: mobileHero ? 8 : 12, flexWrap: "wrap" }}>
-            <button
-              className="btn btn-primary"
-              style={{ padding: mobileHero ? "11px 14px" : "12px 28px", fontSize: mobileHero ? 14 : 15, flex: mobileHero ? "1 1 100%" : undefined, justifyContent: "center" }}
-              onClick={() => navigate("/upload")}
-            >
-              <Icon name="upload" size={16} />
-              Upload Your Mix
-            </button>
-            <button
-              className="btn btn-ghost"
-              style={{ padding: mobileHero ? "10px 12px" : "12px 24px", fontSize: mobileHero ? 13 : 15, flex: mobileHero ? "1 1 calc(50% - 4px)" : undefined, justifyContent: "center" }}
-              onClick={() => navigate("/register")}
-            >
-              <Icon name="user" size={16} />
-              Register
-            </button>
-            <button
-              className="btn btn-ghost"
-              style={{ padding: mobileHero ? "10px 12px" : "12px 24px", fontSize: mobileHero ? 13 : 15, flex: mobileHero ? "1 1 calc(50% - 4px)" : undefined, justifyContent: "center" }}
-              onClick={() => navigate("/discover")}
-            >
-              <Icon name="compass" size={16} />
-              Discover
-            </button>
-          </div>
+          {!mobileHero ? (
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <button
+                className="btn btn-primary"
+                style={{ padding: "12px 28px", fontSize: 15, justifyContent: "center" }}
+                onClick={() => navigate("/upload")}
+              >
+                <Icon name="upload" size={16} />
+                Upload Your Mix
+              </button>
+              <button
+                className="btn btn-ghost"
+                style={{ padding: "12px 24px", fontSize: 15, justifyContent: "center" }}
+                onClick={() => navigate("/register")}
+              >
+                <Icon name="user" size={16} />
+                Register
+              </button>
+              <button
+                className="btn btn-ghost"
+                style={{ padding: "12px 24px", fontSize: 15, justifyContent: "center" }}
+                onClick={() => auth.setShowAuth(true)}
+              >
+                <Icon name="compass" size={16} />
+                Sign In
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
 

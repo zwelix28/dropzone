@@ -5,7 +5,7 @@ import LikeButton from "./LikeButton.jsx";
 import UserAvatar from "./UserAvatar.jsx";
 import VerifiedBadge from "./VerifiedBadge.jsx";
 import { fmtPlayerTime } from "../lib/format.js";
-import { GUEST_SNIPPET_DURATION_SEC } from "../lib/audioUrls.js";
+import { getGuestPreviewSegment } from "../lib/forYouPreview.js";
 
 /**
  * Full-screen now playing for logged-in users on small screens.
@@ -30,10 +30,7 @@ export default function MobileNowPlaying({
   if (!track) return null;
 
   const fallbackTotal = guestPreviewOnly
-    ? (() => {
-        const d = Number(track.durationSecs) || 0;
-        return d > 0 ? Math.min(Math.floor(d), GUEST_SNIPPET_DURATION_SEC) : GUEST_SNIPPET_DURATION_SEC;
-      })()
+    ? Math.floor(getGuestPreviewSegment(track.durationSecs).windowSec)
     : Math.floor(Math.max(0, Number(track.durationSecs) || 0));
   const totalSec = durationSec > 0 ? durationSec : fallbackTotal;
   const elapsedSec = totalSec > 0 ? Math.min(totalSec, Math.floor((totalSec * progress) / 100)) : 0;

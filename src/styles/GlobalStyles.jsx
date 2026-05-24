@@ -206,9 +206,9 @@ export const GlobalStyles = () => (
 
     /* Nav */
     .nav-link {
-      display:flex; align-items:center; gap:10px;
-      padding: 10px 14px; border-radius:8px;
-      color: var(--text2); font-size:14px; font-weight:500;
+      display:flex; align-items:center; gap:12px;
+      padding: 12px 17px; border-radius:10px;
+      color: var(--text2); font-size:17px; font-weight:500;
       transition: all 0.18s; cursor:pointer; border:none;
       background:transparent; width:100%; text-align:left;
     }
@@ -368,6 +368,18 @@ export const GlobalStyles = () => (
       box-shadow: 0 24px 80px rgba(0,0,0,0.8);
     }
 
+    /* For You vertical feed */
+    .for-you-feed {
+      scrollbar-width: none;
+      height: 100%;
+      overflow-y: auto;
+      scroll-snap-type: y mandatory;
+      overscroll-behavior-y: contain;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+    }
+    .for-you-feed::-webkit-scrollbar { display: none; }
+
     /* Player bar */
     .player-bar {
       position:fixed; bottom:0; left:0; right:0;
@@ -377,7 +389,12 @@ export const GlobalStyles = () => (
       padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
     }
     @media (max-width: 720px) {
-      .player-bar { padding: 10px 12px; padding-bottom: max(10px, env(safe-area-inset-bottom, 0px)); }
+      .player-bar {
+        background: var(--bg2);
+        backdrop-filter: none;
+        padding: 10px 12px;
+        padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+      }
     }
 
     /* Mobile nav drawer */
@@ -388,7 +405,7 @@ export const GlobalStyles = () => (
     }
     .mobile-nav-drawer {
       position: fixed; top: 0; left: 0; bottom: 0; z-index: 860;
-      width: min(300px, 88vw);
+      width: min(240px, 70vw);
       max-width: 100%;
       background: var(--bg2);
       border-right: 1px solid var(--border);
@@ -396,6 +413,12 @@ export const GlobalStyles = () => (
       display: flex; flex-direction: column;
       transition: transform 0.22s ease;
       padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    .sidebar-drawer .nav-link {
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
     }
     .mobile-nav-drawer.closed { transform: translateX(-105%); pointer-events: none; }
     .mobile-nav-drawer.open { transform: translateX(0); }

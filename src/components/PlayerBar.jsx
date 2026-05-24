@@ -7,9 +7,9 @@ import { fmtPlayerTime } from "../lib/format.js";
 import {
   episodeHasAudioSource,
   episodeHasGuestPlayback,
-  GUEST_SNIPPET_DURATION_SEC,
   resolveMixDownloadUrl,
 } from "../lib/audioUrls.js";
+import { getGuestPreviewSegment } from "../lib/forYouPreview.js";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 
@@ -24,6 +24,10 @@ export default function PlayerBar({
   volume,
   onVolume,
   onExpandFullPlayer,
+  onPrev,
+  onNext,
+  shuffleOn = false,
+  onToggleShuffle,
 }) {
   const isMobile = useMediaQuery("(max-width: 720px)");
   if (!track) return null;
@@ -35,9 +39,7 @@ export default function PlayerBar({
 
   const hasAudioSource = episodeHasAudioSource(track);
   const guestPlaybackOk = episodeHasGuestPlayback(track);
-  const guestEffDuration = guest
-    ? Math.min(track.durationSecs || GUEST_SNIPPET_DURATION_SEC, GUEST_SNIPPET_DURATION_SEC)
-    : track.durationSecs || 0;
+  const guestEffDuration = guest ? getGuestPreviewSegment(track.durationSecs).windowSec : track.durationSecs || 0;
   const totalSec =
     durationSec > 0 ? durationSec : guest ? Math.floor(guestEffDuration) : Math.floor(Math.max(0, track.durationSecs || 0));
   const elapsedSec = totalSec > 0 ? Math.min(totalSec, Math.floor((totalSec * progress) / 100)) : 0;
@@ -196,34 +198,30 @@ export default function PlayerBar({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", minWidth: 0 }}>
-            {onExpandFullPlayer && !guest ? (
-              <button
-                type="button"
-                aria-label="Expand now playing"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onExpandFullPlayer();
-                }}
-                style={{
-                  flexShrink: 0,
-                  width: 44,
-                  height: 44,
-                  borderRadius: 10,
-                  border: "1px solid var(--border)",
-                  background: "var(--surface)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Icon name="chevronUp" size={20} color="var(--accent)" />
-              </button>
-            ) : null}
-            <img
-              src={track.coverUrl}
-              alt=""
-              style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", flexShrink: 0 }}
-            />
+            <button
+              type="button"
+              aria-label="Open now playing"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (guest || !onExpandFullPlayer) return;
+                onExpandFullPlayer();
+              }}
+              disabled={guest || !onExpandFullPlayer}
+              style={{
+                flexShrink: 0,
+                padding: 0,
+                border: "none",
+                background: "none",
+                lineHeight: 0,
+                cursor: guest || !onExpandFullPlayer ? "default" : "pointer",
+              }}
+            >
+              <img
+                src={track.coverUrl}
+                alt=""
+                style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", display: "block" }}
+              />
+            </button>
             <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
               <div
                 style={{
@@ -256,6 +254,27 @@ export default function PlayerBar({
               ) : null}
             </div>
             <WaveAnim active={isPlaying} />
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 14,
+            }}
+          >
+            {iconBtn({
+              onClick: () => onToggleShuffle?.(),
+              title: shuffleOn ? "Shuffle on" : "Shuffle off",
+              style: { color: shuffleOn ? "var(--accent)" : "var(--text3)" },
+              children: <Icon name="shuffle" size={18} />,
+            })}
+            {iconBtn({
+              onClick: () => void onPrev?.(),
+              title: "Previous",
+              children: <Icon name="prev" size={20} />,
+            })}
             <button
               type="button"
               onClick={onToggle}
@@ -274,6 +293,11 @@ export default function PlayerBar({
             >
               <Icon name={isPlaying ? "pause" : "play"} size={20} color="#07090F" />
             </button>
+            {iconBtn({
+              onClick: () => void onNext?.(),
+              title: "Next",
+              children: <Icon name="skip" size={20} />,
+            })}
           </div>
 
           {progressRow}
@@ -354,11 +378,38 @@ export default function PlayerBar({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 220 }}>
-          <img
-            src={track.coverUrl}
-            alt={track.title}
-            style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover" }}
-          />
+          {onExpandFullPlayer ? (
+            <button
+              type="button"
+              aria-label="Expand now playing"
+              onClick={(e) => {
+                e.stopPropagation();
+                onExpandFullPlayer();
+              }}
+              title="Expand player"
+              style={{
+                flexShrink: 0,
+                padding: 0,
+                border: "none",
+                background: "none",
+                borderRadius: 8,
+                cursor: "pointer",
+                lineHeight: 0,
+              }}
+            >
+              <img
+                src={track.coverUrl}
+                alt={track.title}
+                style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", display: "block" }}
+              />
+            </button>
+          ) : (
+            <img
+              src={track.coverUrl}
+              alt={track.title}
+              style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover" }}
+            />
+          )}
           <div style={{ overflow: "hidden" }}>
             <div
               style={{
@@ -422,10 +473,10 @@ export default function PlayerBar({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <button type="button" onClick={() => {}} style={{ background: "none", color: "var(--text3)" }}>
+            <button type="button" onClick={() => onToggleShuffle?.()} style={{ background: "none", color: shuffleOn ? "var(--accent)" : "var(--text3)" }}>
               <Icon name="shuffle" size={16} />
             </button>
-            <button type="button" onClick={() => {}} style={{ background: "none", color: "var(--text2)" }}>
+            <button type="button" onClick={() => void onPrev?.()} style={{ background: "none", color: "var(--text2)" }}>
               <Icon name="prev" size={18} />
             </button>
             <button
@@ -445,7 +496,7 @@ export default function PlayerBar({
             >
               <Icon name={isPlaying ? "pause" : "play"} size={18} color="#07090F" />
             </button>
-            <button type="button" onClick={() => {}} style={{ background: "none", color: "var(--text2)" }}>
+            <button type="button" onClick={() => void onNext?.()} style={{ background: "none", color: "var(--text2)" }}>
               <Icon name="skip" size={18} />
             </button>
             <button type="button" onClick={() => {}} style={{ background: "none", color: "var(--text3)" }}>
