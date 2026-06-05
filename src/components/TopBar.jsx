@@ -11,6 +11,7 @@ export default function TopBar({
   onToggleNotifications,
   showMenuButton = false,
   onMenuClick,
+  pinHeader = false,
 }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -71,16 +72,19 @@ export default function TopBar({
     <div
       style={{
         minHeight: isMobile ? "auto" : 60,
-        background: "rgba(7,9,15,0.9)",
-        backdropFilter: "blur(12px)",
+        background: pinHeader ? "var(--bg2)" : "rgba(7,9,15,0.9)",
+        backdropFilter: pinHeader ? "none" : "blur(12px)",
         borderBottom: "1px solid var(--border)",
         display: "flex",
         flexDirection: isMobile ? "column" : "row",
         alignItems: isMobile ? "stretch" : "center",
         gap: isMobile ? 10 : 16,
-        position: "sticky",
-        top: 0,
-        zIndex: 100,
+        position: pinHeader ? "relative" : "sticky",
+        top: pinHeader ? undefined : 0,
+        zIndex: pinHeader ? 120 : 100,
+        flexShrink: pinHeader ? 0 : undefined,
+        width: "100%",
+        boxSizing: "border-box",
         ...(isMobile
           ? {
               padding: "12px",

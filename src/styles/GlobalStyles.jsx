@@ -392,8 +392,8 @@ export const GlobalStyles = () => (
       .player-bar {
         background: var(--bg2);
         backdrop-filter: none;
-        padding: 10px 12px;
-        padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+        padding: 8px 12px;
+        padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
       }
     }
 
@@ -433,6 +433,56 @@ export const GlobalStyles = () => (
     }
     .drop-zone:hover, .drop-zone.dragging {
       border-color: var(--accent2); background: var(--glow2);
+    }
+
+    /* Mobile full-player transport — uniform size, press-only highlight */
+    .dz-transport-btn {
+      width: 52px;
+      height: 52px;
+      min-width: 52px;
+      min-height: 52px;
+      padding: 0;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text2);
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .dz-transport-btn:hover {
+      border-color: rgba(56, 189, 248, 0.45);
+      color: var(--text);
+    }
+    .dz-transport-btn:active {
+      background: var(--glow2);
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 14px var(--glow);
+    }
+    .dz-transport-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      width: 100%;
+      max-width: 300px;
+      margin: 0 auto;
+      padding-bottom: 2px;
+    }
+    .mobile-now-playing .dz-transport-btn {
+      background: rgba(7,9,15,0.48);
+      border: 1px solid rgba(255,255,255,0.1);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .mobile-now-playing .dz-transport-btn:active {
+      background: rgba(56,189,248,0.12);
     }
   `}</style>
 );

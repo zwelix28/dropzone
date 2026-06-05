@@ -8,7 +8,6 @@ import { useApp } from "../context/AppContext.jsx";
 import useForYouPreview from "../hooks/useForYouPreview.js";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { episodeHasAudioSource, resolveMixDownloadUrl } from "../lib/audioUrls.js";
-import { FOR_YOU_PREVIEW_SEC } from "../lib/forYouPreview.js";
 
 function shuffleFeed(list) {
   const arr = [...list];
@@ -39,7 +38,8 @@ function buildStableFeed(episodes, feedRef) {
   return feedRef.current;
 }
 
-function ActionButton({ label, onClick, children, active = false }) {
+function ActionButton({ label, onClick, children, active = false, compact = false }) {
+  const iconSize = compact ? 40 : 48;
   return (
     <button
       type="button"
@@ -53,21 +53,22 @@ function ActionButton({ label, onClick, children, active = false }) {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: 6,
+        gap: compact ? 0 : 6,
         background: "none",
         color: active ? "#f87171" : "#fff",
         cursor: "pointer",
-        minWidth: 52,
+        minWidth: compact ? 40 : 52,
         touchAction: "manipulation",
+        flexShrink: 0,
       }}
     >
       <span
         style={{
-          width: 48,
-          height: 48,
+          width: iconSize,
+          height: iconSize,
           borderRadius: "50%",
-          background: "rgba(7,9,15,0.55)",
-          border: "1px solid rgba(255,255,255,0.14)",
+          background: compact ? "rgba(7,9,15,0.4)" : "rgba(7,9,15,0.55)",
+          border: compact ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(255,255,255,0.14)",
           backdropFilter: "blur(6px)",
           display: "flex",
           alignItems: "center",
@@ -93,6 +94,7 @@ export default function ForYouPage() {
   const lastPlayedIdRef = useRef(null);
   const feedReadyRef = useRef(false);
   const autoplayPendingRef = useRef(null);
+  const tapGestureRef = useRef({ x: 0, y: 0, moved: false });
 
   const [index, setIndex] = useState(0);
   const [commentsOpen, setCommentsOpen] = useState(false);
@@ -110,7 +112,6 @@ export default function ForYouPage() {
   const current = feed[index] || null;
   const currentUser = current ? users.find((u) => u.id === current.userId) : null;
   const liked = Boolean(current && likedMixIds.includes(current.id));
-  const isCurrentPlaying = Boolean(current && preview.track?.id === current.id && preview.isPlaying);
 
   const syncIndexFromScroll = useCallback(() => {
     const root = containerRef.current;
@@ -138,7 +139,7 @@ export default function ForYouPage() {
     if (el) el.scrollIntoView({ behavior, block: "start" });
     window.setTimeout(() => {
       programmaticScrollRef.current = false;
-    }, behavior === "smooth" ? 420 : 0);
+    }, behavior === "smooth" ? 280 : 0);
   }, [feed.length]);
 
   const startPreview = useCallback(
@@ -161,6 +162,39 @@ export default function ForYouPage() {
     [trackEvent, auth.currentUser?.id],
   );
 
+  const togglePreviewForSlide = useCallback(
+    (ep) => {
+      if (!ep?.id) return;
+      if (preview.track?.id === ep.id) {
+        void preview.toggle();
+      } else {
+        lastPlayedIdRef.current = null;
+        void startPreview(ep);
+      }
+    },
+    [preview, startPreview],
+  );
+
+  const onSlidePointerDown = (e) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    tapGestureRef.current = { x: e.clientX, y: e.clientY, moved: false };
+  };
+
+  const onSlidePointerMove = (e) => {
+    const g = tapGestureRef.current;
+    if (g.moved) return;
+    const dx = e.clientX - g.x;
+    const dy = e.clientY - g.y;
+    if (dx * dx + dy * dy > 100) g.moved = true;
+  };
+
+  const onSlidePointerUp = (e, ep, isActive) => {
+    if (!isActive) return;
+    if (e.target.closest("button, a, input, textarea, [data-foryou-no-toggle]")) return;
+    if (tapGestureRef.current.moved) return;
+    togglePreviewForSlide(ep);
+  };
+
   useEffect(() => {
     lastPlayedIdRef.current = null;
     feedReadyRef.current = false;
@@ -173,8 +207,16 @@ export default function ForYouPage() {
       feedReadyRef.current = true;
       lastPlayedIdRef.current = null;
       prefetchRef.current(feed[0]);
+      prefetchRef.current(feed[1]);
     }
   }, [feed]);
+
+  useEffect(() => {
+    if (feed.length === 0) return;
+    prefetchRef.current(feed[index]);
+    prefetchRef.current(feed[index + 1]);
+    prefetchRef.current(feed[index - 1]);
+  }, [index, feed]);
 
   useLayoutEffect(() => {
     const track = feed[index];
@@ -223,6 +265,40 @@ export default function ForYouPage() {
 
   useEffect(() => {
     const root = containerRef.current;
+    if (!root || feed.length === 0) return;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (programmaticScrollRef.current) return;
+        let bestIdx = null;
+        let bestRatio = 0;
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const ratio = entry.intersectionRatio;
+          if (ratio < 0.5) continue;
+          const idx = Number(entry.target.getAttribute("data-index"));
+          if (Number.isNaN(idx)) continue;
+          if (ratio > bestRatio) {
+            bestRatio = ratio;
+            bestIdx = idx;
+          }
+        }
+        if (bestIdx != null) {
+          setIndex((prev) => (prev === bestIdx ? prev : bestIdx));
+        }
+      },
+      { root, threshold: [0.5, 0.6, 0.7, 0.85] },
+    );
+
+    slideRefs.current.forEach((el) => {
+      if (el) io.observe(el);
+    });
+
+    return () => io.disconnect();
+  }, [feed.length]);
+
+  useEffect(() => {
+    const root = containerRef.current;
     if (!root) return;
 
     const syncSlideHeights = () => {
@@ -241,11 +317,15 @@ export default function ForYouPage() {
     const onScroll = () => {
       if (programmaticScrollRef.current) return;
       window.clearTimeout(scrollSyncTimer.current);
-      scrollSyncTimer.current = window.setTimeout(syncIndexFromScroll, 80);
+      scrollSyncTimer.current = window.setTimeout(syncIndexFromScroll, 50);
     };
 
     root.addEventListener("scroll", onScroll, { passive: true });
-    const onScrollEnd = () => syncIndexFromScroll();
+    const onScrollEnd = () => {
+      if (programmaticScrollRef.current) return;
+      window.clearTimeout(scrollSyncTimer.current);
+      syncIndexFromScroll();
+    };
     root.addEventListener("scrollend", onScrollEnd);
 
     return () => {
@@ -346,7 +426,8 @@ export default function ForYouPage() {
         height: isCompact ? "100%" : "calc(100vh - 60px)",
         overflow: "hidden",
         position: "relative",
-        background: "#07090f",
+        zIndex: 0,
+        background: isCompact ? "rgba(7,9,15,0.85)" : "#07090f",
       }}
     >
       <div ref={containerRef} className="for-you-feed">
@@ -363,16 +444,24 @@ export default function ForYouPage() {
                 slideRefs.current[i] = el;
               }}
               data-index={i}
+              onPointerDown={onSlidePointerDown}
+              onPointerMove={onSlidePointerMove}
+              onPointerUp={(e) => onSlidePointerUp(e, ep, isActive)}
+              onPointerCancel={() => {
+                tapGestureRef.current.moved = true;
+              }}
               style={{
                 scrollSnapAlign: "start",
                 scrollSnapStop: "always",
                 position: "relative",
                 display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
+                flexDirection: "column",
+                alignItems: isCompact ? "stretch" : "center",
+                justifyContent: isCompact ? "stretch" : "center",
                 overflow: "hidden",
                 flexShrink: 0,
                 boxSizing: "border-box",
+                isolation: "isolate",
               }}
             >
               {cover ? (
@@ -385,7 +474,7 @@ export default function ForYouPage() {
                     backgroundSize: "cover",
                     backgroundPosition: "center",
                     filter: "blur(42px) saturate(1.1)",
-                    opacity: isActive ? 0.5 : 0.35,
+                    opacity: isActive ? (isCompact ? 0.35 : 0.5) : isCompact ? 0.2 : 0.35,
                     transform: "scale(1.08)",
                     transition: "opacity 0.25s ease",
                   }}
@@ -396,7 +485,9 @@ export default function ForYouPage() {
                 style={{
                   position: "absolute",
                   inset: 0,
-                  background: "linear-gradient(180deg, rgba(7,9,15,0.35) 0%, rgba(7,9,15,0.75) 55%, #07090f 100%)",
+                  background: isCompact
+                    ? "linear-gradient(180deg, rgba(7,9,15,0.2) 0%, rgba(7,9,15,0.6) 55%, rgba(7,9,15,0.88) 100%)"
+                    : "linear-gradient(180deg, rgba(7,9,15,0.35) 0%, rgba(7,9,15,0.75) 55%, #07090f 100%)",
                 }}
               />
 
@@ -405,25 +496,33 @@ export default function ForYouPage() {
                   position: "relative",
                   zIndex: 2,
                   width: "100%",
-                  maxWidth: isCompact ? "100%" : 720,
-                  padding: isCompact ? "20px 72px 28px 16px" : "24px 120px 32px 32px",
+                  height: isCompact ? "100%" : undefined,
+                  maxWidth: isCompact ? "100%" : 420,
+                  margin: isCompact ? undefined : "0 auto",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: isCompact ? "flex-start" : "center",
+                  padding: isCompact ? "17px 16px 52px" : "24px 32px 48px",
+                  boxSizing: "border-box",
                 }}
               >
                 <div
                   style={{
-                    width: isCompact ? "min(68vw, 260px)" : 300,
+                    position: "relative",
+                    width: isCompact ? "100%" : 300,
+                    maxWidth: isCompact ? 300 : undefined,
                     aspectRatio: "1",
                     borderRadius: 16,
                     overflow: "hidden",
                     boxShadow: "0 24px 60px rgba(0,0,0,0.55)",
                     border: "1px solid rgba(255,255,255,0.1)",
-                    marginBottom: 18,
-                    marginLeft: isCompact ? "auto" : undefined,
-                    marginRight: isCompact ? "auto" : undefined,
+                    marginBottom: isCompact ? 45 : 18,
+                    flexShrink: 0,
                   }}
                 >
                   {cover ? (
-                    <img src={cover} alt={ep.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <img src={cover} alt={ep.title} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                   ) : (
                     <div
                       style={{
@@ -440,14 +539,24 @@ export default function ForYouPage() {
                   )}
                 </div>
 
-                <div style={{ maxWidth: isCompact ? "min(68vw, 300px)" : 420 }}>
+                <div
+                  style={{
+                    width: "100%",
+                    maxWidth: isCompact ? 300 : 420,
+                    textAlign: "center",
+                  }}
+                >
                   <h2
                     style={{
                       fontFamily: "var(--ff-display)",
-                      fontSize: isCompact ? 22 : 28,
+                      fontSize: isCompact ? 20 : 28,
                       letterSpacing: "0.03em",
-                      lineHeight: 1.1,
-                      margin: "0 0 8px",
+                      lineHeight: 1.15,
+                      margin: isCompact ? "0 0 13px" : "0 0 8px",
+                      display: isCompact ? "-webkit-box" : undefined,
+                      WebkitLineClamp: isCompact ? 2 : undefined,
+                      WebkitBoxOrient: isCompact ? "vertical" : undefined,
+                      overflow: isCompact ? "hidden" : undefined,
                     }}
                   >
                     {ep.title}
@@ -459,12 +568,15 @@ export default function ForYouPage() {
                       style={{
                         display: "inline-flex",
                         alignItems: "center",
+                        justifyContent: "center",
                         gap: 8,
                         background: "none",
                         color: "var(--accent)",
                         fontWeight: 600,
                         fontSize: 15,
                         marginBottom: 8,
+                        maxWidth: "100%",
+                        width: isCompact ? undefined : "100%",
                       }}
                     >
                       <UserAvatar user={artist} size={28} showVerified={false} />
@@ -472,13 +584,14 @@ export default function ForYouPage() {
                       {artist.verified ? <VerifiedBadge size={14} /> : null}
                     </button>
                   ) : null}
-                  {ep.description ? (
+                  {!isCompact && ep.description ? (
                     <p
                       style={{
                         color: "var(--text2)",
                         fontSize: 13,
                         lineHeight: 1.45,
                         margin: "0 0 10px",
+                        textAlign: "center",
                         display: "-webkit-box",
                         WebkitLineClamp: 2,
                         WebkitBoxOrient: "vertical",
@@ -488,33 +601,92 @@ export default function ForYouPage() {
                       {ep.description}
                     </p>
                   ) : null}
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    {ep.genre ? (
+                  {ep.genre ? (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8,
+                        flexWrap: "wrap",
+                      }}
+                    >
                       <span className="tag tag-blue" style={{ fontSize: 11 }}>
                         {ep.genre}
                       </span>
-                    ) : null}
-                    <span style={{ fontSize: 11, color: "var(--text3)", letterSpacing: "0.06em" }}>
-                      Preview from 2:30 · {FOR_YOU_PREVIEW_SEC}s
-                    </span>
-                  </div>
+                    </div>
+                  ) : null}
 
-                  {showProgress ? (
-                    <div style={{ marginTop: 14, maxWidth: isCompact ? "100%" : 320 }}>
+                  {isCompact && isActive ? (
+                    <div style={{ marginTop: 12, width: "100%" }}>
                       <div className="progress-wrap" style={{ height: 4 }}>
-                        <div className="progress-fill" style={{ width: `${preview.progress}%`, height: "100%" }} />
+                        <div
+                          className="progress-fill"
+                          style={{
+                            width: `${showProgress ? preview.progress : 0}%`,
+                            height: "100%",
+                          }}
+                        />
                       </div>
                       <div
                         style={{
                           display: "flex",
-                          justifyContent: "space-between",
-                          marginTop: 6,
-                          fontSize: 11,
-                          color: "var(--text3)",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 10,
+                          marginTop: 22,
+                          flexWrap: "nowrap",
+                          width: "100%",
                         }}
                       >
-                        <span>Preview</span>
-                        <span>{Math.round(preview.progress)}%</span>
+                        <ActionButton
+                          compact
+                          label={artist ? `Open ${artist.username}'s profile` : "Artist profile"}
+                          onClick={() => artist && navigate(`/user/${artist.id}`)}
+                        >
+                          <UserAvatar user={artist} size={26} showVerified={false} />
+                        </ActionButton>
+                        <ActionButton
+                          compact
+                          label={likedMixIds.includes(ep.id) ? "Unlike" : "Like"}
+                          active={likedMixIds.includes(ep.id)}
+                          onClick={handleLike}
+                        >
+                          <Icon
+                            name="heart"
+                            size={20}
+                            color={likedMixIds.includes(ep.id) ? "#f87171" : "#fff"}
+                          />
+                        </ActionButton>
+                        <ActionButton
+                          compact
+                          label="Comments"
+                          onClick={() => {
+                            if (!auth.session?.user?.id) {
+                              promptGuestAuth("comment");
+                              return;
+                            }
+                            setCommentsOpen(true);
+                          }}
+                        >
+                          <Icon name="comment" size={20} color="#fff" />
+                        </ActionButton>
+                        <ActionButton compact label="Share" onClick={() => void handleShare()}>
+                          <Icon name="share" size={18} color="#fff" />
+                        </ActionButton>
+                        <ActionButton
+                          compact
+                          label={likedMixIds.includes(ep.id) ? "Download full mix" : "Like to download"}
+                          onClick={() => void handleDownload()}
+                        >
+                          <Icon name="download" size={18} color="#fff" />
+                        </ActionButton>
+                      </div>
+                    </div>
+                  ) : showProgress ? (
+                    <div style={{ marginTop: 14, width: "100%", maxWidth: 320 }}>
+                      <div className="progress-wrap" style={{ height: 4 }}>
+                        <div className="progress-fill" style={{ width: `${preview.progress}%`, height: "100%" }} />
                       </div>
                     </div>
                   ) : null}
@@ -528,7 +700,7 @@ export default function ForYouPage() {
                   left: "50%",
                   transform: "translateX(-50%)",
                   fontSize: 11,
-                  color: "rgba(255,255,255,0.45)",
+                  color: isCompact ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.45)",
                   letterSpacing: "0.08em",
                   zIndex: 2,
                   margin: 0,
@@ -542,12 +714,12 @@ export default function ForYouPage() {
         })}
       </div>
 
-      {current ? (
+      {current && !isCompact ? (
         <div
           style={{
             position: "absolute",
-            right: isCompact ? 10 : 24,
-            bottom: isCompact ? 103 : 88,
+            right: 24,
+            bottom: 88,
             zIndex: 5,
             display: "flex",
             flexDirection: "column",
@@ -589,15 +761,6 @@ export default function ForYouPage() {
           >
             <Icon name="download" size={20} color="#fff" />
           </ActionButton>
-
-          {!isCompact ? (
-            <ActionButton
-              label={isCurrentPlaying ? "Pause preview" : "Play preview"}
-              onClick={() => void preview.toggle()}
-            >
-              <Icon name={isCurrentPlaying ? "pause" : "play"} size={20} color="#fff" />
-            </ActionButton>
-          ) : null}
         </div>
       ) : null}
 

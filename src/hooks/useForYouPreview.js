@@ -25,6 +25,7 @@ export default function useForYouPreview({ isAuthenticated }) {
   const segmentRef = useRef({ start: 0, end: FOR_YOU_PREVIEW_SEC });
   const generationRef = useRef(0);
   const urlCacheRef = useRef(new Map());
+  const warmAudioRef = useRef(new Map());
 
   if (!audioRef.current && typeof Audio !== "undefined") {
     audioRef.current = new Audio();
@@ -33,6 +34,7 @@ export default function useForYouPreview({ isAuthenticated }) {
 
   const resolveUrl = useCallback(
     async (ep) => {
+      if (!ep?.id) return null;
       const cached = urlCacheRef.current.get(ep.id);
       if (cached) return cached;
       const url = await resolveMixPlaybackUrl(ep, {
@@ -46,12 +48,20 @@ export default function useForYouPreview({ isAuthenticated }) {
     [isAuthenticated],
   );
 
+  const warmUrl = useCallback((ep, url) => {
+    if (!ep?.id || !url || warmAudioRef.current.has(ep.id)) return;
+    const warm = new Audio();
+    warm.preload = "auto";
+    warm.src = url;
+    warmAudioRef.current.set(ep.id, warm);
+  }, []);
+
   const prefetch = useCallback(
     (ep) => {
       if (!ep) return;
-      void resolveUrl(ep);
+      void resolveUrl(ep).then((url) => warmUrl(ep, url));
     },
-    [resolveUrl],
+    [resolveUrl, warmUrl],
   );
 
   const stop = useCallback(() => {
@@ -69,7 +79,7 @@ export default function useForYouPreview({ isAuthenticated }) {
 
   const beginSegmentPlayback = useCallback(async (audio, start, gen) => {
     const seekAndPlay = async () => {
-      if (gen !== generationRef.current) return;
+      if (gen !== generationRef.current) return false;
       requestExclusivePlayback(AUDIO_OWNER_FOR_YOU);
       try {
         audio.currentTime = start;
@@ -85,7 +95,7 @@ export default function useForYouPreview({ isAuthenticated }) {
           resolve();
         };
         audio.addEventListener("seeked", finish);
-        setTimeout(finish, 150);
+        setTimeout(finish, 60);
       });
       if (gen !== generationRef.current) return false;
       try {
@@ -147,8 +157,6 @@ export default function useForYouPreview({ isAuthenticated }) {
       setIsPlaying(false);
 
       audio.pause();
-      audio.removeAttribute("src");
-      audio.load();
 
       const url = await resolveUrl(ep);
       if (gen !== generationRef.current || !url) {
@@ -156,7 +164,11 @@ export default function useForYouPreview({ isAuthenticated }) {
         return false;
       }
 
-      audio.src = url;
+      warmUrl(ep, url);
+      if (audio.src !== url) {
+        audio.src = url;
+      }
+
       return beginSegmentPlayback(audio, start, gen);
     },
     [beginSegmentPlayback, resolveUrl, track?.id],

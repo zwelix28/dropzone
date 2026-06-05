@@ -84,7 +84,7 @@ export default function AppLayout() {
     ? 0
     : isMobile
       ? showMobileBottomBar
-        ? 168
+        ? 118
         : 24
       : player.currentTrack
         ? 96
@@ -123,22 +123,33 @@ export default function AppLayout() {
             marginLeft: isMobile ? 0 : DESKTOP_SIDEBAR_WIDTH,
             height: isMobile ? (isForYou ? "100dvh" : "auto") : "100vh",
             minHeight: isMobile && isForYou ? "100dvh" : undefined,
+            isolation: isMobile && isForYou ? "isolate" : undefined,
           }}
         >
-          <TopBar
-            currentUser={auth.currentUser}
-            onLogin={() => auth.setShowAuth(true)}
-            unreadCount={unreadCount}
-            showMenuButton={isMobile}
-            onMenuClick={() => setNavOpen(true)}
-            onToggleNotifications={() => {
-              setShowNotifications((v) => {
-                const next = !v;
-                if (next && auth.currentUser) void refreshNotifications();
-                return next;
-              });
+          <div
+            style={{
+              flexShrink: 0,
+              position: "relative",
+              zIndex: isMobile && isForYou ? 120 : undefined,
+              width: "100%",
             }}
-          />
+          >
+            <TopBar
+              currentUser={auth.currentUser}
+              onLogin={() => auth.setShowAuth(true)}
+              unreadCount={unreadCount}
+              showMenuButton={isMobile}
+              onMenuClick={() => setNavOpen(true)}
+              pinHeader={isMobile && isForYou}
+              onToggleNotifications={() => {
+                setShowNotifications((v) => {
+                  const next = !v;
+                  if (next && auth.currentUser) void refreshNotifications();
+                  return next;
+                });
+              }}
+            />
+          </div>
           <main
             style={{
               flex: 1,
@@ -149,6 +160,8 @@ export default function AppLayout() {
               WebkitOverflowScrolling: "touch",
               display: isForYou ? "flex" : "block",
               flexDirection: isForYou ? "column" : undefined,
+              position: "relative",
+              zIndex: isMobile && isForYou ? 0 : undefined,
             }}
           >
             <Outlet />
@@ -204,7 +217,10 @@ export default function AppLayout() {
           onClose={() => setMobileFullPlayerOpen(false)}
           onToggle={() => player.toggle()}
           onSeek={player.seek}
+          onPrev={() => void player.playPrev()}
           onNext={() => void player.playNext()}
+          shuffleOn={player.shuffleOn}
+          onToggleShuffle={player.toggleShuffle}
         />
       ) : null}
 

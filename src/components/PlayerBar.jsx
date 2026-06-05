@@ -167,24 +167,6 @@ export default function PlayerBar({
     </div>
   ) : null;
 
-  const iconBtn = (props) => (
-    <button
-      type="button"
-      {...props}
-      style={{
-        background: "none",
-        color: "var(--text2)",
-        minWidth: 44,
-        minHeight: 44,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-        ...props.style,
-      }}
-    />
-  );
-
   if (isMobile) {
     return (
       <div className="player-bar">
@@ -194,7 +176,7 @@ export default function PlayerBar({
             margin: "0 auto",
             display: "flex",
             flexDirection: "column",
-            gap: 10,
+            gap: 8,
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", minWidth: 0 }}>
@@ -256,111 +238,8 @@ export default function PlayerBar({
             <WaveAnim active={isPlaying} />
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 14,
-            }}
-          >
-            {iconBtn({
-              onClick: () => onToggleShuffle?.(),
-              title: shuffleOn ? "Shuffle on" : "Shuffle off",
-              style: { color: shuffleOn ? "var(--accent)" : "var(--text3)" },
-              children: <Icon name="shuffle" size={18} />,
-            })}
-            {iconBtn({
-              onClick: () => void onPrev?.(),
-              title: "Previous",
-              children: <Icon name="prev" size={20} />,
-            })}
-            <button
-              type="button"
-              onClick={onToggle}
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: "50%",
-                background: "var(--accent2)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 0 16px var(--glow)",
-                flexShrink: 0,
-              }}
-              aria-label={isPlaying ? "Pause" : "Play"}
-            >
-              <Icon name={isPlaying ? "pause" : "play"} size={20} color="#07090F" />
-            </button>
-            {iconBtn({
-              onClick: () => void onNext?.(),
-              title: "Next",
-              children: <Icon name="skip" size={20} />,
-            })}
-          </div>
-
           {progressRow}
           {guestHint}
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 8,
-              flexWrap: "wrap",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 120 }}>
-              <Icon name="volume" size={16} color="var(--text3)" />
-              <div
-                className="progress-wrap"
-                style={{ flex: 1, maxWidth: 140, touchAction: "none" }}
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  onVolume(((e.clientX - rect.left) / rect.width) * 100);
-                }}
-              >
-                <div
-                  className="progress-fill"
-                  style={{
-                    width: `${volume}%`,
-                    background: "linear-gradient(90deg, var(--text3), var(--text2))",
-                  }}
-                />
-              </div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-              {iconBtn({
-                onClick: () => void handleDownload(),
-                disabled: !hasAudioSource,
-                title: guest ? "Sign in to download" : "Download",
-                style: {
-                  opacity: hasAudioSource ? (guest ? 0.5 : 1) : 0.35,
-                  cursor: hasAudioSource ? "pointer" : "not-allowed",
-                },
-                children: <Icon name="download" size={18} />,
-              })}
-              {iconBtn({
-                onClick: handleShare,
-                title: "Share",
-                children: <Icon name="share" size={18} />,
-              })}
-              {iconBtn({
-                onClick: () => {
-                  if (guest) {
-                    auth.setShowAuth(true);
-                    return;
-                  }
-                  navigate(`/mix/${track.id}`, { state: { from: location.pathname } });
-                },
-                title: guest ? "Sign in for mix page" : "Open mix",
-                style: { opacity: guest ? 0.55 : 1 },
-                children: <Icon name="eye" size={18} />,
-              })}
-            </div>
-          </div>
         </div>
       </div>
     );
