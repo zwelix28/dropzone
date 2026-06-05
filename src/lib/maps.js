@@ -22,6 +22,7 @@ export function mixRowToEpisode(row) {
     plays: row.plays ?? 0,
     downloads: row.downloads ?? 0,
     shares: row.shares ?? 0,
+    likesCount: row.likes_count ?? 0,
     createdAt: row.created_at,
     tracklist: Array.isArray(row.tracklist) ? row.tracklist : [],
     trending: row.trending ?? 999,

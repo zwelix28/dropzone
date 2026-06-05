@@ -484,6 +484,85 @@ export const GlobalStyles = () => (
     .mobile-now-playing .dz-transport-btn:active {
       background: rgba(56,189,248,0.12);
     }
+    .mobile-now-playing-controls {
+      position: relative;
+      z-index: 3;
+      flex-shrink: 0;
+      width: 100%;
+      background: transparent;
+      border: none;
+      padding-top: 8px;
+      padding-bottom: max(6px, env(safe-area-inset-bottom, 0px));
+    }
+    .mobile-now-playing-controls-inner {
+      width: 100%;
+      max-width: 300px;
+      margin: 0 auto;
+      padding: 0 2px;
+    }
+    .mobile-np-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      min-height: 36px;
+    }
+    .mobile-np-float-chip {
+      background: rgba(7,9,15,0.42) !important;
+      border: 1px solid rgba(255,255,255,0.12) !important;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 10px 28px rgba(0,0,0,0.28);
+      border-radius: 999px;
+    }
+    .mobile-now-playing .mobile-np-float-like.btn-ghost {
+      background: rgba(7,9,15,0.42);
+      border: 1px solid rgba(255,255,255,0.12);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 10px 28px rgba(0,0,0,0.28);
+      border-radius: 999px;
+    }
+    .mobile-np-progress-hit {
+      padding: 8px 0 10px;
+    }
+    .mobile-now-playing .mobile-np-float-progress.progress-wrap {
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(7,9,15,0.42);
+      border: 1px solid rgba(255,255,255,0.1);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 10px 28px rgba(0,0,0,0.28);
+    }
+    .mobile-now-playing .mobile-np-float-progress .progress-fill {
+      border-radius: 999px;
+    }
+    .mobile-np-times {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.72);
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.55);
+    }
+    .mobile-now-playing .mobile-np-transport.dz-transport-row {
+      padding-bottom: 2px;
+    }
+    .mobile-now-playing .mobile-np-transport .dz-transport-btn {
+      box-shadow: 0 10px 28px rgba(0,0,0,0.32);
+    }
+    @media (max-height: 700px) {
+      .mobile-now-playing-art {
+        width: min(100%, 300px, 28dvh) !important;
+      }
+      .mobile-now-playing-hero {
+        gap: 8px !important;
+      }
+    }
   `}</style>
 );
 

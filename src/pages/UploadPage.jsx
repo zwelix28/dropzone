@@ -185,7 +185,7 @@ export default function UploadPage() {
         <Icon name="upload" size={isCompact ? 36 : 48} color="var(--text3)" />
         <h2 style={{ marginTop: 16, marginBottom: 8, fontSize: isCompact ? 20 : 24 }}>Sign in to Upload</h2>
         <p style={{ color: "var(--text2)", marginBottom: 24, fontSize: isCompact ? 14 : 15, maxWidth: 320 }}>
-          You need an account to upload mixes to Dropzone
+          You need an account to upload mixes to Music Vault by DHLab
         </p>
         <button className="btn btn-primary" onClick={() => auth.setShowAuth(true)}>
           Sign In / Register
@@ -308,7 +308,7 @@ export default function UploadPage() {
         UPLOAD MIX
       </h1>
       <p style={{ color: "var(--text2)", marginBottom: isCompact ? 20 : 32, fontSize: isCompact ? 13 : 15 }}>
-        Share your mix with the Dropzone community
+        Share your mix with Music Vault by DHLab
       </p>
 
       <div style={{ display: "flex", gap: 0, marginBottom: isCompact ? 20 : 36, width: "100%" }}>

@@ -22,6 +22,7 @@ export default function TopBar({
     const map = {
       "/": "Home",
       "/discover": "Discover",
+      "/vault-feed": "Vault Feed",
       "/foryou": "For You",
       "/live": "Live Streams",
       "/top10": "Top 10",
@@ -35,7 +36,7 @@ export default function TopBar({
     if (location.pathname.startsWith("/user/")) return "Profile";
     if (location.pathname === "/messages") return "Messages";
     if (location.pathname.startsWith("/messages/")) return "Conversation";
-    return map[location.pathname] || "Dropzone";
+    return map[location.pathname] || "Music Vault by DHLab";
   }, [location.pathname]);
 
   const hideSearch = location.pathname === "/foryou";

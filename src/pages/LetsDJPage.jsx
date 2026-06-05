@@ -91,7 +91,7 @@ export default function LetsDJPage() {
             </>
           ) : (
             <>
-              <strong style={{ color: "#34d399" }}>Signed in:</strong> you can record and publish mixes to your Dropzone profile.
+              <strong style={{ color: "#34d399" }}>Signed in:</strong> you can record and publish mixes to your Music Vault by DHLab profile.
             </>
           )}
         </div>

@@ -96,7 +96,7 @@ export default function RegisterPage() {
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
           <img
             src="/logo.png"
-            alt="Music Vault"
+            alt="Music Vault by DHLab"
             width={90}
             height={90}
             style={{
@@ -118,7 +118,7 @@ export default function RegisterPage() {
           >
             CREATE ACCOUNT
           </div>
-          <p style={{ fontSize: 13, color: "var(--text2)", marginTop: 2 }}>Join the Dropzone community</p>
+          <p style={{ fontSize: 13, color: "var(--text2)", marginTop: 2 }}>Join Music Vault by DHLab</p>
         </div>
 
         {!isSupabaseConfigured() ? (

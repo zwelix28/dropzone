@@ -175,11 +175,11 @@ export default function MobileNowPlaying({
           flexDirection: "column",
           paddingLeft: "max(16px, env(safe-area-inset-left, 0px))",
           paddingRight: "max(16px, env(safe-area-inset-right, 0px))",
-          paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))",
           overflow: "hidden",
         }}
       >
         <div
+          className="mobile-now-playing-body"
           style={{
             position: "relative",
             zIndex: 2,
@@ -187,37 +187,50 @@ export default function MobileNowPlaying({
             minHeight: 0,
             display: "flex",
             flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "flex-start",
             overflow: "hidden",
-            paddingTop: 7,
           }}
           onTouchStart={onSwipeTouchStart}
           onTouchEnd={onSwipeTouchEnd}
         >
           <div
+            className="mobile-now-playing-hero"
             style={{
-              flexShrink: 0,
+              flex: 1,
+              minHeight: 0,
               display: "flex",
+              flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              width: "100%",
-              padding: "10px 0 0",
-              marginBottom: 45,
+              gap: 12,
+              overflow: "hidden",
+              paddingTop: 7,
+              paddingBottom: 4,
             }}
           >
             <div
               style={{
-                position: "relative",
+                flex: "1 1 auto",
+                minHeight: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
                 width: "100%",
                 maxWidth: 300,
-                aspectRatio: "1",
-                borderRadius: 16,
-                overflow: "hidden",
-                boxShadow: "0 24px 60px rgba(0,0,0,0.55)",
-                border: "1px solid rgba(255,255,255,0.1)",
               }}
             >
+              <div
+                className="mobile-now-playing-art"
+                style={{
+                  position: "relative",
+                  width: "min(100%, 300px, 34dvh)",
+                  aspectRatio: "1",
+                  borderRadius: 16,
+                  overflow: "hidden",
+                  boxShadow: "0 24px 60px rgba(0,0,0,0.55)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  flexShrink: 1,
+                }}
+              >
               {cover ? (
                 <img src={cover} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
               ) : (
@@ -234,27 +247,38 @@ export default function MobileNowPlaying({
                   <Icon name="music" size={48} color="var(--text3)" />
                 </div>
               )}
+              </div>
             </div>
-          </div>
 
-          <div style={{ flexShrink: 0, width: "100%", maxWidth: 300, margin: "0 auto", padding: "0 2px", overflow: "hidden" }}>
-            <h2
+            <div
               style={{
-                fontFamily: "var(--ff-display)",
-                fontSize: 20,
-                letterSpacing: "0.03em",
-                lineHeight: 1.15,
-                margin: "0 0 13px",
-                color: "var(--text)",
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
+                flexShrink: 0,
+                width: "100%",
+                maxWidth: 300,
+                margin: "0 auto",
+                padding: "0 2px",
                 overflow: "hidden",
-                textAlign: "center",
               }}
             >
-              {track.title}
-            </h2>
+              <h2
+                title={track.title}
+                style={{
+                  fontFamily: "var(--ff-display)",
+                  fontSize: 20,
+                  letterSpacing: "0.03em",
+                  lineHeight: 1.15,
+                  margin: "0 0 10px",
+                  color: "var(--text)",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                  textAlign: "center",
+                  wordBreak: "break-word",
+                }}
+              >
+                {track.title}
+              </h2>
 
             {user ? (
               <button
@@ -269,7 +293,6 @@ export default function MobileNowPlaying({
                   alignItems: "center",
                   gap: 10,
                   width: "100%",
-                  maxWidth: 360,
                   margin: "0 auto",
                   background: `rgba(7,9,15,${opa(0.4)})`,
                   border: "1px solid rgba(255,255,255,0.1)",
@@ -315,34 +338,18 @@ export default function MobileNowPlaying({
             ) : (
               <p style={{ color: "var(--text3)", fontSize: 14, margin: 0, textAlign: "center" }}>Unknown artist</p>
             )}
+            </div>
           </div>
 
-          <div
-            style={{
-              flexShrink: 0,
-              width: "100%",
-              maxWidth: 300,
-              margin: "10px auto 0",
-              paddingTop: 10,
-              borderTop: "1px solid rgba(255,255,255,0.08)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                marginBottom: 10,
-                minHeight: 32,
-              }}
-            >
+          <div className="mobile-now-playing-controls">
+            <div className="mobile-now-playing-controls-inner">
+            <div className="mobile-np-actions">
               {track.genre ? (
-                <span className="tag tag-blue" style={{ fontSize: 10, padding: "3px 8px" }}>
+                <span className="tag tag-blue mobile-np-float-chip" style={{ fontSize: 10, padding: "5px 10px" }}>
                   {track.genre}
                 </span>
               ) : null}
-              <LikeButton mixId={track.id} variant="inline" size="sm" />
+              <LikeButton mixId={track.id} variant="inline" size="sm" className="mobile-np-float-like" />
             </div>
 
             <div
@@ -352,7 +359,8 @@ export default function MobileNowPlaying({
               aria-valuemax={100}
               aria-valuenow={Math.round(progress)}
               aria-label="Playback position"
-              style={{ padding: "6px 0 8px", touchAction: "none", cursor: "pointer" }}
+              className="mobile-np-progress-hit"
+              style={{ touchAction: "none", cursor: "pointer" }}
               onPointerDown={(e) => {
                 scrubbingRef.current = true;
                 e.currentTarget.setPointerCapture(e.pointerId);
@@ -373,27 +381,17 @@ export default function MobileNowPlaying({
                 scrubbingRef.current = false;
               }}
             >
-              <div className="progress-wrap" style={{ height: 5, borderRadius: 3, pointerEvents: "none" }}>
-                <div className="progress-fill" style={{ width: `${progress}%`, borderRadius: 3, height: "100%" }} />
+              <div className="progress-wrap mobile-np-float-progress" style={{ pointerEvents: "none" }}>
+                <div className="progress-fill" style={{ width: `${progress}%`, height: "100%" }} />
               </div>
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginBottom: 8,
-                fontSize: 11,
-                color: "var(--text2)",
-                fontVariantNumeric: "tabular-nums",
-                fontWeight: 600,
-              }}
-            >
+            <div className="mobile-np-times">
               <span>{fmtPlayerTime(elapsedSec)}</span>
               <span>{fmtPlayerTime(remainingSec)}</span>
             </div>
 
-            <div className="dz-transport-row">
+            <div className="dz-transport-row mobile-np-transport">
               <button
                 type="button"
                 className="dz-transport-btn"
@@ -434,6 +432,7 @@ export default function MobileNowPlaying({
               >
                 <Icon name="skip" size={20} />
               </button>
+            </div>
             </div>
           </div>
         </div>

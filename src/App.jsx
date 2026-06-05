@@ -10,6 +10,7 @@ import UploadPage from "./pages/UploadPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import ConnectionsPage from "./pages/ConnectionsPage.jsx";
 import LikesPage from "./pages/LikesPage.jsx";
+import VaultFeedPage from "./pages/VaultFeedPage.jsx";
 import UserProfilePage from "./pages/UserProfilePage.jsx";
 import StatsPage from "./pages/StatsPage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
@@ -56,6 +57,7 @@ export default function App() {
       <Route element={<AppLayout />}>
         <Route path="/" element={<HomeRoute />} />
         <Route path="/discover" element={<DiscoverRoute />} />
+        <Route path="/vault-feed" element={<VaultFeedPage />} />
         <Route path="/foryou" element={<ForYouPage />} />
         <Route path="/live" element={<LiveRoute />} />
         <Route path="/top10" element={<Top10Page />} />

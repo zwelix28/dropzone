@@ -157,7 +157,7 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
           <div style={{ display: "flex", alignItems: "center", gap: isDrawer ? 8 : 10 }}>
             <img
               src="/logo.png"
-              alt="Music Vault"
+              alt="Music Vault by DHLab"
               width={isDrawer ? 34 : 43}
               height={isDrawer ? 34 : 43}
               style={{
@@ -189,7 +189,7 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
                   lineHeight: 1.2,
                 }}
               >
-                The Groove, The Sound
+                by DHLab
               </div>
             </div>
           </div>
@@ -211,6 +211,7 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
         </div>
         {!currentUser ? <NavBtn compact={isDrawer} to="/" icon="home" label="Home" onClose={onClose} /> : null}
         <NavBtn compact={isDrawer} to="/foryou" icon="zap" label="For You" onClose={onClose} />
+        {currentUser ? <NavBtn compact={isDrawer} to="/vault-feed" icon="list" label="Vault Feed" onClose={onClose} /> : null}
         {currentUser ? <NavBtn compact={isDrawer} to="/discover" icon="compass" label="Discover" onClose={onClose} /> : null}
         <LiveNavBtn compact={isDrawer} onClose={onClose} />
         <NavBtn compact={isDrawer} to="/top10" icon="trending" label="Top 10" onClose={onClose} />

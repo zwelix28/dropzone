@@ -176,7 +176,15 @@ export function AppProvider({ children }) {
           if (error) {
             console.warn("toggleLike", error.message);
             await refreshLikes();
+            return;
           }
+          setEpisodes((eps) =>
+            eps.map((ep) =>
+              ep.id === mixId
+                ? { ...ep, likesCount: Math.max(0, (ep.likesCount ?? 0) + (wasLiked ? -1 : 1)) }
+                : ep,
+            ),
+          );
         })();
         return next;
       });
