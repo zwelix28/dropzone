@@ -4,7 +4,11 @@ import {
   registerExclusiveAudioOwner,
   requestExclusivePlayback,
 } from "../lib/audioExclusive.js";
-import { resolveMixPlaybackUrl } from "../lib/audioUrls.js";
+import {
+  episodeHasAudioSource,
+  episodeHasGuestPlayback,
+  resolveMixPlaybackUrl,
+} from "../lib/audioUrls.js";
 import { getGuestPreviewSegment } from "../lib/forYouPreview.js";
 
 function effectiveDurationSec(audio, track, guestPreviewOnly, segment) {
@@ -82,6 +86,7 @@ export default function usePlayer({
   const prevGuestAuthRef = useRef({ guestPreviewOnly, isAuthenticated });
   const suspendRef = useRef(getSuspendPlayback);
   suspendRef.current = getSuspendPlayback;
+  const playAdjacentRef = useRef(null);
 
   if (!audioRef.current && typeof Audio !== "undefined") {
     audioRef.current = new Audio();
@@ -255,6 +260,9 @@ export default function usePlayer({
     const onEnded = () => {
       setIsPlaying(false);
       setProgress(0);
+      if (!guestPreviewOnly) {
+        void playAdjacentRef.current?.("next");
+      }
     };
 
     audio.addEventListener("timeupdate", onTimeUpdate);
@@ -272,8 +280,10 @@ export default function usePlayer({
 
   const getPlaylistTracks = useCallback(() => {
     const list = typeof getPlaylist === "function" ? getPlaylist() : [];
-    return Array.isArray(list) ? list : [];
-  }, [getPlaylist]);
+    if (!Array.isArray(list)) return [];
+    const canPlay = guestPreviewOnly ? episodeHasGuestPlayback : episodeHasAudioSource;
+    return list.filter((ep) => canPlay(ep));
+  }, [getPlaylist, guestPreviewOnly]);
 
   const playAdjacent = useCallback(
     async (direction) => {
@@ -325,6 +335,10 @@ export default function usePlayer({
   const toggleShuffle = useCallback(() => {
     setShuffleOn((v) => !v);
   }, []);
+
+  useEffect(() => {
+    playAdjacentRef.current = playAdjacent;
+  }, [playAdjacent]);
 
   const playNext = useCallback(async () => {
     await playAdjacent("next");

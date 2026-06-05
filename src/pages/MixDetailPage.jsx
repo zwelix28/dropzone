@@ -8,7 +8,8 @@ import LikeButton from "../components/LikeButton.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { GENRES } from "../constants/genres.js";
-import { episodeHasAudioSource, resolveMixDownloadUrl } from "../lib/audioUrls.js";
+import { episodeHasAudioSource } from "../lib/audioUrls.js";
+import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
 
 export default function MixDetailPage() {
   const { id } = useParams();
@@ -78,16 +79,8 @@ export default function MixDetailPage() {
   const canDownload = episodeHasAudioSource(episode);
   const handleDownload = async () => {
     if (!canDownload) return;
-    const url = await resolveMixDownloadUrl(episode, episode.title);
-    if (!url) return;
-    const a = document.createElement("a");
-    a.href = url;
-    a.rel = "noopener";
-    a.target = "_blank";
-    a.download = `${(episode.title || "mix").replace(/[^\w\s-]/g, "").trim()}.mp3`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    const { ok } = await downloadMixWithMetadata(episode, { artist: user });
+    if (!ok) return;
     void trackEvent({ kind: "download", episodeId: episode.id, actorUserId: auth.currentUser?.id });
   };
 
