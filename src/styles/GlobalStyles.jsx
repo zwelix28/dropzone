@@ -465,6 +465,12 @@ export const GlobalStyles = () => (
       color: var(--accent);
       box-shadow: 0 0 14px var(--glow);
     }
+    .dz-transport-btn[aria-pressed="true"] {
+      background: var(--glow2);
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 14px var(--glow);
+    }
     .dz-transport-row {
       display: flex;
       align-items: center;
@@ -481,8 +487,12 @@ export const GlobalStyles = () => (
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
     }
-    .mobile-now-playing .dz-transport-btn:active {
+    .mobile-now-playing .dz-transport-btn:active,
+    .mobile-now-playing .dz-transport-btn[aria-pressed="true"] {
       background: rgba(56,189,248,0.12);
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 14px var(--glow);
     }
     .mobile-now-playing-controls {
       position: relative;

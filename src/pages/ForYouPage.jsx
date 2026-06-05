@@ -7,7 +7,8 @@ import VerifiedBadge from "../components/VerifiedBadge.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import useForYouPreview from "../hooks/useForYouPreview.js";
 import useMediaQuery from "../hooks/useMediaQuery.js";
-import { episodeHasAudioSource, resolveMixDownloadUrl } from "../lib/audioUrls.js";
+import { episodeHasAudioSource } from "../lib/audioUrls.js";
+import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
 
 function shuffleFeed(list) {
   const arr = [...list];
@@ -392,19 +393,12 @@ export default function ForYouPage() {
       setToast("Like this mix to unlock download");
       return;
     }
-    const url = await resolveMixDownloadUrl(current, current.title);
-    if (!url) {
+    setToast("Preparing download…");
+    const { ok } = await downloadMixWithMetadata(current, { artist: currentUser });
+    if (!ok) {
       setToast("Download unavailable");
       return;
     }
-    const a = document.createElement("a");
-    a.href = url;
-    a.rel = "noopener";
-    a.target = "_blank";
-    a.download = `${(current.title || "mix").replace(/[^\w\s-]/g, "").trim()}.mp3`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
     setToast("Downloading full mix…");
     void trackEvent({ kind: "download", episodeId: current.id, actorUserId: auth.currentUser?.id });
   };

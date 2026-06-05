@@ -7,8 +7,8 @@ import { fmtPlayerTime } from "../lib/format.js";
 import {
   episodeHasAudioSource,
   episodeHasGuestPlayback,
-  resolveMixDownloadUrl,
 } from "../lib/audioUrls.js";
+import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
 import { getGuestPreviewSegment } from "../lib/forYouPreview.js";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
@@ -58,16 +58,8 @@ export default function PlayerBar({
       return;
     }
     if (!hasAudioSource) return;
-    const url = await resolveMixDownloadUrl(track, track.title);
-    if (!url) return;
-    const a = document.createElement("a");
-    a.href = url;
-    a.rel = "noopener";
-    a.target = "_blank";
-    a.download = `${(track.title || "mix").replace(/[^\w\s-]/g, "").trim()}.mp3`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    const { ok } = await downloadMixWithMetadata(track, { artist: user });
+    if (!ok) return;
     void trackEvent({ kind: "download", episodeId: track.id, actorUserId: auth.currentUser?.id });
   };
 
@@ -352,7 +344,14 @@ export default function PlayerBar({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <button type="button" onClick={() => onToggleShuffle?.()} style={{ background: "none", color: shuffleOn ? "var(--accent)" : "var(--text3)" }}>
+            <button
+              type="button"
+              onClick={() => onToggleShuffle?.()}
+              aria-label={shuffleOn ? "Shuffle on" : "Shuffle off"}
+              aria-pressed={shuffleOn}
+              title={shuffleOn ? "Shuffle on" : "Shuffle off"}
+              style={{ background: "none", color: shuffleOn ? "var(--accent)" : "var(--text3)" }}
+            >
               <Icon name="shuffle" size={16} />
             </button>
             <button type="button" onClick={() => void onPrev?.()} style={{ background: "none", color: "var(--text2)" }}>

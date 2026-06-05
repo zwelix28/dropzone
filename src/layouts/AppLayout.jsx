@@ -203,6 +203,8 @@ export default function AppLayout() {
           onNext={() => void player.playNext()}
           onPrev={() => void player.playPrev()}
           onVolume={player.setVolume}
+          shuffleOn={player.shuffleOn}
+          onToggleShuffle={player.toggleShuffle}
         />
       ) : null}
 

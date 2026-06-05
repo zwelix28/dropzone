@@ -8,8 +8,8 @@ import { fmtPlayerTime } from "../lib/format.js";
 import {
   episodeHasAudioSource,
   episodeHasGuestPlayback,
-  resolveMixDownloadUrl,
 } from "../lib/audioUrls.js";
+import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
 import { getGuestPreviewSegment } from "../lib/forYouPreview.js";
 import { useApp } from "../context/AppContext.jsx";
 
@@ -26,6 +26,8 @@ export default function DesktopNowPlaying({
   onNext,
   onPrev,
   onVolume,
+  shuffleOn = false,
+  onToggleShuffle,
 }) {
   const { auth, trackEvent } = useApp();
   const navigate = useNavigate();
@@ -58,16 +60,8 @@ export default function DesktopNowPlaying({
       return;
     }
     if (!hasAudioSource) return;
-    const url = await resolveMixDownloadUrl(track, track.title);
-    if (!url) return;
-    const a = document.createElement("a");
-    a.href = url;
-    a.rel = "noopener";
-    a.target = "_blank";
-    a.download = `${(track.title || "mix").replace(/[^\w\s-]/g, "").trim()}.mp3`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    const { ok } = await downloadMixWithMetadata(track, { artist: user });
+    if (!ok) return;
     void trackEvent({ kind: "download", episodeId: track.id, actorUserId: auth.currentUser?.id });
   };
 
@@ -284,6 +278,14 @@ export default function DesktopNowPlaying({
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                {iconBtn({
+                  onClick: () => onToggleShuffle?.(),
+                  "aria-label": shuffleOn ? "Shuffle on" : "Shuffle off",
+                  "aria-pressed": shuffleOn,
+                  title: shuffleOn ? "Shuffle on" : "Shuffle off",
+                  style: { color: shuffleOn ? "var(--accent)" : "var(--text2)" },
+                  children: <Icon name="shuffle" size={18} />,
+                })}
                 {iconBtn({
                   onClick: () => void onPrev?.(),
                   title: "Previous",
