@@ -7,9 +7,9 @@ import { fmtPlayerTime } from "../lib/format.js";
 import {
   episodeHasAudioSource,
   episodeHasGuestPlayback,
-  GUEST_SNIPPET_DURATION_SEC,
   resolveMixDownloadUrl,
 } from "../lib/audioUrls.js";
+import { getGuestPreviewSegment } from "../lib/forYouPreview.js";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 
@@ -24,6 +24,10 @@ export default function PlayerBar({
   volume,
   onVolume,
   onExpandFullPlayer,
+  onPrev,
+  onNext,
+  shuffleOn = false,
+  onToggleShuffle,
 }) {
   const isMobile = useMediaQuery("(max-width: 720px)");
   if (!track) return null;
@@ -35,9 +39,7 @@ export default function PlayerBar({
 
   const hasAudioSource = episodeHasAudioSource(track);
   const guestPlaybackOk = episodeHasGuestPlayback(track);
-  const guestEffDuration = guest
-    ? Math.min(track.durationSecs || GUEST_SNIPPET_DURATION_SEC, GUEST_SNIPPET_DURATION_SEC)
-    : track.durationSecs || 0;
+  const guestEffDuration = guest ? getGuestPreviewSegment(track.durationSecs).windowSec : track.durationSecs || 0;
   const totalSec =
     durationSec > 0 ? durationSec : guest ? Math.floor(guestEffDuration) : Math.floor(Math.max(0, track.durationSecs || 0));
   const elapsedSec = totalSec > 0 ? Math.min(totalSec, Math.floor((totalSec * progress) / 100)) : 0;
@@ -165,24 +167,6 @@ export default function PlayerBar({
     </div>
   ) : null;
 
-  const iconBtn = (props) => (
-    <button
-      type="button"
-      {...props}
-      style={{
-        background: "none",
-        color: "var(--text2)",
-        minWidth: 44,
-        minHeight: 44,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-        ...props.style,
-      }}
-    />
-  );
-
   if (isMobile) {
     return (
       <div className="player-bar">
@@ -192,38 +176,34 @@ export default function PlayerBar({
             margin: "0 auto",
             display: "flex",
             flexDirection: "column",
-            gap: 10,
+            gap: 8,
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", minWidth: 0 }}>
-            {onExpandFullPlayer && !guest ? (
-              <button
-                type="button"
-                aria-label="Expand now playing"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onExpandFullPlayer();
-                }}
-                style={{
-                  flexShrink: 0,
-                  width: 44,
-                  height: 44,
-                  borderRadius: 10,
-                  border: "1px solid var(--border)",
-                  background: "var(--surface)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Icon name="chevronUp" size={20} color="var(--accent)" />
-              </button>
-            ) : null}
-            <img
-              src={track.coverUrl}
-              alt=""
-              style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", flexShrink: 0 }}
-            />
+            <button
+              type="button"
+              aria-label="Open now playing"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (guest || !onExpandFullPlayer) return;
+                onExpandFullPlayer();
+              }}
+              disabled={guest || !onExpandFullPlayer}
+              style={{
+                flexShrink: 0,
+                padding: 0,
+                border: "none",
+                background: "none",
+                lineHeight: 0,
+                cursor: guest || !onExpandFullPlayer ? "default" : "pointer",
+              }}
+            >
+              <img
+                src={track.coverUrl}
+                alt=""
+                style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", display: "block" }}
+              />
+            </button>
             <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
               <div
                 style={{
@@ -256,87 +236,10 @@ export default function PlayerBar({
               ) : null}
             </div>
             <WaveAnim active={isPlaying} />
-            <button
-              type="button"
-              onClick={onToggle}
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: "50%",
-                background: "var(--accent2)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 0 16px var(--glow)",
-                flexShrink: 0,
-              }}
-              aria-label={isPlaying ? "Pause" : "Play"}
-            >
-              <Icon name={isPlaying ? "pause" : "play"} size={20} color="#07090F" />
-            </button>
           </div>
 
           {progressRow}
           {guestHint}
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 8,
-              flexWrap: "wrap",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 120 }}>
-              <Icon name="volume" size={16} color="var(--text3)" />
-              <div
-                className="progress-wrap"
-                style={{ flex: 1, maxWidth: 140, touchAction: "none" }}
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  onVolume(((e.clientX - rect.left) / rect.width) * 100);
-                }}
-              >
-                <div
-                  className="progress-fill"
-                  style={{
-                    width: `${volume}%`,
-                    background: "linear-gradient(90deg, var(--text3), var(--text2))",
-                  }}
-                />
-              </div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-              {iconBtn({
-                onClick: () => void handleDownload(),
-                disabled: !hasAudioSource,
-                title: guest ? "Sign in to download" : "Download",
-                style: {
-                  opacity: hasAudioSource ? (guest ? 0.5 : 1) : 0.35,
-                  cursor: hasAudioSource ? "pointer" : "not-allowed",
-                },
-                children: <Icon name="download" size={18} />,
-              })}
-              {iconBtn({
-                onClick: handleShare,
-                title: "Share",
-                children: <Icon name="share" size={18} />,
-              })}
-              {iconBtn({
-                onClick: () => {
-                  if (guest) {
-                    auth.setShowAuth(true);
-                    return;
-                  }
-                  navigate(`/mix/${track.id}`, { state: { from: location.pathname } });
-                },
-                title: guest ? "Sign in for mix page" : "Open mix",
-                style: { opacity: guest ? 0.55 : 1 },
-                children: <Icon name="eye" size={18} />,
-              })}
-            </div>
-          </div>
         </div>
       </div>
     );
@@ -354,11 +257,38 @@ export default function PlayerBar({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 220 }}>
-          <img
-            src={track.coverUrl}
-            alt={track.title}
-            style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover" }}
-          />
+          {onExpandFullPlayer ? (
+            <button
+              type="button"
+              aria-label="Expand now playing"
+              onClick={(e) => {
+                e.stopPropagation();
+                onExpandFullPlayer();
+              }}
+              title="Expand player"
+              style={{
+                flexShrink: 0,
+                padding: 0,
+                border: "none",
+                background: "none",
+                borderRadius: 8,
+                cursor: "pointer",
+                lineHeight: 0,
+              }}
+            >
+              <img
+                src={track.coverUrl}
+                alt={track.title}
+                style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", display: "block" }}
+              />
+            </button>
+          ) : (
+            <img
+              src={track.coverUrl}
+              alt={track.title}
+              style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover" }}
+            />
+          )}
           <div style={{ overflow: "hidden" }}>
             <div
               style={{
@@ -422,10 +352,10 @@ export default function PlayerBar({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <button type="button" onClick={() => {}} style={{ background: "none", color: "var(--text3)" }}>
+            <button type="button" onClick={() => onToggleShuffle?.()} style={{ background: "none", color: shuffleOn ? "var(--accent)" : "var(--text3)" }}>
               <Icon name="shuffle" size={16} />
             </button>
-            <button type="button" onClick={() => {}} style={{ background: "none", color: "var(--text2)" }}>
+            <button type="button" onClick={() => void onPrev?.()} style={{ background: "none", color: "var(--text2)" }}>
               <Icon name="prev" size={18} />
             </button>
             <button
@@ -445,7 +375,7 @@ export default function PlayerBar({
             >
               <Icon name={isPlaying ? "pause" : "play"} size={18} color="#07090F" />
             </button>
-            <button type="button" onClick={() => {}} style={{ background: "none", color: "var(--text2)" }}>
+            <button type="button" onClick={() => void onNext?.()} style={{ background: "none", color: "var(--text2)" }}>
               <Icon name="skip" size={18} />
             </button>
             <button type="button" onClick={() => {}} style={{ background: "none", color: "var(--text3)" }}>

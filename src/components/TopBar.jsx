@@ -11,6 +11,7 @@ export default function TopBar({
   onToggleNotifications,
   showMenuButton = false,
   onMenuClick,
+  pinHeader = false,
 }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -21,6 +22,7 @@ export default function TopBar({
     const map = {
       "/": "Home",
       "/discover": "Discover",
+      "/foryou": "For You",
       "/live": "Live Streams",
       "/top10": "Top 10",
       "/upload": "Upload",
@@ -36,6 +38,8 @@ export default function TopBar({
     return map[location.pathname] || "Dropzone";
   }, [location.pathname]);
 
+  const hideSearch = location.pathname === "/foryou";
+
   const searchInput = (
     <div style={{ position: "relative", width: isMobile ? "100%" : "auto" }}>
       <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }}>
@@ -47,6 +51,7 @@ export default function TopBar({
         defaultValue={params.get("q") || ""}
         onChange={(e) => {
           const q = e.target.value;
+          if (!currentUser) return;
           if (location.pathname !== "/discover") navigate("/discover");
           const next = new URLSearchParams(params);
           if (q) next.set("q", q);
@@ -67,16 +72,19 @@ export default function TopBar({
     <div
       style={{
         minHeight: isMobile ? "auto" : 60,
-        background: "rgba(7,9,15,0.9)",
-        backdropFilter: "blur(12px)",
+        background: pinHeader ? "var(--bg2)" : "rgba(7,9,15,0.9)",
+        backdropFilter: pinHeader ? "none" : "blur(12px)",
         borderBottom: "1px solid var(--border)",
         display: "flex",
         flexDirection: isMobile ? "column" : "row",
         alignItems: isMobile ? "stretch" : "center",
         gap: isMobile ? 10 : 16,
-        position: "sticky",
-        top: 0,
-        zIndex: 100,
+        position: pinHeader ? "relative" : "sticky",
+        top: pinHeader ? undefined : 0,
+        zIndex: pinHeader ? 120 : 100,
+        flexShrink: pinHeader ? 0 : undefined,
+        width: "100%",
+        boxSizing: "border-box",
         ...(isMobile
           ? {
               padding: "12px",
@@ -126,7 +134,7 @@ export default function TopBar({
           {title}
         </h2>
 
-        {!isMobile ? searchInput : null}
+        {!isMobile && currentUser && !hideSearch ? searchInput : null}
 
         {!currentUser ? (
           <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "nowrap" }}>
@@ -191,7 +199,7 @@ export default function TopBar({
         )}
       </div>
 
-      {isMobile ? searchInput : null}
+      {isMobile && currentUser && !hideSearch ? searchInput : null}
     </div>
   );
 }

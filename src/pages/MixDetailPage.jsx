@@ -47,7 +47,7 @@ export default function MixDetailPage() {
         <Icon name="eye" size={isCompact ? 32 : 40} color="var(--text3)" />
         <h1 style={{ fontSize: isCompact ? 20 : 24, fontWeight: 800, marginTop: 16, marginBottom: 10 }}>Mix details</h1>
         <p style={{ color: "var(--text2)", lineHeight: 1.65, marginBottom: 24, fontSize: isCompact ? 14 : 15 }}>
-          Sign in or create an account to view full track information and download mixes. While browsing as a guest, the player streams at most the first 20 seconds of each mix.
+          Sign in or create an account to view full track information and download mixes. While browsing as a guest, the player streams a 50-second preview from 2:30 in each mix.
         </p>
         <button type="button" className="btn btn-primary" style={isCompact ? { width: "100%", justifyContent: "center" } : undefined} onClick={() => auth.setShowAuth(true)}>
           Sign in / Register

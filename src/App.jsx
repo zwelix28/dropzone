@@ -3,6 +3,7 @@ import AppLayout from "./layouts/AppLayout.jsx";
 import { useApp } from "./context/AppContext.jsx";
 import HomeRoute from "./routes/HomeRoute.jsx";
 import DiscoverPage from "./pages/DiscoverPage.jsx";
+import ForYouPage from "./pages/ForYouPage.jsx";
 import LiveRoute from "./pages/LiveRoute.jsx";
 import Top10Page from "./pages/Top10Page.jsx";
 import UploadPage from "./pages/UploadPage.jsx";
@@ -35,13 +36,27 @@ function AdminRoute() {
   return <AdminDashboardPage />;
 }
 
+function DiscoverRoute() {
+  const { auth } = useApp();
+  if (auth.authLoading) {
+    return (
+      <div style={{ padding: 48, textAlign: "center", color: "var(--text2)", fontSize: 14 }}>
+        Loading…
+      </div>
+    );
+  }
+  if (!auth.session?.user?.id) return <Navigate to="/" replace />;
+  return <DiscoverPage />;
+}
+
 export default function App() {
   return (
     <Routes>
       <Route path="/reset-password" element={<PasswordResetPage />} />
       <Route element={<AppLayout />}>
         <Route path="/" element={<HomeRoute />} />
-        <Route path="/discover" element={<DiscoverPage />} />
+        <Route path="/discover" element={<DiscoverRoute />} />
+        <Route path="/foryou" element={<ForYouPage />} />
         <Route path="/live" element={<LiveRoute />} />
         <Route path="/top10" element={<Top10Page />} />
         <Route path="/upload" element={<UploadPage />} />

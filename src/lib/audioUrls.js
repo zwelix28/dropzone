@@ -1,7 +1,8 @@
 import { supabase } from "./supabaseClient.js";
+import { FOR_YOU_PREVIEW_SEC } from "./forYouPreview.js";
 
-/** Guests hear at most this many seconds; full mix requires sign-in. */
-export const GUEST_SNIPPET_DURATION_SEC = 20;
+/** Guests hear a 50s preview from 2:30; full mix requires sign-in. */
+export const GUEST_SNIPPET_DURATION_SEC = FOR_YOU_PREVIEW_SEC;
 
 export function episodeHasAudioSource(episode) {
   if (!episode) return false;
@@ -16,7 +17,7 @@ export function episodeHasGuestPreview(episode) {
   return Boolean((episode?.audioPreviewPath || "").trim());
 }
 
-/** Guest can start playback (dedicated preview file and/or full mix with client-side 20s cap). */
+/** Guest can start playback when a full mix or preview source exists (50s window from 2:30). */
 export function episodeHasGuestPlayback(episode) {
   return episodeHasGuestPreview(episode) || episodeHasAudioSource(episode);
 }
@@ -37,17 +38,16 @@ const SIGNED_DOWNLOAD_SEC = 600;
 /**
  * URL for <audio> src:
  * - Logged-in: signed full mix (or legacy URL).
- * - Guest: public preview clip if uploaded, else signed full mix — player must cap at GUEST_SNIPPET_DURATION_SEC
- *   (requires Storage policy allowing anon SELECT on mix-audio; not DRM against determined users).
+ * - Guest: full mix (preferred) or public preview clip — player plays 50s from 2:30
  */
-export async function resolveMixPlaybackUrl(episode, { guestPreviewOnly, isAuthenticated }) {
+export async function resolveMixPlaybackUrl(episode, { guestPreviewOnly, isAuthenticated, preferFullMix = false }) {
   const previewPath = (episode.audioPreviewPath || "").trim();
   const storagePath =
     (episode.audioStoragePath || "").trim() ||
     extractMixAudioPathFromLegacyPublicUrl(episode.audioUrl || "");
 
   if (guestPreviewOnly) {
-    if (previewPath) {
+    if (!preferFullMix && previewPath) {
       const { data } = supabase.storage.from("mix-previews").getPublicUrl(previewPath);
       if (data?.publicUrl) return data.publicUrl;
     }

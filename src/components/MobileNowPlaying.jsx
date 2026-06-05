@@ -5,10 +5,17 @@ import LikeButton from "./LikeButton.jsx";
 import UserAvatar from "./UserAvatar.jsx";
 import VerifiedBadge from "./VerifiedBadge.jsx";
 import { fmtPlayerTime } from "../lib/format.js";
-import { GUEST_SNIPPET_DURATION_SEC } from "../lib/audioUrls.js";
+import { getGuestPreviewSegment } from "../lib/forYouPreview.js";
+
+/** For You–style overlay: legibility tint, then +25% transparency for glass feel. */
+const opa = (a) => {
+  const tinted = Math.min(1, a + (1 - a) * 0.4);
+  return Math.max(0.08, Math.round(tinted * 0.75 * 1000) / 1000);
+};
 
 /**
  * Full-screen now playing for logged-in users on small screens.
+ * Fixed viewport layout — no internal scrolling; long titles truncate.
  */
 export default function MobileNowPlaying({
   track,
@@ -17,10 +24,13 @@ export default function MobileNowPlaying({
   progress,
   durationSec = 0,
   guestPreviewOnly,
+  shuffleOn = false,
   onClose,
   onToggle,
   onSeek,
+  onPrev,
   onNext,
+  onToggleShuffle,
 }) {
   const navigate = useNavigate();
   const swipeRef = useRef({ y0: 0, x0: 0, armed: false });
@@ -30,10 +40,7 @@ export default function MobileNowPlaying({
   if (!track) return null;
 
   const fallbackTotal = guestPreviewOnly
-    ? (() => {
-        const d = Number(track.durationSecs) || 0;
-        return d > 0 ? Math.min(Math.floor(d), GUEST_SNIPPET_DURATION_SEC) : GUEST_SNIPPET_DURATION_SEC;
-      })()
+    ? Math.floor(getGuestPreviewSegment(track.durationSecs).windowSec)
     : Math.floor(Math.max(0, Number(track.durationSecs) || 0));
   const totalSec = durationSec > 0 ? durationSec : fallbackTotal;
   const elapsedSec = totalSec > 0 ? Math.min(totalSec, Math.floor((totalSec * progress) / 100)) : 0;
@@ -50,12 +57,12 @@ export default function MobileNowPlaying({
     [onSeek],
   );
 
-  const onSwipeAreaTouchStart = (e) => {
+  const onSwipeTouchStart = (e) => {
     const t = e.touches[0];
     swipeRef.current = { y0: t.clientY, x0: t.clientX, armed: true };
   };
 
-  const onSwipeAreaTouchEnd = (e) => {
+  const onSwipeTouchEnd = (e) => {
     if (!swipeRef.current.armed) return;
     swipeRef.current.armed = false;
     const t = e.changedTouches[0];
@@ -72,32 +79,34 @@ export default function MobileNowPlaying({
     <div
       role="dialog"
       aria-label="Now playing"
+      className="mobile-now-playing"
       style={{
         position: "fixed",
         inset: 0,
         zIndex: 875,
         display: "flex",
         flexDirection: "column",
-        paddingTop: "max(8px, env(safe-area-inset-top, 0px))",
-        paddingBottom: "max(20px, env(safe-area-inset-bottom, 0px))",
-        paddingLeft: "max(16px, env(safe-area-inset-left, 0px))",
-        paddingRight: "max(16px, env(safe-area-inset-right, 0px))",
+        height: "100dvh",
+        maxHeight: "100dvh",
+        background: `rgba(7,9,15,${opa(0.85)})`,
+        backdropFilter: "blur(20px) saturate(1.05)",
+        WebkitBackdropFilter: "blur(20px) saturate(1.05)",
         overflow: "hidden",
+        isolation: "isolate",
       }}
     >
-      {/* Ambient artwork */}
       {cover ? (
         <div
           aria-hidden
           style={{
             position: "absolute",
-            inset: "-12%",
+            inset: "-10%",
             backgroundImage: `url(${cover})`,
             backgroundSize: "cover",
             backgroundPosition: "center",
-            filter: "blur(48px) saturate(1.15)",
-            opacity: 0.45,
-            transform: "scale(1.05)",
+            filter: "blur(42px) saturate(1.1)",
+            opacity: opa(0.35),
+            transform: "scale(1.08)",
             pointerEvents: "none",
           }}
         />
@@ -107,95 +116,141 @@ export default function MobileNowPlaying({
         style={{
           position: "absolute",
           inset: 0,
-          background: "linear-gradient(180deg, rgba(7,9,15,0.5) 0%, var(--bg) 38%, #07090f 100%)",
+          background: `linear-gradient(180deg, rgba(7,9,15,${opa(0.2)}) 0%, rgba(7,9,15,${opa(0.6)}) 55%, rgba(7,9,15,${opa(0.88)}) 100%)`,
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 1,
+          background: `rgba(7,9,15,${opa(0.5)})`,
+          backdropFilter: "blur(28px) saturate(1.05)",
+          WebkitBackdropFilter: "blur(28px) saturate(1.05)",
           pointerEvents: "none",
         }}
       />
 
-      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 10,
-            flexShrink: 0,
-          }}
+      <div
+        style={{
+          position: "relative",
+          zIndex: 3,
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingTop: "max(8px, env(safe-area-inset-top, 0px))",
+          paddingLeft: "max(16px, env(safe-area-inset-left, 0px))",
+          paddingRight: "max(16px, env(safe-area-inset-right, 0px))",
+          paddingBottom: 10,
+          background: `rgba(7,9,15,${opa(0.45)})`,
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          borderBottom: "1px solid rgba(255,255,255,0.08)",
+        }}
+        onTouchStart={onSwipeTouchStart}
+        onTouchEnd={onSwipeTouchEnd}
+      >
+        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", letterSpacing: "0.1em" }}>NOW PLAYING</span>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          aria-label="Minimize player"
+          onClick={onClose}
+          style={{ padding: "10px 14px", minWidth: 44, minHeight: 44, justifyContent: "center" }}
         >
-          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text3)", letterSpacing: "0.1em" }}>NOW PLAYING</span>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            aria-label="Minimize player"
-            onClick={onClose}
-            style={{ padding: "10px 14px", minWidth: 44, minHeight: 44, justifyContent: "center" }}
-          >
-            <Icon name="chevronDown" size={22} color="var(--text2)" />
-          </button>
-        </div>
+          <Icon name="chevronDown" size={22} color="var(--text)" />
+        </button>
+      </div>
 
-        {/* Swipe-to-minimize: artwork + title + artist (scrolls if needed; no overlap with dock) */}
+      <div
+        style={{
+          position: "relative",
+          zIndex: 2,
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          paddingLeft: "max(16px, env(safe-area-inset-left, 0px))",
+          paddingRight: "max(16px, env(safe-area-inset-right, 0px))",
+          paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))",
+          overflow: "hidden",
+        }}
+      >
         <div
-          className="now-playing-scroll"
           style={{
+            position: "relative",
+            zIndex: 2,
             flex: 1,
             minHeight: 0,
-            overflowY: "auto",
-            overflowX: "hidden",
-            WebkitOverflowScrolling: "touch",
-            touchAction: "pan-y",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "flex-start",
-            gap: "clamp(12px, 3vmin, 18px)",
-            paddingBottom: 8,
+            overflow: "hidden",
+            paddingTop: 7,
           }}
-          onTouchStart={onSwipeAreaTouchStart}
-          onTouchEnd={onSwipeAreaTouchEnd}
+          onTouchStart={onSwipeTouchStart}
+          onTouchEnd={onSwipeTouchEnd}
         >
           <div
             style={{
-              width: "min(88vw, min(360px, 48dvh))",
-              maxWidth: "100%",
-              aspectRatio: "1",
-              borderRadius: 18,
-              overflow: "hidden",
-              boxShadow: "0 28px 80px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.08)",
               flexShrink: 0,
-              marginTop: 4,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "100%",
+              padding: "10px 0 0",
+              marginBottom: 45,
             }}
           >
-            {cover ? (
-              <img src={cover} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-            ) : (
-              <div
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  background: "linear-gradient(145deg, var(--surface2), var(--surface))",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Icon name="music" size={56} color="var(--text3)" />
-              </div>
-            )}
+            <div
+              style={{
+                position: "relative",
+                width: "100%",
+                maxWidth: 300,
+                aspectRatio: "1",
+                borderRadius: 16,
+                overflow: "hidden",
+                boxShadow: "0 24px 60px rgba(0,0,0,0.55)",
+                border: "1px solid rgba(255,255,255,0.1)",
+              }}
+            >
+              {cover ? (
+                <img src={cover} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              ) : (
+                <div
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    background: "linear-gradient(145deg, var(--surface2), var(--surface))",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Icon name="music" size={48} color="var(--text3)" />
+                </div>
+              )}
+            </div>
           </div>
 
-          <div style={{ width: "100%", maxWidth: 440, textAlign: "center", padding: "0 4px", flexShrink: 0 }}>
+          <div style={{ flexShrink: 0, width: "100%", maxWidth: 300, margin: "0 auto", padding: "0 2px", overflow: "hidden" }}>
             <h2
               style={{
                 fontFamily: "var(--ff-display)",
-                fontSize: "clamp(22px, 6.5vw, 32px)",
-                letterSpacing: "0.04em",
-                lineHeight: 1.12,
-                marginBottom: 12,
-                marginTop: 0,
+                fontSize: 20,
+                letterSpacing: "0.03em",
+                lineHeight: 1.15,
+                margin: "0 0 13px",
                 color: "var(--text)",
-                textShadow: "0 2px 24px rgba(0,0,0,0.35)",
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+                textAlign: "center",
               }}
             >
               {track.title}
@@ -210,202 +265,176 @@ export default function MobileNowPlaying({
                   navigate(`/user/${user.id}`);
                 }}
                 style={{
-                  display: "inline-flex",
+                  display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  gap: "clamp(8px, 2.5vmin, 12px)",
-                  flexWrap: "wrap",
-                  background: "rgba(17,24,39,0.65)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "clamp(12px, 3vmin, 16px)",
-                  padding: "clamp(8px, 2.2vmin, 12px) clamp(12px, 3.2vmin, 16px)",
-                  marginBottom: 0,
+                  gap: 10,
                   width: "100%",
-                  maxWidth: "min(360px, 92vw)",
+                  maxWidth: 360,
+                  margin: "0 auto",
+                  background: `rgba(7,9,15,${opa(0.4)})`,
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  backdropFilter: "blur(10px)",
+                  WebkitBackdropFilter: "blur(10px)",
+                  borderRadius: 12,
+                  padding: "8px 12px",
                   cursor: "pointer",
                   WebkitTapHighlightColor: "transparent",
                 }}
               >
-                <UserAvatar
-                  user={user}
-                  size={44}
-                  showVerified={false}
-                  style={{ width: "clamp(36px, 11vmin, 44px)", height: "clamp(36px, 11vmin, 44px)" }}
-                />
-                <div style={{ textAlign: "left", minWidth: 0, flex: 1 }}>
+                <UserAvatar user={user} size={36} showVerified={false} style={{ width: 36, height: 36, flexShrink: 0 }} />
+                <div style={{ minWidth: 0, flex: 1, textAlign: "left" }}>
                   <div
                     style={{
                       fontWeight: 700,
-                      fontSize: "clamp(15px, 4.2vmin, 17px)",
+                      fontSize: 14,
                       color: "var(--text)",
                       lineHeight: 1.2,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
                     }}
                   >
                     {user.username}
                   </div>
                   <div
                     style={{
-                      fontSize: "clamp(12px, 3.5vmin, 14px)",
+                      fontSize: 12,
                       color: "var(--accent)",
                       display: "flex",
                       alignItems: "center",
-                      gap: 6,
-                      flexWrap: "wrap",
+                      gap: 5,
                       marginTop: 2,
+                      minWidth: 0,
                     }}
                   >
-                    <span>{user.handle}</span>
-                    {user.verified ? <VerifiedBadge size={15} /> : null}
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.handle}</span>
+                    {user.verified ? <VerifiedBadge size={13} /> : null}
                   </div>
                 </div>
               </button>
             ) : (
-              <p style={{ color: "var(--text3)", fontSize: 15, margin: 0 }}>Unknown artist</p>
+              <p style={{ color: "var(--text3)", fontSize: 14, margin: 0, textAlign: "center" }}>Unknown artist</p>
             )}
           </div>
-        </div>
-
-        {/* Bottom dock: genre / like → scrubber → transport (fixed order, no overlap) */}
-        <div
-          style={{
-            flexShrink: 0,
-            width: "100%",
-            maxWidth: 440,
-            margin: "0 auto",
-            paddingTop: 10,
-            borderTop: "1px solid rgba(255,255,255,0.06)",
-            background: "linear-gradient(180deg, transparent, rgba(7,9,15,0.85) 30%)",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 10,
-              flexWrap: "wrap",
-              marginBottom: 14,
-              minHeight: 40,
-            }}
-          >
-            {track.genre ? (
-              <span className="tag tag-blue" style={{ fontSize: 11, padding: "4px 10px" }}>
-                {track.genre}
-              </span>
-            ) : null}
-            <LikeButton mixId={track.id} variant="inline" size="sm" />
-          </div>
 
           <div
-            ref={progressRef}
-            role="slider"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(progress)}
-            aria-label="Playback position"
             style={{
-              padding: "10px 0 12px",
-              touchAction: "none",
-              cursor: "pointer",
-            }}
-            onPointerDown={(e) => {
-              scrubbingRef.current = true;
-              e.currentTarget.setPointerCapture(e.pointerId);
-              setSeekFromClientX(e.clientX);
-            }}
-            onPointerMove={(e) => {
-              if (scrubbingRef.current) setSeekFromClientX(e.clientX);
-            }}
-            onPointerUp={(e) => {
-              scrubbingRef.current = false;
-              try {
-                e.currentTarget.releasePointerCapture(e.pointerId);
-              } catch {
-                /* ignore */
-              }
-            }}
-            onPointerCancel={() => {
-              scrubbingRef.current = false;
+              flexShrink: 0,
+              width: "100%",
+              maxWidth: 300,
+              margin: "10px auto 0",
+              paddingTop: 10,
+              borderTop: "1px solid rgba(255,255,255,0.08)",
             }}
           >
             <div
-              className="progress-wrap"
               style={{
-                height: 6,
-                borderRadius: 3,
-                pointerEvents: "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                marginBottom: 10,
+                minHeight: 32,
               }}
             >
-              <div className="progress-fill" style={{ width: `${progress}%`, borderRadius: 3, height: "100%" }} />
+              {track.genre ? (
+                <span className="tag tag-blue" style={{ fontSize: 10, padding: "3px 8px" }}>
+                  {track.genre}
+                </span>
+              ) : null}
+              <LikeButton mixId={track.id} variant="inline" size="sm" />
             </div>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              marginTop: 2,
-              marginBottom: 4,
-              fontSize: 12,
-              color: "var(--text2)",
-              fontVariantNumeric: "tabular-nums",
-              fontWeight: 600,
-            }}
-          >
-            <span>{fmtPlayerTime(elapsedSec)}</span>
-            <span>{fmtPlayerTime(remainingSec)}</span>
-          </div>
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 32,
-              marginTop: 18,
-              paddingBottom: 4,
-            }}
-          >
-            <div style={{ width: 64 }} aria-hidden />
-
-            <button
-              type="button"
-              onClick={onToggle}
-              aria-label={isPlaying ? "Pause" : "Play"}
-              style={{
-                width: 88,
-                height: 88,
-                borderRadius: "50%",
-                background: "var(--accent2)",
-                border: "none",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: isPlaying ? "0 0 36px rgba(14,165,233,0.45)" : "0 12px 40px rgba(0,0,0,0.45)",
-                animation: isPlaying ? "glow 2.2s ease-in-out infinite" : undefined,
+            <div
+              ref={progressRef}
+              role="slider"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(progress)}
+              aria-label="Playback position"
+              style={{ padding: "6px 0 8px", touchAction: "none", cursor: "pointer" }}
+              onPointerDown={(e) => {
+                scrubbingRef.current = true;
+                e.currentTarget.setPointerCapture(e.pointerId);
+                setSeekFromClientX(e.clientX);
+              }}
+              onPointerMove={(e) => {
+                if (scrubbingRef.current) setSeekFromClientX(e.clientX);
+              }}
+              onPointerUp={(e) => {
+                scrubbingRef.current = false;
+                try {
+                  e.currentTarget.releasePointerCapture(e.pointerId);
+                } catch {
+                  /* ignore */
+                }
+              }}
+              onPointerCancel={() => {
+                scrubbingRef.current = false;
               }}
             >
-              <Icon name={isPlaying ? "pause" : "play"} size={34} color="#07090F" />
-            </button>
+              <div className="progress-wrap" style={{ height: 5, borderRadius: 3, pointerEvents: "none" }}>
+                <div className="progress-fill" style={{ width: `${progress}%`, borderRadius: 3, height: "100%" }} />
+              </div>
+            </div>
 
-            <button
-              type="button"
-              onClick={() => void onNext?.()}
-              aria-label="Next track"
-              title="Next"
+            <div
               style={{
-                width: 64,
-                height: 64,
-                borderRadius: "50%",
-                background: "var(--surface)",
-                border: "1px solid var(--border)",
                 display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
+                justifyContent: "space-between",
+                marginBottom: 8,
+                fontSize: 11,
+                color: "var(--text2)",
+                fontVariantNumeric: "tabular-nums",
+                fontWeight: 600,
               }}
             >
-              <Icon name="skip" size={26} color="var(--accent)" />
-            </button>
+              <span>{fmtPlayerTime(elapsedSec)}</span>
+              <span>{fmtPlayerTime(remainingSec)}</span>
+            </div>
+
+            <div className="dz-transport-row">
+              <button
+                type="button"
+                className="dz-transport-btn"
+                onClick={() => onToggleShuffle?.()}
+                aria-label={shuffleOn ? "Shuffle on" : "Shuffle off"}
+                aria-pressed={shuffleOn}
+                title={shuffleOn ? "Shuffle on" : "Shuffle off"}
+              >
+                <Icon name="shuffle" size={20} />
+              </button>
+
+              <button
+                type="button"
+                className="dz-transport-btn"
+                onClick={() => void onPrev?.()}
+                aria-label="Previous track"
+                title="Previous"
+              >
+                <Icon name="prev" size={20} />
+              </button>
+
+              <button
+                type="button"
+                className="dz-transport-btn"
+                onClick={onToggle}
+                aria-label={isPlaying ? "Pause" : "Play"}
+                title={isPlaying ? "Pause" : "Play"}
+              >
+                <Icon name={isPlaying ? "pause" : "play"} size={22} />
+              </button>
+
+              <button
+                type="button"
+                className="dz-transport-btn"
+                onClick={() => void onNext?.()}
+                aria-label="Next track"
+                title="Next"
+              >
+                <Icon name="skip" size={20} />
+              </button>
+            </div>
           </div>
         </div>
       </div>

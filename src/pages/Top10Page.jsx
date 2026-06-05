@@ -9,7 +9,7 @@ import { fmt } from "../lib/format.js";
 
 export default function Top10Page() {
   const { episodes, users, player } = useApp();
-  const [tab, setTab] = useState("downloads");
+  const [tab, setTab] = useState("plays");
   const isCompact = useMediaQuery("(max-width: 720px)");
 
   const sorted = useMemo(() => {
@@ -28,7 +28,7 @@ export default function Top10Page() {
           <h1 style={{ fontFamily: "var(--ff-display)", fontSize: 28, letterSpacing: "0.04em" }}>TOP 10</h1>
         </div>
         <p style={{ color: "var(--text2)", marginBottom: 16, fontSize: 13 }}>
-          The most downloaded and played mixes on Dropzone
+          The most played and downloaded mixes on Dropzone
         </p>
 
         <div
@@ -44,8 +44,8 @@ export default function Top10Page() {
           }}
         >
           {[
-            ["downloads", "Downloads"],
             ["plays", "Plays"],
+            ["downloads", "Downloads"],
           ].map(([val, label]) => (
             <button
               key={val}
@@ -114,7 +114,7 @@ export default function Top10Page() {
         <h1 style={{ fontFamily: "var(--ff-display)", fontSize: 40, letterSpacing: "0.04em" }}>TOP 10</h1>
       </div>
       <p style={{ color: "var(--text2)", marginBottom: 28 }}>
-        The most downloaded and played mixes on Dropzone
+        The most played and downloaded mixes on Dropzone
       </p>
 
       <div
@@ -129,8 +129,8 @@ export default function Top10Page() {
         }}
       >
         {[
-          ["downloads", "Most Downloaded"],
           ["plays", "Most Played"],
+          ["downloads", "Most Downloaded"],
         ].map(([val, label]) => (
           <button
             key={val}

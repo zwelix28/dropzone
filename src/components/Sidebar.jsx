@@ -3,35 +3,37 @@ import { FEATURE_LETS_DJ } from "../featureFlags.js";
 import Icon from "./Icon.jsx";
 import UserAvatar from "./UserAvatar.jsx";
 
-function NavBtn({ to, icon, label, onClose }) {
+function NavBtn({ to, icon, label, onClose, compact = false }) {
+  const iconSize = compact ? 16 : 20;
   return (
     <NavLink
       to={to}
       className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
       onClick={() => onClose?.()}
     >
-      <Icon name={icon} size={17} />
+      <Icon name={icon} size={iconSize} />
       {label}
     </NavLink>
   );
 }
 
-function LiveNavBtn({ onClose }) {
+function LiveNavBtn({ onClose, compact = false }) {
+  const iconSize = compact ? 16 : 20;
   return (
     <NavLink
       to="/live"
       className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}
+      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: compact ? 6 : 8 }}
       onClick={() => onClose?.()}
     >
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-        <Icon name="radio" size={17} />
+      <span style={{ display: "inline-flex", alignItems: "center", gap: compact ? 6 : 8 }}>
+        <Icon name="radio" size={iconSize} />
         Live
       </span>
       <span
         title="Pro plan"
         style={{
-          fontSize: 9,
+          fontSize: compact ? 9 : 11,
           fontWeight: 800,
           letterSpacing: "0.08em",
           color: "#fff",
@@ -48,7 +50,8 @@ function LiveNavBtn({ onClose }) {
   );
 }
 
-function MessagesNavLink({ onClose, unreadCount }) {
+function MessagesNavLink({ onClose, unreadCount, compact = false }) {
+  const iconSize = compact ? 16 : 20;
   return (
     <NavLink
       to="/messages"
@@ -56,19 +59,19 @@ function MessagesNavLink({ onClose, unreadCount }) {
       onClick={() => onClose?.()}
       style={{ position: "relative" }}
     >
-      <Icon name="mail" size={17} />
+      <Icon name="mail" size={iconSize} />
       Messages
       {unreadCount > 0 ? (
         <span
           style={{
             marginLeft: "auto",
-            minWidth: 20,
-            height: 20,
+            minWidth: compact ? 16 : 20,
+            height: compact ? 16 : 20,
             padding: "0 6px",
             borderRadius: 10,
             background: "var(--accent2)",
             color: "#07090f",
-            fontSize: 11,
+            fontSize: compact ? 10 : 13,
             fontWeight: 800,
             display: "flex",
             alignItems: "center",
@@ -85,25 +88,29 @@ function MessagesNavLink({ onClose, unreadCount }) {
 /**
  * @param {{ currentUser: any, onLogout: () => void, onLogin: () => void, variant?: 'desktop' | 'drawer', onClose?: () => void, dmUnreadCount?: number }} props
  */
+export const DESKTOP_SIDEBAR_WIDTH = 264;
+
 export default function Sidebar({ currentUser, onLogout, onLogin, variant = "desktop", onClose, dmUnreadCount = 0 }) {
   const isDrawer = variant === "drawer";
-  const bottomPadding = isDrawer ? 20 : 90;
+  const bottomPadding = isDrawer ? 16 : 90;
 
   return (
     <aside
+      className={isDrawer ? "sidebar-drawer" : undefined}
       style={{
-        width: isDrawer ? "100%" : 220,
-        height: isDrawer ? "100%" : "auto",
-        minHeight: isDrawer ? "100%" : "100vh",
+        width: isDrawer ? "100%" : DESKTOP_SIDEBAR_WIDTH,
+        height: isDrawer ? "100%" : "100vh",
         background: "var(--bg2)",
         borderRight: isDrawer ? "none" : "1px solid var(--border)",
-        padding: "0 12px",
-        position: isDrawer ? "relative" : "sticky",
+        padding: isDrawer ? "0 11px" : "0 14px",
+        position: isDrawer ? "relative" : "fixed",
         top: isDrawer ? "auto" : 0,
+        left: isDrawer ? "auto" : 0,
+        zIndex: isDrawer ? "auto" : 250,
         flexShrink: 0,
         display: "flex",
         flexDirection: "column",
-        overflowY: isDrawer ? "auto" : "visible",
+        overflowY: "auto",
         WebkitOverflowScrolling: "touch",
       }}
     >
@@ -113,10 +120,10 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            gap: 12,
-            padding: "14px 4px 12px",
+            gap: 10,
+            padding: "11px 3px 10px",
             borderBottom: "1px solid var(--border)",
-            marginBottom: 12,
+            marginBottom: 10,
             flexShrink: 0,
           }}
         >
@@ -128,18 +135,18 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
             className="btn btn-ghost"
             aria-label="Close menu"
             onClick={() => onClose?.()}
-            style={{ padding: "8px 10px", minWidth: 40, justifyContent: "center" }}
+            style={{ padding: "6px 8px", minWidth: 32, justifyContent: "center" }}
           >
-            <Icon name="x" size={20} color="var(--text2)" />
+            <Icon name="x" size={19} color="var(--text2)" />
           </button>
         </div>
       ) : null}
 
       <div
         style={{
-          padding: isDrawer ? "0 8px 16px" : "22px 8px 20px",
+          padding: isDrawer ? "0 6px 13px" : "22px 8px 20px",
           borderBottom: isDrawer ? "none" : "1px solid var(--border)",
-          marginBottom: isDrawer ? 8 : 16,
+          marginBottom: isDrawer ? 6 : 16,
         }}
       >
         <Link
@@ -147,40 +154,42 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
           style={{ textDecoration: "none", color: "inherit" }}
           onClick={() => onClose?.()}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div
+          <div style={{ display: "flex", alignItems: "center", gap: isDrawer ? 8 : 10 }}>
+            <img
+              src="/logo.png"
+              alt="Music Vault"
+              width={isDrawer ? 34 : 43}
+              height={isDrawer ? 34 : 43}
               style={{
-                width: 36,
-                height: 36,
-                borderRadius: 8,
-                background: "linear-gradient(135deg, var(--accent2), #0284C7)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
+                width: isDrawer ? 34 : 43,
+                height: isDrawer ? 34 : 43,
+                borderRadius: isDrawer ? 8 : 10,
+                objectFit: "contain",
+                flexShrink: 0,
               }}
-            >
-              <Icon name="headphones" size={18} color="#fff" />
-            </div>
-            <div>
+            />
+            <div style={{ minWidth: 0, overflow: "hidden" }}>
               <div
                 style={{
                   fontFamily: "var(--ff-display)",
-                  fontSize: 22,
+                  fontSize: isDrawer ? 21 : 26,
                   letterSpacing: "0.05em",
                   lineHeight: 1,
                 }}
               >
-                DROPZONE
+                Music Vault
               </div>
               <div
                 style={{
-                  fontSize: 10,
+                  fontSize: isDrawer ? 10 : 12,
                   color: "var(--accent)",
-                  letterSpacing: "0.15em",
-                  marginTop: 1,
+                  letterSpacing: "0.04em",
+                  marginTop: 2,
+                  whiteSpace: "nowrap",
+                  lineHeight: 1.2,
                 }}
               >
-                DJ PLATFORM
+                The Groove, The Sound
               </div>
             </div>
           </div>
@@ -190,64 +199,65 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
       <div style={{ marginBottom: 8 }}>
         <div
           style={{
-            fontSize: 10,
+            fontSize: isDrawer ? 10 : 12,
             fontWeight: 700,
             color: "var(--text3)",
             letterSpacing: "0.12em",
             padding: "0 8px",
-            marginBottom: 6,
+            marginBottom: isDrawer ? 5 : 6,
           }}
         >
           MAIN
         </div>
-        {!currentUser ? <NavBtn to="/" icon="home" label="Home" onClose={onClose} /> : null}
-        <NavBtn to="/discover" icon="compass" label="Discover" onClose={onClose} />
-        <LiveNavBtn onClose={onClose} />
-        <NavBtn to="/top10" icon="trending" label="Top 10" onClose={onClose} />
-        <NavBtn to="/upload" icon="upload" label="Upload" onClose={onClose} />
-        {FEATURE_LETS_DJ ? <NavBtn to="/dj" icon="disc" label={"Let's DJ"} onClose={onClose} /> : null}
+        {!currentUser ? <NavBtn compact={isDrawer} to="/" icon="home" label="Home" onClose={onClose} /> : null}
+        <NavBtn compact={isDrawer} to="/foryou" icon="zap" label="For You" onClose={onClose} />
+        {currentUser ? <NavBtn compact={isDrawer} to="/discover" icon="compass" label="Discover" onClose={onClose} /> : null}
+        <LiveNavBtn compact={isDrawer} onClose={onClose} />
+        <NavBtn compact={isDrawer} to="/top10" icon="trending" label="Top 10" onClose={onClose} />
+        <NavBtn compact={isDrawer} to="/upload" icon="upload" label="Upload" onClose={onClose} />
+        {FEATURE_LETS_DJ ? <NavBtn compact={isDrawer} to="/dj" icon="disc" label={"Let's DJ"} onClose={onClose} /> : null}
       </div>
 
       {currentUser && (
-        <div style={{ marginTop: 16 }}>
+        <div style={{ marginTop: isDrawer ? 13 : 16 }}>
           <div
             style={{
-              fontSize: 10,
+              fontSize: isDrawer ? 10 : 12,
               fontWeight: 700,
               color: "var(--text3)",
               letterSpacing: "0.12em",
               padding: "0 8px",
-              marginBottom: 6,
+              marginBottom: isDrawer ? 5 : 6,
             }}
           >
             ACCOUNT
           </div>
-          <NavBtn to="/stats" icon="bar2" label="My Stats" onClose={onClose} />
-          <NavBtn to="/likes" icon="heart" label="Likes" onClose={onClose} />
-          <NavBtn to="/profile" icon="user" label="My Profile" onClose={onClose} />
-          <NavBtn to="/connections" icon="people" label="Connections" onClose={onClose} />
-          <NavBtn to="/settings" icon="settings" label="Settings" onClose={onClose} />
-          {currentUser?.isAdmin ? <NavBtn to="/admin" icon="shield" label="Admin" onClose={onClose} /> : null}
+          <NavBtn compact={isDrawer} to="/stats" icon="bar2" label="My Stats" onClose={onClose} />
+          <NavBtn compact={isDrawer} to="/likes" icon="heart" label="Likes" onClose={onClose} />
+          <NavBtn compact={isDrawer} to="/profile" icon="user" label="My Profile" onClose={onClose} />
+          <NavBtn compact={isDrawer} to="/connections" icon="people" label="Connections" onClose={onClose} />
+          <NavBtn compact={isDrawer} to="/settings" icon="settings" label="Settings" onClose={onClose} />
+          {currentUser?.isAdmin ? <NavBtn compact={isDrawer} to="/admin" icon="shield" label="Admin" onClose={onClose} /> : null}
         </div>
       )}
 
-      <div style={{ marginTop: isDrawer ? 20 : "auto", paddingBottom: bottomPadding }}>
+      <div style={{ marginTop: isDrawer ? 16 : "auto", paddingBottom: bottomPadding }}>
         {currentUser ? (
           <div
             style={{
               background: "var(--surface)",
               border: "1px solid var(--border)",
-              borderRadius: 12,
-              padding: "12px 14px",
+              borderRadius: isDrawer ? 10 : 12,
+              padding: isDrawer ? "10px 11px" : "12px 14px",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-              <UserAvatar user={currentUser} size={34} showVerified />
+            <div style={{ display: "flex", alignItems: "center", gap: isDrawer ? 8 : 10, marginBottom: isDrawer ? 8 : 10 }}>
+              <UserAvatar user={currentUser} size={isDrawer ? 33 : 41} showVerified />
               <div style={{ overflow: "hidden" }}>
                 <div
                   style={{
                     fontWeight: 600,
-                    fontSize: 13,
+                    fontSize: isDrawer ? 13 : 16,
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
@@ -255,23 +265,23 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
                 >
                   {currentUser.username}
                 </div>
-                <div style={{ fontSize: 11, color: "var(--accent)" }}>{currentUser.handle}</div>
+                <div style={{ fontSize: isDrawer ? 10 : 13, color: "var(--accent)" }}>{currentUser.handle}</div>
               </div>
             </div>
             <button
               className="btn btn-ghost"
               style={{
                 width: "100%",
-                padding: "7px",
+                padding: isDrawer ? "6px" : "7px",
                 justifyContent: "center",
-                fontSize: 13,
+                fontSize: isDrawer ? 13 : 16,
               }}
               onClick={() => {
                 onClose?.();
                 onLogout();
               }}
             >
-              <Icon name="logout" size={14} />
+              <Icon name="logout" size={isDrawer ? 14 : 17} />
               Logout
             </button>
           </div>
@@ -285,7 +295,7 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
                 onLogin();
               }}
             >
-              <Icon name="user" size={15} />
+              <Icon name="user" size={isDrawer ? 14 : 18} />
               Sign In
             </button>
           </div>

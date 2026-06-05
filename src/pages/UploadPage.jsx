@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
 import { GENRES } from "../constants/genres.js";
@@ -19,6 +19,12 @@ function formatStorageError(err) {
     return `${msg} Supabase Free caps each file at 50 MB; Pro/Team can raise “Global file size limit” under Dashboard → Storage → Settings. You can also export a lower bitrate/smaller MP3 for testing.`;
   }
   return msg;
+}
+
+function defaultMixDescription(title) {
+  const t = (title || "").trim();
+  if (!t) return "";
+  return `Listen to ${t} on Deep House Lab - Music Vault.`;
 }
 
 export default function UploadPage() {
@@ -48,6 +54,7 @@ export default function UploadPage() {
   const [publishedMixId, setPublishedMixId] = useState(null);
   const [publishError, setPublishError] = useState(null);
   const [audioFileError, setAudioFileError] = useState(null);
+  const descriptionManuallyEditedRef = useRef(false);
   const maxAudioMb = readMaxAudioMb();
 
   const pickAudioFile = (file) => {
@@ -238,6 +245,7 @@ export default function UploadPage() {
               setPublishedMixId(null);
               setPublishError(null);
               setAudioFileError(null);
+              descriptionManuallyEditedRef.current = false;
               setForm({
                 title: "",
                 description: "",
@@ -547,7 +555,16 @@ export default function UploadPage() {
                 className="inp"
                 placeholder="e.g. Summer Deep House Session Vol. 5"
                 value={form.title}
-                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                onChange={(e) => {
+                  const title = e.target.value;
+                  setForm((f) => ({
+                    ...f,
+                    title,
+                    ...(descriptionManuallyEditedRef.current
+                      ? {}
+                      : { description: defaultMixDescription(title) }),
+                  }));
+                }}
               />
             </div>
             <div>
@@ -561,7 +578,10 @@ export default function UploadPage() {
                 className="inp"
                 placeholder="Describe your mix, add tracklist, venues, shoutouts..."
                 value={form.description}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                onChange={(e) => {
+                  descriptionManuallyEditedRef.current = true;
+                  setForm((f) => ({ ...f, description: e.target.value }));
+                }}
                 style={{ minHeight: isCompact ? 100 : 160 }}
               />
               <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>
