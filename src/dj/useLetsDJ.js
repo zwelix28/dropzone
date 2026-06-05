@@ -394,7 +394,7 @@ export function useLetsDJ(opts = {}) {
       if (!recordBlob) return;
       const a = document.createElement("a");
       a.href = URL.createObjectURL(recordBlob);
-      a.download = filename || "dropzone-mix.webm";
+      a.download = filename || "music-vault-mix.webm";
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     },

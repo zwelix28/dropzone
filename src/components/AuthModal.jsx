@@ -62,9 +62,9 @@ export default function AuthModal({ onClose }) {
     mode === "login" ? "SIGN IN" : mode === "register" ? "CREATE ACCOUNT" : "RESET PASSWORD";
   const subtitle =
     mode === "login"
-      ? "Welcome back to Dropzone"
+      ? "Welcome back to Music Vault by DHLab"
       : mode === "register"
-        ? "Join the Dropzone community"
+        ? "Join Music Vault by DHLab"
         : "We’ll email you a link to set a new password";
 
   return (
@@ -78,7 +78,7 @@ export default function AuthModal({ onClose }) {
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
           <img
             src="/logo.png"
-            alt="Music Vault"
+            alt="Music Vault by DHLab"
             width={90}
             height={90}
             style={{

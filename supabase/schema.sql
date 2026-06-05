@@ -39,6 +39,7 @@ create table if not exists public.mixes (
   plays int not null default 0,
   downloads int not null default 0,
   shares int not null default 0,
+  likes_count int not null default 0,
   trending int not null default 999,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -304,6 +305,34 @@ create policy "mix_likes_insert_own" on public.mix_likes for insert to authentic
 drop policy if exists "mix_likes_delete_own" on public.mix_likes;
 create policy "mix_likes_delete_own" on public.mix_likes for delete to authenticated
   using (user_id = auth.uid());
+
+create or replace function public.mix_likes_sync_counts()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'INSERT' then
+    update public.mixes set likes_count = likes_count + 1 where id = new.mix_id;
+    return new;
+  elsif tg_op = 'DELETE' then
+    update public.mixes set likes_count = greatest(0, likes_count - 1) where id = old.mix_id;
+    return old;
+  end if;
+  return null;
+end;
+$$;
+
+drop trigger if exists mix_likes_after_insert on public.mix_likes;
+create trigger mix_likes_after_insert
+  after insert on public.mix_likes
+  for each row execute function public.mix_likes_sync_counts();
+
+drop trigger if exists mix_likes_after_delete on public.mix_likes;
+create trigger mix_likes_after_delete
+  after delete on public.mix_likes
+  for each row execute function public.mix_likes_sync_counts();
 
 drop policy if exists "follows_select_involved" on public.follows;
 create policy "follows_select_involved" on public.follows for select to authenticated

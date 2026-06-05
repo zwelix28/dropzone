@@ -28,7 +28,7 @@ export default function Top10Page() {
           <h1 style={{ fontFamily: "var(--ff-display)", fontSize: 28, letterSpacing: "0.04em" }}>TOP 10</h1>
         </div>
         <p style={{ color: "var(--text2)", marginBottom: 16, fontSize: 13 }}>
-          The most played and downloaded mixes on Dropzone
+          The most played and downloaded mixes on Music Vault by DHLab
         </p>
 
         <div
@@ -114,7 +114,7 @@ export default function Top10Page() {
         <h1 style={{ fontFamily: "var(--ff-display)", fontSize: 40, letterSpacing: "0.04em" }}>TOP 10</h1>
       </div>
       <p style={{ color: "var(--text2)", marginBottom: 28 }}>
-        The most played and downloaded mixes on Dropzone
+        The most played and downloaded mixes on Music Vault by DHLab
       </p>
 
       <div

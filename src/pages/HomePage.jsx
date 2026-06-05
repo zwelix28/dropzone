@@ -33,7 +33,7 @@ export default function HomePage() {
       >
         <img
           src="/images/landing-banner.png"
-          alt="Dropzone landing banner"
+          alt="Music Vault by DHLab landing banner"
           style={{
             width: "100%",
             height: mobileHero ? "auto" : "100%",
