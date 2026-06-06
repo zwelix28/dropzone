@@ -42,7 +42,6 @@ export default function UploadPage() {
     genre: "Tech House",
     tags: "",
     audioFile: null,
-    previewAudioFile: null,
     coverFile: null,
     coverPreview: null,
   });
@@ -103,16 +102,6 @@ export default function UploadPage() {
       if (audioErr) throw new Error(formatStorageError(audioErr));
       setProgress(40);
 
-      let previewPath = "";
-      if (form.previewAudioFile) {
-        const pExt = (form.previewAudioFile.name.split(".").pop() || "mp3").toLowerCase();
-        previewPath = `${uid}/preview-${crypto.randomUUID()}.${pExt}`;
-        const { error: prevErr } = await supabase.storage.from("mix-previews").upload(previewPath, form.previewAudioFile, {
-          cacheControl: "3600",
-          upsert: false,
-        });
-        if (prevErr) throw new Error(formatStorageError(prevErr));
-      }
       setProgress(50);
 
       let coverUrl = "";
@@ -149,7 +138,7 @@ export default function UploadPage() {
           cover_url: coverUrl,
           audio_url: "",
           audio_storage_path: audioPath,
-          audio_preview_path: previewPath,
+          audio_preview_path: "",
           duration_secs: 0,
         })
         .select("id")
@@ -253,7 +242,6 @@ export default function UploadPage() {
                 genre: "Tech House",
                 tags: "",
                 audioFile: null,
-                previewAudioFile: null,
                 coverFile: null,
                 coverPreview: null,
               });
@@ -427,52 +415,7 @@ export default function UploadPage() {
               <p style={{ fontSize: 12, color: "var(--text3)", marginTop: 8 }}>
                 Client limit: {maxAudioMb} MB (VITE_MAX_AUDIO_MB). Supabase may enforce a separate cap in Storage settings.
               </p>
-            ) : (
-              <p style={{ fontSize: 12, color: "var(--text3)", marginTop: 8 }}>
-                Supabase limits file size per project (50 MB max on Free; raise under Dashboard → Storage → Settings on Pro).
-              </p>
-            )}
-          </div>
-
-          <div style={{ marginBottom: 24 }}>
-            <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}>
-              Guest preview clip (optional)
-            </label>
-            <p style={{ fontSize: 12, color: "var(--text3)", marginBottom: 10, lineHeight: 1.5 }}>
-              Short audio (e.g. under ~90s) stored in a public bucket so visitors who aren&apos;t signed in can hear something.
-              The full mix stays private and only streams via signed URLs for logged-in users.
-            </p>
-            <input
-              id="preview-audio-inp"
-              type="file"
-              accept="audio/*"
-              style={{ display: "none" }}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, previewAudioFile: e.target.files[0] || null }))
-              }
-            />
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
-              <button type="button" className="btn btn-ghost" onClick={() => document.getElementById("preview-audio-inp").click()}>
-                {form.previewAudioFile ? "Change preview file" : "Choose preview file"}
-              </button>
-              {form.previewAudioFile ? (
-                <>
-                  <span style={{ fontSize: 12, color: "var(--text2)" }}>{form.previewAudioFile.name}</span>
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    style={{ fontSize: 12 }}
-                    onClick={() => {
-                      setForm((f) => ({ ...f, previewAudioFile: null }));
-                      const el = document.getElementById("preview-audio-inp");
-                      if (el) el.value = "";
-                    }}
-                  >
-                    Clear
-                  </button>
-                </>
-              ) : null}
-            </div>
+            ) : null}
           </div>
 
           <div style={{ marginBottom: 28 }}>
