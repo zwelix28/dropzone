@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import Icon from "../components/Icon.jsx";
 import { GENRES } from "../constants/genres.js";
 import { isProPlan, planLabel } from "../constants/plans.js";
 import UserAvatar, { isLikelyImageFile } from "../components/UserAvatar.jsx";
@@ -8,6 +10,28 @@ import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 const AVATAR_STORAGE_PATH = "avatar";
+
+function SettingsSection({ title, description, children, compact }) {
+  return (
+    <section
+      style={{
+        background: "var(--surface)",
+        border: "1px solid var(--border)",
+        borderRadius: compact ? 12 : 14,
+        padding: compact ? "14px" : "18px 20px",
+        marginBottom: compact ? 14 : 16,
+      }}
+    >
+      <h2 style={{ fontWeight: 700, fontSize: compact ? 14 : 16, margin: "0 0 4px" }}>{title}</h2>
+      {description ? (
+        <p style={{ fontSize: compact ? 11 : 12, color: "var(--text3)", margin: "0 0 14px", lineHeight: 1.5 }}>
+          {description}
+        </p>
+      ) : null}
+      {children}
+    </section>
+  );
+}
 
 export default function SettingsPage() {
   const { auth, refreshProfiles } = useApp();
@@ -32,17 +56,6 @@ export default function SettingsPage() {
   const [passwordSaved, setPasswordSaved] = useState(false);
   const [passwordBusy, setPasswordBusy] = useState(false);
 
-  /** ~50% smaller than default `.btn` on mobile (padding + type scale). */
-  const mobileBtn = isCompact
-    ? {
-        padding: "5px 11px",
-        fontSize: 12,
-        minHeight: 36,
-        borderRadius: 6,
-        justifyContent: "center",
-      }
-    : null;
-
   useEffect(() => {
     if (!currentUser?.id) return;
     setForm({
@@ -51,7 +64,7 @@ export default function SettingsPage() {
       location: currentUser.location || "",
       genre: currentUser.genre || "Tech House",
     });
-  }, [currentUser?.id]);
+  }, [currentUser?.id, currentUser?.username, currentUser?.bio, currentUser?.location, currentUser?.genre]);
 
   if (!currentUser) {
     return (
@@ -67,11 +80,12 @@ export default function SettingsPage() {
           textAlign: "center",
         }}
       >
-        <h2 style={{ marginBottom: 8, fontSize: isCompact ? 20 : 24 }}>Sign in to manage settings</h2>
+        <Icon name="settings" size={isCompact ? 36 : 48} color="var(--text3)" />
+        <h2 style={{ marginTop: 16, marginBottom: 8, fontSize: isCompact ? 20 : 24 }}>Sign in to manage settings</h2>
         <p style={{ color: "var(--text2)", marginBottom: 24, fontSize: isCompact ? 14 : 15, maxWidth: 320 }}>
-          Settings are available once you sign in.
+          Update your profile, photo, and account preferences once you sign in.
         </p>
-        <button className="btn btn-primary" style={mobileBtn || undefined} onClick={() => auth.setShowAuth(true)}>
+        <button type="button" className="btn btn-primary" onClick={() => auth.setShowAuth(true)}>
           Sign In / Register
         </button>
       </div>
@@ -166,7 +180,7 @@ export default function SettingsPage() {
       const msg = e?.message || String(e);
       if (/bucket|not found|404/i.test(msg)) {
         setAvatarError(
-          "Storage bucket “avatars” is missing. Run the avatars section of supabase/schema.sql (or supabase/storage-avatars.sql) in the SQL Editor, or create the bucket in Dashboard → Storage.",
+          "Storage bucket “avatars” is missing. Run supabase/schema.sql or storage-avatars.sql in the SQL Editor.",
         );
       } else {
         setAvatarError(msg);
@@ -194,286 +208,237 @@ export default function SettingsPage() {
     }
   };
 
-  const padX = isCompact ? 12 : 36;
-  const padY = isCompact ? 16 : 32;
+  const pagePad = isCompact ? "16px 12px" : "32px 36px";
+  const fieldGap = isCompact ? 12 : 14;
 
   return (
-    <div className="fade-in" style={{ padding: `${padY}px ${padX}px`, paddingBottom: 100, maxWidth: isCompact ? "100%" : 600 }}>
-      <h1
-        style={{
-          fontFamily: "var(--ff-display)",
-          fontSize: isCompact ? 28 : 40,
-          letterSpacing: "0.04em",
-          marginBottom: 6,
-        }}
-      >
-        SETTINGS
-      </h1>
-      <p style={{ color: "var(--text2)", marginBottom: isCompact ? 12 : 16, fontSize: isCompact ? 13 : 15 }}>
-        Manage your profile and account preferences
-      </p>
-
-      <div
-        style={{
-          marginBottom: isCompact ? 18 : 28,
-          padding: isCompact ? "8px 10px" : "12px 14px",
-          borderRadius: isCompact ? 8 : 12,
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          gap: isCompact ? 6 : 10,
-          justifyContent: "space-between",
-        }}
-      >
-        <div>
-          <div
-            style={{
-              fontSize: isCompact ? 9 : 11,
-              fontWeight: 700,
-              color: "var(--text3)",
-              letterSpacing: "0.08em",
-            }}
-          >
-            PLAN
-          </div>
-          <div style={{ fontSize: isCompact ? 13 : 16, fontWeight: 700, marginTop: isCompact ? 2 : 4 }}>
-            {planLabel(currentUser?.plan)}
-          </div>
+    <div className="fade-in" style={{ padding: pagePad, paddingBottom: 120 }}>
+      <div style={{ maxWidth: 640, margin: "0 auto" }}>
+        <div style={{ marginBottom: isCompact ? 12 : 16 }}>
+          <Link to="/profile" style={{ color: "var(--text2)", fontSize: isCompact ? 12 : 13, textDecoration: "none" }}>
+            ← Profile
+          </Link>
         </div>
-        {isProPlan(currentUser) ? (
-          <span
+
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+          <Icon name="settings" size={isCompact ? 22 : 26} color="var(--accent)" />
+          <h1
             style={{
-              fontSize: isCompact ? 8 : 10,
-              fontWeight: 800,
-              letterSpacing: "0.08em",
-              color: "#fff",
-              background: "rgb(22, 163, 74)",
-              padding: isCompact ? "3px 6px" : "4px 8px",
-              borderRadius: isCompact ? 4 : 6,
+              fontFamily: "var(--ff-display)",
+              fontSize: isCompact ? 26 : 32,
+              letterSpacing: "0.04em",
+              margin: 0,
             }}
           >
-            PRO
-          </span>
-        ) : null}
-      </div>
+            SETTINGS
+          </h1>
+        </div>
+        <p
+          style={{
+            color: "var(--text2)",
+            marginBottom: isCompact ? 16 : 20,
+            fontSize: isCompact ? 13 : 15,
+            lineHeight: 1.55,
+          }}
+        >
+          Manage your public profile, photo, and account security.
+        </p>
 
-      {error ? (
-        <p style={{ color: "var(--red)", marginBottom: 16, fontSize: isCompact ? 12 : 14 }}>{error}</p>
-      ) : null}
-
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: isCompact ? 12 : 16,
-          marginBottom: isCompact ? 20 : 28,
-          paddingBottom: isCompact ? 20 : 28,
-          borderBottom: "1px solid var(--border)",
-        }}
-      >
-        <label style={{ display: "block", fontSize: isCompact ? 12 : 13, fontWeight: 600, color: "var(--text2)" }}>
-          Profile photo
-        </label>
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: isCompact ? 12 : 20,
-            flexWrap: "wrap",
-            flexDirection: isCompact ? "column" : "row",
+            justifyContent: "space-between",
+            gap: 12,
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: isCompact ? 10 : 12,
+            padding: isCompact ? "10px 12px" : "12px 16px",
+            marginBottom: isCompact ? 14 : 16,
           }}
         >
-          <UserAvatar user={currentUser} size={isCompact ? 64 : 88} showVerified />
-          <div style={{ display: "flex", flexDirection: "column", gap: isCompact ? 6 : 8, width: isCompact ? "100%" : undefined }}>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void pickAvatarFile(f);
-              }}
-            />
-            <div style={{ display: "flex", flexWrap: "wrap", gap: isCompact ? 6 : 8, width: isCompact ? "100%" : undefined }}>
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={avatarBusy}
-                onClick={() => fileInputRef.current?.click()}
-                style={isCompact ? { width: "100%", ...mobileBtn } : undefined}
-              >
-                {avatarBusy ? "Working…" : currentUser.avatar ? "Change photo" : "Upload photo"}
-              </button>
-              {currentUser.avatar ? (
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  disabled={avatarBusy}
-                  onClick={() => void removeAvatar()}
-                  style={isCompact ? { width: "100%", ...mobileBtn } : undefined}
-                >
-                  Remove photo
-                </button>
-              ) : null}
-            </div>
-            <p style={{ fontSize: isCompact ? 11 : 12, color: "var(--text3)", maxWidth: 360, margin: 0, lineHeight: 1.45 }}>
-              JPG, PNG, WebP, or GIF · max 5 MB. Shown on your profile and in the header.
-            </p>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text3)", letterSpacing: "0.08em" }}>PLAN</div>
+            <div style={{ fontSize: isCompact ? 14 : 16, fontWeight: 700, marginTop: 2 }}>{planLabel(currentUser?.plan)}</div>
           </div>
+          {isProPlan(currentUser) ? (
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                letterSpacing: "0.08em",
+                color: "#fff",
+                background: "rgb(22, 163, 74)",
+                padding: "4px 8px",
+                borderRadius: 6,
+              }}
+            >
+              PRO
+            </span>
+          ) : null}
         </div>
-        {avatarError ? (
-          <p style={{ color: "var(--red)", fontSize: isCompact ? 12 : 13, margin: 0 }}>{avatarError}</p>
+
+        {error ? (
+          <p style={{ color: "var(--red)", marginBottom: 14, fontSize: isCompact ? 12 : 13 }}>{error}</p>
         ) : null}
-      </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: isCompact ? 14 : 18 }}>
-        <div>
-          <label
-            style={{ display: "block", fontSize: isCompact ? 12 : 13, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}
-          >
-            Display Name
-          </label>
-          <input className="inp" value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))} />
-        </div>
-        <div>
-          <label
-            style={{ display: "block", fontSize: isCompact ? 12 : 13, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}
-          >
-            Bio
-          </label>
-          <textarea
-            className="inp"
-            value={form.bio}
-            onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))}
-            style={{ minHeight: isCompact ? 88 : 120 }}
-          />
-        </div>
-        <div>
-          <label
-            style={{ display: "block", fontSize: isCompact ? 12 : 13, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}
-          >
-            Location
-          </label>
-          <input className="inp" value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} placeholder="City, Country" />
-        </div>
-        <div>
-          <label
-            style={{ display: "block", fontSize: isCompact ? 12 : 13, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}
-          >
-            Primary Genre
-          </label>
-          <select className="inp" value={form.genre} onChange={(e) => setForm((f) => ({ ...f, genre: e.target.value }))}>
-            {GENRES.map((g) => (
-              <option key={g} value={g}>
-                {g}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div style={{ paddingTop: isCompact ? 4 : 8 }}>
-          <button
-            className="btn btn-primary"
-            style={
-              isCompact
-                ? { width: "100%", ...mobileBtn }
-                : { padding: "12px 32px" }
-            }
-            onClick={() => void handleSave()}
-          >
-            {saved ? "Saved!" : "Save Changes"}
-          </button>
-        </div>
-      </div>
-
-      <div
-        style={{
-          marginTop: isCompact ? 24 : 36,
-          paddingTop: isCompact ? 20 : 28,
-          borderTop: "1px solid var(--border)",
-          display: "flex",
-          flexDirection: "column",
-          gap: isCompact ? 12 : 16,
-          maxWidth: isCompact ? "100%" : 440,
-        }}
-      >
-        <h2
-          style={{
-            fontFamily: "var(--ff-display)",
-            fontSize: isCompact ? 17 : 22,
-            letterSpacing: "0.04em",
-            marginBottom: 4,
-          }}
-        >
-          PASSWORD
-        </h2>
-        <p style={{ fontSize: isCompact ? 12 : 13, color: "var(--text2)", margin: 0, lineHeight: 1.55 }}>
-          Signed in as <strong>{auth.session?.user?.email}</strong>. Set a new password below, or use{" "}
-          <button
-            type="button"
-            onClick={() => auth.setShowAuth(true)}
+        <SettingsSection title="Profile photo" description="Shown on your profile, mixes, and in the header." compact={isCompact}>
+          <div
             style={{
-              background: "none",
-              color: "var(--accent)",
-              fontWeight: 600,
-              fontSize: isCompact ? 12 : "inherit",
-              padding: isCompact ? "2px 4px" : undefined,
+              display: "flex",
+              alignItems: "center",
+              gap: isCompact ? 12 : 16,
+              flexWrap: "wrap",
+              flexDirection: isCompact ? "column" : "row",
             }}
           >
-            Forgot password
-          </button>{" "}
-          if you’re logged out.
-        </p>
-        {passwordError ? (
-          <p style={{ color: "var(--red)", fontSize: isCompact ? 12 : 13, margin: 0 }}>{passwordError}</p>
-        ) : null}
-        {passwordSaved ? (
-          <p style={{ color: "var(--green)", fontSize: isCompact ? 12 : 13, margin: 0 }}>Password updated.</p>
-        ) : null}
-        <div>
-          <label
-            style={{ display: "block", fontSize: isCompact ? 12 : 13, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}
-          >
-            New password
-          </label>
-          <input
-            className="inp"
-            type="password"
-            autoComplete="new-password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-          />
-        </div>
-        <div>
-          <label
-            style={{ display: "block", fontSize: isCompact ? 12 : 13, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}
-          >
-            Confirm new password
-          </label>
-          <input
-            className="inp"
-            type="password"
-            autoComplete="new-password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-          />
-        </div>
-        <button
-          type="button"
-          className="btn btn-primary"
-          style={
-            isCompact
-              ? { width: "100%", alignSelf: "stretch", ...mobileBtn }
-              : { padding: "12px 28px", alignSelf: "flex-start" }
+            <UserAvatar user={currentUser} size={isCompact ? 64 : 80} showVerified />
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1, width: isCompact ? "100%" : undefined }}>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void pickAvatarFile(f);
+                }}
+              />
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, width: isCompact ? "100%" : undefined }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={avatarBusy}
+                  onClick={() => fileInputRef.current?.click()}
+                  style={isCompact ? { flex: 1, minWidth: 120 } : undefined}
+                >
+                  {avatarBusy ? "Working…" : currentUser.avatar ? "Change photo" : "Upload photo"}
+                </button>
+                {currentUser.avatar ? (
+                  <button type="button" className="btn btn-ghost" disabled={avatarBusy} onClick={() => void removeAvatar()}>
+                    Remove
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+          {avatarError ? (
+            <p style={{ color: "var(--red)", fontSize: isCompact ? 12 : 13, margin: "10px 0 0" }}>{avatarError}</p>
+          ) : null}
+        </SettingsSection>
+
+        <SettingsSection title="Public profile" description="How you appear to listeners across Music Vault by DHLab." compact={isCompact}>
+          <div style={{ display: "flex", flexDirection: "column", gap: fieldGap }}>
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}>
+                Display name
+              </label>
+              <input className="inp" value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))} />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}>
+                Bio
+              </label>
+              <textarea
+                className="inp"
+                value={form.bio}
+                onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))}
+                style={{ minHeight: isCompact ? 88 : 110 }}
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}>
+                Location
+              </label>
+              <input
+                className="inp"
+                value={form.location}
+                onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+                placeholder="City, Country"
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}>
+                Primary genre
+              </label>
+              <select className="inp" value={form.genre} onChange={(e) => setForm((f) => ({ ...f, genre: e.target.value }))}>
+                {GENRES.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={isCompact ? { width: "100%" } : { alignSelf: "flex-start", padding: "10px 24px" }}
+              onClick={() => void handleSave()}
+            >
+              {saved ? "Saved!" : "Save changes"}
+            </button>
+          </div>
+        </SettingsSection>
+
+        <SettingsSection
+          title="Password"
+          description={
+            <>
+              Signed in as <strong>{auth.session?.user?.email}</strong>. Set a new password below, or use{" "}
+              <button
+                type="button"
+                onClick={() => auth.setShowAuth(true)}
+                style={{ background: "none", color: "var(--accent)", fontWeight: 600, padding: 0 }}
+              >
+                Forgot password
+              </button>{" "}
+              if you&apos;re logged out.
+            </>
           }
-          disabled={passwordBusy || !newPassword}
-          onClick={() => void handlePasswordChange()}
+          compact={isCompact}
         >
-          {passwordBusy ? "Updating…" : "Update password"}
-        </button>
+          {passwordError ? (
+            <p style={{ color: "var(--red)", fontSize: isCompact ? 12 : 13, margin: "0 0 10px" }}>{passwordError}</p>
+          ) : null}
+          {passwordSaved ? (
+            <p style={{ color: "var(--green)", fontSize: 12, margin: "0 0 10px" }}>Password updated.</p>
+          ) : null}
+          <div style={{ display: "flex", flexDirection: "column", gap: fieldGap }}>
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}>
+                New password
+              </label>
+              <input
+                className="inp"
+                type="password"
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}>
+                Confirm new password
+              </label>
+              <input
+                className="inp"
+                type="password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={isCompact ? { width: "100%" } : { alignSelf: "flex-start", padding: "10px 24px" }}
+              disabled={passwordBusy || !newPassword}
+              onClick={() => void handlePasswordChange()}
+            >
+              {passwordBusy ? "Updating…" : "Update password"}
+            </button>
+          </div>
+        </SettingsSection>
       </div>
     </div>
   );

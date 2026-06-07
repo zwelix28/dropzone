@@ -80,10 +80,10 @@ export default function TopBar({
         flexDirection: isMobile ? "column" : "row",
         alignItems: isMobile ? "stretch" : "center",
         gap: isMobile ? 10 : 16,
-        position: pinHeader ? "relative" : "sticky",
-        top: pinHeader ? undefined : 0,
+        position: "sticky",
+        top: 0,
         zIndex: pinHeader ? 120 : 100,
-        flexShrink: pinHeader ? 0 : undefined,
+        flexShrink: 0,
         width: "100%",
         boxSizing: "border-box",
         ...(isMobile
