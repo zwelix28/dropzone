@@ -1,5 +1,133 @@
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import Icon from "./Icon.jsx";
+import { fmtNotificationTime, getNotificationPresentation } from "../lib/notificationDisplay.js";
+
+function NotificationRow({ notification, onClose, onMarkRead, compact = false }) {
+  const preset = getNotificationPresentation(notification);
+  const timeLabel = fmtNotificationTime(notification.createdAt);
+
+  const handleOpen = () => {
+    if (!notification.read) onMarkRead(notification.id);
+    onClose();
+  };
+
+  return (
+    <div
+      style={{
+        padding: compact ? "9px 12px" : "12px 16px",
+        borderBottom: "1px solid rgba(30,45,69,0.6)",
+        background: notification.read ? "transparent" : "rgba(56,189,248,0.06)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "flex-start", gap: compact ? 9 : 12 }}>
+        <span
+          style={{
+            flexShrink: 0,
+            width: compact ? 30 : 36,
+            height: compact ? 30 : 36,
+            borderRadius: compact ? 8 : 10,
+            background: `${preset.color}18`,
+            border: `1px solid ${preset.color}40`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          aria-hidden
+        >
+          <Icon name={preset.icon} size={compact ? 14 : 17} color={preset.color} />
+        </span>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: compact ? 2 : 4, flexWrap: "wrap" }}>
+            <span
+              style={{
+                fontSize: compact ? 9 : 10,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                color: preset.color,
+              }}
+            >
+              {preset.category}
+            </span>
+            {!notification.read ? (
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: "var(--accent)",
+                  flexShrink: 0,
+                }}
+                aria-label="Unread"
+              />
+            ) : null}
+            <span style={{ marginLeft: "auto", color: "var(--text3)", fontSize: compact ? 10 : 11, flexShrink: 0 }}>
+              {timeLabel}
+            </span>
+          </div>
+
+          <div
+            style={{
+              fontWeight: 700,
+              fontSize: compact ? 12 : 14,
+              marginBottom: compact ? 2 : 4,
+              lineHeight: 1.3,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: compact ? "nowrap" : undefined,
+            }}
+          >
+            {notification.title}
+          </div>
+          <div
+            style={{
+              color: "var(--text2)",
+              fontSize: compact ? 11 : 13,
+              lineHeight: 1.4,
+              display: compact ? "-webkit-box" : undefined,
+              WebkitLineClamp: compact ? 2 : undefined,
+              WebkitBoxOrient: compact ? "vertical" : undefined,
+              overflow: compact ? "hidden" : undefined,
+            }}
+          >
+            {notification.message}
+          </div>
+
+          {notification.href ? (
+            <div style={{ marginTop: compact ? 6 : 10 }}>
+              <Link
+                className="btn btn-ghost"
+                style={{ padding: compact ? "5px 10px" : "7px 12px", fontSize: compact ? 11 : 12 }}
+                to={notification.href}
+                onClick={handleOpen}
+              >
+                View
+              </Link>
+            </div>
+          ) : null}
+        </div>
+
+        {!notification.read ? (
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{
+              padding: compact ? "4px 8px" : "6px 10px",
+              fontSize: compact ? 10 : 12,
+              flexShrink: 0,
+              alignSelf: "flex-start",
+            }}
+            onClick={() => onMarkRead(notification.id)}
+          >
+            Read
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 export default function NotificationsPanel({
   notifications,
@@ -8,6 +136,8 @@ export default function NotificationsPanel({
   onMarkRead,
   isMobile = false,
 }) {
+  const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
+
   return (
     <div
       onClick={(e) => {
@@ -17,22 +147,30 @@ export default function NotificationsPanel({
         position: "fixed",
         inset: 0,
         zIndex: 950,
-        background: "rgba(0,0,0,0.35)",
+        background: "rgba(0,0,0,0.4)",
         backdropFilter: "blur(2px)",
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "flex-end",
+        padding: isMobile
+          ? "calc(56px + env(safe-area-inset-top, 0px)) 12px 12px"
+          : "76px 24px 24px",
       }}
     >
       <div
         className="glass"
+        role="dialog"
+        aria-label="Notifications"
+        onClick={(e) => e.stopPropagation()}
         style={{
-          position: "absolute",
-          top: isMobile ? "calc(56px + env(safe-area-inset-top, 0px))" : 76,
-          left: isMobile ? 12 : "auto",
-          right: isMobile ? 12 : 24,
-          width: isMobile ? "auto" : 420,
-          maxWidth: isMobile ? "none" : "calc(100vw - 32px)",
-          maxHeight: isMobile ? "min(70vh, calc(100dvh - 120px))" : undefined,
-          borderRadius: 16,
+          width: isMobile ? "min(100%, 320px)" : 420,
+          maxWidth: isMobile ? "calc(100vw - 24px)" : "calc(100vw - 32px)",
+          maxHeight: isMobile ? "min(48dvh, 340px)" : "min(70vh, 560px)",
+          borderRadius: 14,
           overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          boxShadow: "0 16px 48px rgba(0,0,0,0.4)",
         }}
       >
         <div
@@ -40,99 +178,62 @@ export default function NotificationsPanel({
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: "14px 16px",
+            padding: isMobile ? "10px 12px" : "14px 16px",
             borderBottom: "1px solid var(--border)",
+            flexShrink: 0,
           }}
         >
-          <div style={{ fontWeight: 800 }}>Notifications</div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <button className="btn btn-ghost" style={{ padding: "7px 12px", fontSize: 12 }} onClick={onMarkAllRead}>
-              Mark all read
-            </button>
-            <button className="btn btn-ghost" style={{ padding: "7px 12px", fontSize: 12 }} onClick={onClose}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: isMobile ? 14 : 16 }}>Notifications</div>
+            {unreadCount > 0 ? (
+              <div style={{ fontSize: isMobile ? 10 : 12, color: "var(--text3)", marginTop: 1 }}>
+                {unreadCount} unread
+              </div>
+            ) : (
+              <div style={{ fontSize: isMobile ? 10 : 12, color: "var(--text3)", marginTop: 1 }}>
+                You&apos;re all caught up
+              </div>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: isMobile ? 4 : 8, flexShrink: 0 }}>
+            {unreadCount > 0 ? (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ padding: isMobile ? "5px 8px" : "7px 12px", fontSize: isMobile ? 10 : 12 }}
+                onClick={onMarkAllRead}
+              >
+                {isMobile ? "Read all" : "Mark all read"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ padding: isMobile ? "5px 8px" : "7px 12px", fontSize: isMobile ? 10 : 12 }}
+              onClick={onClose}
+            >
               Close
             </button>
           </div>
         </div>
 
-        <div style={{ maxHeight: "60vh", overflow: "auto" }}>
+        <div style={{ overflowY: "auto", flex: 1, WebkitOverflowScrolling: "touch" }}>
           {notifications.length === 0 ? (
-            <div style={{ padding: 18, color: "var(--text3)" }}>No notifications yet.</div>
+            <div style={{ padding: isMobile ? "20px 14px" : "32px 20px", textAlign: "center", color: "var(--text3)" }}>
+              <Icon name="bell" size={isMobile ? 24 : 32} color="var(--text3)" />
+              <p style={{ marginTop: isMobile ? 8 : 12, fontSize: isMobile ? 12 : 14, lineHeight: 1.45 }}>
+                No notifications yet. Follow DJs to hear when they upload, and you&apos;ll get play milestones on your mixes.
+              </p>
+            </div>
           ) : (
             notifications.map((n) => (
-              <div
+              <NotificationRow
                 key={n.id}
-                style={{
-                  padding: "12px 16px",
-                  borderBottom: "1px solid rgba(30,45,69,0.6)",
-                  background: n.read ? "transparent" : "rgba(56,189,248,0.06)",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-                  <div style={{ minWidth: 0, display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    {n.type === "follow" ? (
-                      <span
-                        style={{
-                          flexShrink: 0,
-                          width: 32,
-                          height: 32,
-                          borderRadius: 8,
-                          background: "rgba(52,211,153,0.12)",
-                          border: "1px solid rgba(52,211,153,0.25)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                        aria-hidden
-                      >
-                        <Icon name="people" size={16} color="var(--green)" />
-                      </span>
-                    ) : null}
-                    {n.type === "dm" ? (
-                      <span
-                        style={{
-                          flexShrink: 0,
-                          width: 32,
-                          height: 32,
-                          borderRadius: 8,
-                          background: "rgba(56,189,248,0.12)",
-                          border: "1px solid rgba(56,189,248,0.25)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                        aria-hidden
-                      >
-                        <Icon name="mail" size={16} color="var(--accent)" />
-                      </span>
-                    ) : null}
-                    <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 2 }}>{n.title}</div>
-                    <div style={{ color: "var(--text2)", fontSize: 12, lineHeight: 1.5 }}>{n.message}</div>
-                    <div style={{ color: "var(--text3)", fontSize: 11, marginTop: 6 }}>
-                      {new Date(n.createdAt).toLocaleString()}
-                    </div>
-                    </div>
-                  </div>
-                  {!n.read ? (
-                    <button
-                      className="btn btn-ghost"
-                      style={{ padding: "6px 10px", fontSize: 12, flexShrink: 0 }}
-                      onClick={() => onMarkRead(n.id)}
-                    >
-                      Read
-                    </button>
-                  ) : null}
-                </div>
-
-                {n.href ? (
-                  <div style={{ marginTop: 10 }}>
-                    <Link className="btn btn-ghost" style={{ padding: "7px 12px", fontSize: 12 }} to={n.href} onClick={onClose}>
-                      View
-                    </Link>
-                  </div>
-                ) : null}
-              </div>
+                notification={n}
+                onClose={onClose}
+                onMarkRead={onMarkRead}
+                compact={isMobile}
+              />
             ))
           )}
         </div>
@@ -140,4 +241,3 @@ export default function NotificationsPanel({
     </div>
   );
 }
-

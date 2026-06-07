@@ -1,5 +1,7 @@
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import TrackCard from "../components/TrackCard.jsx";
 import UserAvatar from "../components/UserAvatar.jsx";
 import VerifiedBadge from "../components/VerifiedBadge.jsx";
@@ -11,6 +13,11 @@ export default function ProfilePage() {
   const { auth, episodes, users, player } = useApp();
   const user = auth.currentUser;
   const isCompact = useMediaQuery("(max-width: 720px)");
+
+  const userEps = useMemo(
+    () => (user ? episodes.filter((e) => e.userId === user.id) : []),
+    [episodes, user],
+  );
 
   if (!user) {
     return (
@@ -29,158 +36,165 @@ export default function ProfilePage() {
         <Icon name="user" size={isCompact ? 36 : 48} color="var(--text3)" />
         <h2 style={{ marginTop: 16, marginBottom: 8, fontSize: isCompact ? 20 : 24 }}>Sign in to view your profile</h2>
         <p style={{ color: "var(--text2)", marginBottom: 24, fontSize: isCompact ? 14 : 15, maxWidth: 320 }}>
-          Your profile is available once you sign in.
+          Your public profile and mixes live here once you sign in.
         </p>
-        <button className="btn btn-primary" onClick={() => auth.setShowAuth(true)}>
+        <button type="button" className="btn btn-primary" onClick={() => auth.setShowAuth(true)}>
           Sign In / Register
         </button>
       </div>
     );
   }
 
-  const userEps = episodes.filter((e) => e.userId === user.id);
-
-  const avatarSize = isCompact ? 80 : 108;
+  const pagePad = isCompact ? "16px 12px" : "32px 36px";
+  const avatarSize = isCompact ? 72 : 88;
 
   return (
-    <div className="fade-in" style={{ paddingBottom: 100 }}>
-      <div style={{ padding: isCompact ? "16px 12px 0" : "32px 36px 0" }}>
-        {isCompact ? (
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 10 }}>
-              <UserAvatar
-                user={user}
-                size={avatarSize}
-                style={{
-                  border: "3px solid var(--bg)",
-                  boxShadow: "0 0 0 2px var(--accent2)",
-                  flexShrink: 0,
-                }}
-              />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-                  <h1 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>{user.username}</h1>
-                  {user.verified ? (
-                    <>
-                      <VerifiedBadge size={16} />
-                      <span className="tag tag-green" style={{ fontSize: 9 }}>
-                        Verified artist
-                      </span>
-                    </>
-                  ) : null}
-                </div>
-                <div style={{ fontSize: 12, color: "var(--text2)" }}>
-                  {user.handle} · {user.location}
-                </div>
-              </div>
-            </div>
-            <Link
-              to="/settings"
-              className="btn btn-ghost"
-              style={{ width: "100%", justifyContent: "center", textDecoration: "none", padding: "10px 14px" }}
-            >
-              <Icon name="edit" size={14} />
-              Edit Profile
-            </Link>
-          </div>
-        ) : (
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 20, marginBottom: 20 }}>
+    <div className="fade-in" style={{ padding: pagePad, paddingBottom: 120 }}>
+      <div style={{ maxWidth: 900, margin: "0 auto" }}>
+        <PageHeader icon="user" title="MY PROFILE" />
+
+        <div
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: isCompact ? 12 : 16,
+            padding: isCompact ? "14px" : "18px 20px",
+            marginBottom: isCompact ? 14 : 18,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: isCompact ? "flex-start" : "center",
+              gap: isCompact ? 12 : 18,
+              flexDirection: isCompact ? "column" : "row",
+            }}
+          >
             <UserAvatar
               user={user}
               size={avatarSize}
               style={{
-                border: "4px solid var(--bg)",
+                border: "3px solid var(--bg)",
                 boxShadow: "0 0 0 2px var(--accent2)",
+                flexShrink: 0,
               }}
             />
-            <div style={{ flex: 1, paddingBottom: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
-                <h1 style={{ fontSize: 26, fontWeight: 800 }}>{user.username}</h1>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                <span style={{ fontWeight: 800, fontSize: isCompact ? 18 : 22 }}>{user.username}</span>
                 {user.verified ? (
                   <>
-                    <VerifiedBadge size={18} />
-                    <span className="tag tag-green" style={{ fontSize: 11 }}>
+                    <VerifiedBadge size={15} />
+                    <span className="tag tag-green" style={{ fontSize: 10 }}>
                       Verified artist
                     </span>
                   </>
                 ) : null}
+                {user.genre ? (
+                  <span className="tag tag-blue" style={{ fontSize: 10 }}>
+                    {user.genre}
+                  </span>
+                ) : null}
               </div>
-              <div style={{ fontSize: 13, color: "var(--text2)" }}>
-                {user.handle} · {user.location}
+              <div style={{ fontSize: isCompact ? 12 : 13, color: "var(--text2)" }}>
+                {user.handle}
+                {user.location ? ` · ${user.location}` : ""}
               </div>
+              {user.bio ? (
+                <p
+                  style={{
+                    color: "var(--text2)",
+                    margin: "10px 0 0",
+                    lineHeight: 1.55,
+                    fontSize: isCompact ? 13 : 14,
+                    maxWidth: 560,
+                  }}
+                >
+                  {user.bio}
+                </p>
+              ) : null}
             </div>
-            <Link to="/settings" className="btn btn-ghost" style={{ marginBottom: 8, textDecoration: "none" }}>
-              <Icon name="edit" size={14} />
-              Edit Profile
+            <Link
+              to="/settings"
+              className="btn btn-ghost"
+              style={{
+                textDecoration: "none",
+                flexShrink: 0,
+                width: isCompact ? "100%" : "auto",
+                justifyContent: "center",
+              }}
+            >
+              <Icon name="settings" size={14} />
+              Edit profile
             </Link>
           </div>
-        )}
-
-        <p
-          style={{
-            color: "var(--text2)",
-            maxWidth: 600,
-            marginBottom: isCompact ? 16 : 24,
-            lineHeight: 1.65,
-            fontSize: isCompact ? 13 : 15,
-          }}
-        >
-          {user.bio}
-        </p>
+        </div>
 
         <div
           style={{
             display: "flex",
-            flexWrap: "wrap",
-            gap: isCompact ? 6 : 8,
-            marginBottom: isCompact ? 20 : 28,
             alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            marginBottom: isCompact ? 12 : 16,
           }}
         >
-          <span className="tag tag-blue" style={{ fontSize: isCompact ? 11 : 12 }}>
-            {user.genre}
-          </span>
-          <Link
-            to="/connections"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 5,
-              fontSize: isCompact ? 12 : 13,
-              color: "var(--text3)",
-              textDecoration: "none",
-            }}
-          >
-            <Icon name="people" size={isCompact ? 12 : 14} color="var(--text3)" />
-            {fmt(user.followers)} followers
-          </Link>
+          <h2 style={{ fontWeight: 700, margin: 0, fontSize: isCompact ? 15 : 17 }}>
+            Your mixes
+            {userEps.length > 0 ? (
+              <span style={{ color: "var(--text3)", fontWeight: 500, marginLeft: 8, fontSize: isCompact ? 12 : 14 }}>
+                {userEps.length}
+              </span>
+            ) : null}
+          </h2>
           <Link
             to="/connections?tab=following"
-            style={{ fontSize: isCompact ? 12 : 13, color: "var(--text3)", textDecoration: "none" }}
+            style={{ fontSize: isCompact ? 11 : 12, color: "var(--text3)", textDecoration: "none" }}
           >
-            · {fmt(user.following)} following
+            {fmt(user.following || 0)} following
           </Link>
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: isCompact ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fill, minmax(220px, 1fr))",
-            gap: isCompact ? 10 : 16,
-          }}
-        >
-          {userEps.map((ep) => (
-            <TrackCard
-              key={ep.id}
-              episode={ep}
-              users={users}
-              compact={isCompact}
-              isActive={player.currentTrack?.id === ep.id}
-              isPlaying={player.isPlaying && player.currentTrack?.id === ep.id}
-              onPlay={player.playTrack}
-            />
-          ))}
-        </div>
+        {userEps.length === 0 ? (
+          <div
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: isCompact ? 12 : 16,
+              padding: isCompact ? "24px 16px" : "32px 24px",
+              textAlign: "center",
+            }}
+          >
+            <Icon name="music" size={isCompact ? 32 : 40} color="var(--text3)" />
+            <p style={{ color: "var(--text2)", marginTop: 12, marginBottom: 16, fontSize: isCompact ? 13 : 14 }}>
+              No mixes on your profile yet. Upload your first set to get started.
+            </p>
+            <Link to="/upload" className="btn btn-primary" style={{ textDecoration: "none" }}>
+              <Icon name="upload" size={15} />
+              Upload a mix
+            </Link>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: isCompact ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fill, minmax(220px, 1fr))",
+              gap: isCompact ? 10 : 16,
+            }}
+          >
+            {userEps.map((ep) => (
+              <TrackCard
+                key={ep.id}
+                episode={ep}
+                users={users}
+                compact={isCompact}
+                isActive={player.currentTrack?.id === ep.id}
+                isPlaying={player.isPlaying && player.currentTrack?.id === ep.id}
+                onPlay={player.playTrack}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -26,14 +26,18 @@ export default function TopBar({
       "/foryou": "For You",
       "/live": "Live Streams",
       "/top10": "Top 10",
-      "/upload": "Upload",
+      "/upload": "Upload Mix",
       "/profile": "My Profile",
+      "/connections": "Connections",
+      "/likes": "Likes",
       "/stats": "Statistics",
       "/settings": "Settings",
       "/admin": "Administration",
       "/register": "Create account",
+      "/dj": "Let's DJ",
     };
     if (location.pathname.startsWith("/user/")) return "Profile";
+    if (location.pathname.startsWith("/mix/")) return "Mix";
     if (location.pathname === "/messages") return "Messages";
     if (location.pathname.startsWith("/messages/")) return "Conversation";
     return map[location.pathname] || "Music Vault by DHLab";
@@ -80,10 +84,10 @@ export default function TopBar({
         flexDirection: isMobile ? "column" : "row",
         alignItems: isMobile ? "stretch" : "center",
         gap: isMobile ? 10 : 16,
-        position: pinHeader ? "relative" : "sticky",
-        top: pinHeader ? undefined : 0,
+        position: "sticky",
+        top: 0,
         zIndex: pinHeader ? 120 : 100,
-        flexShrink: pinHeader ? 0 : undefined,
+        flexShrink: 0,
         width: "100%",
         boxSizing: "border-box",
         ...(isMobile

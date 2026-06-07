@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
@@ -196,104 +197,129 @@ export default function AdminDashboardPage() {
     ? { thL: "8px 10px", thS: "8px 6px", tdL: "8px 10px", tdS: "8px 6px" }
     : { thL: "12px 14px", thS: "12px 8px", tdL: "10px 14px", tdS: "10px 8px" };
 
+  const pagePad = isCompact ? "16px 12px" : "32px 36px";
+
   return (
-    <div className="fade-in" style={{ padding: isCompact ? "16px 12px" : "32px 36px", paddingBottom: 120 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-        <Icon name="shield" size={isCompact ? 22 : 28} color="var(--accent)" />
-        <h1 style={{ fontFamily: "var(--ff-display)", fontSize: isCompact ? 28 : 36, letterSpacing: "0.04em" }}>ADMIN</h1>
-      </div>
-      <p style={{ color: "var(--text2)", marginBottom: isCompact ? 16 : 24, maxWidth: 640, fontSize: isCompact ? 13 : 15, lineHeight: 1.55 }}>
-        Moderate users, verified artists, and mixes. Destructive actions are logged. Full Auth user deletion still
-        requires the Supabase Dashboard.
-      </p>
+    <div className="fade-in" style={{ padding: pagePad, paddingBottom: 120 }}>
+      <div style={{ maxWidth: 960, margin: "0 auto" }}>
+        <PageHeader icon="shield" title="ADMIN" />
 
-      {error ? (
-        <div
-          style={{
-            marginBottom: 16,
-            padding: isCompact ? "10px 12px" : "12px 14px",
-            borderRadius: isCompact ? 8 : 10,
-            background: "rgba(239,68,68,0.12)",
-            border: "1px solid rgba(239,68,68,0.35)",
-            color: "#fecaca",
-            fontSize: isCompact ? 12 : 13,
-          }}
-        >
-          {error}
-        </div>
-      ) : null}
-
-      <div style={{ display: "flex", flexWrap: "wrap", gap: isCompact ? 6 : 8, marginBottom: isCompact ? 16 : 24 }}>
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            className={tab === t.id ? "btn btn-primary" : "btn btn-ghost"}
-            style={{ padding: isCompact ? "6px 10px" : "8px 14px", fontSize: isCompact ? 12 : 13 }}
-            onClick={() => setTab(t.id)}
+        {error ? (
+          <div
+            style={{
+              marginBottom: 16,
+              padding: isCompact ? "10px 12px" : "12px 14px",
+              borderRadius: 10,
+              background: "rgba(248,113,113,0.1)",
+              border: "1px solid rgba(248,113,113,0.25)",
+              color: "var(--red)",
+              fontSize: isCompact ? 12 : 13,
+            }}
           >
-            <Icon name={t.icon} size={isCompact ? 13 : 15} />
-            {t.label}
-          </button>
-        ))}
-      </div>
+            {error}
+          </div>
+        ) : null}
 
-      {tab === "overview" && (
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: isCompact ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fill, minmax(160px, 1fr))",
-            gap: isCompact ? 10 : 14,
+            display: "flex",
+            gap: 4,
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+            padding: 4,
+            marginBottom: isCompact ? 16 : 20,
+            width: "100%",
+            overflowX: "auto",
+            WebkitOverflowScrolling: "touch",
           }}
         >
-          {[
-            { label: "Users", value: overview.users, icon: "people", color: "var(--accent)" },
-            { label: "Mixes", value: overview.mixes, icon: "music", color: "#A78BFA" },
-            { label: "Banned", value: overview.banned, icon: "x", color: "var(--red)" },
-            { label: "Verified artists", value: overview.verifiedArtists, icon: "award", color: "var(--orange)" },
-            { label: "Admins", value: overview.admins, icon: "shield", color: "var(--green)" },
-          ].map((c) => (
-            <div
-              key={c.label}
-              className="stat-card"
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
               style={{
-                padding: isCompact ? "12px 12px" : undefined,
-                borderRadius: isCompact ? 12 : undefined,
+                flex: isCompact ? "0 0 auto" : 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                padding: isCompact ? "8px 12px" : "8px 10px",
+                borderRadius: 8,
+                fontSize: 12,
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+                background: tab === t.id ? "var(--accent2)" : "transparent",
+                color: tab === t.id ? "#07090F" : "var(--text2)",
+                transition: "all 0.2s",
               }}
             >
-              <div
-                style={{
-                  width: isCompact ? 30 : 36,
-                  height: isCompact ? 30 : 36,
-                  borderRadius: 8,
-                  background: `${c.color}18`,
-                  border: `1px solid ${c.color}30`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginBottom: isCompact ? 8 : 10,
-                }}
-              >
-                <Icon name={c.icon} size={isCompact ? 14 : 16} color={c.color} />
-              </div>
-              <div
-                style={{
-                  fontSize: isCompact ? 20 : 26,
-                  fontWeight: 800,
-                  fontFamily: "var(--ff-mono)",
-                  lineHeight: 1.1,
-                }}
-              >
-                {c.value}
-              </div>
-              <div style={{ fontSize: isCompact ? 10 : 12, color: "var(--text3)", marginTop: 2, lineHeight: 1.3 }}>{c.label}</div>
-            </div>
+              <Icon name={t.icon} size={14} />
+              {t.label}
+            </button>
           ))}
         </div>
-      )}
 
-      {tab === "users" &&
-        tableShell(
+        {tab === "overview" && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: isCompact ? "repeat(2, minmax(0, 1fr))" : "repeat(5, minmax(0, 1fr))",
+              gap: isCompact ? 8 : 12,
+            }}
+          >
+            {[
+              { label: "Users", value: overview.users, icon: "people", color: "var(--accent)" },
+              { label: "Mixes", value: overview.mixes, icon: "music", color: "#A78BFA" },
+              { label: "Banned", value: overview.banned, icon: "x", color: "var(--red)" },
+              { label: "Verified", value: overview.verifiedArtists, icon: "award", color: "var(--orange)" },
+              { label: "Admins", value: overview.admins, icon: "shield", color: "var(--green)" },
+            ].map((c) => (
+              <div
+                key={c.label}
+                className="stat-card"
+                style={{
+                  padding: isCompact ? "12px 10px" : "16px 14px",
+                  borderRadius: isCompact ? 12 : 14,
+                  textAlign: "center",
+                }}
+              >
+                <div
+                  style={{
+                    width: isCompact ? 28 : 32,
+                    height: isCompact ? 28 : 32,
+                    borderRadius: 8,
+                    background: `${c.color}18`,
+                    border: `1px solid ${c.color}30`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    margin: "0 auto 8px",
+                  }}
+                >
+                  <Icon name={c.icon} size={isCompact ? 13 : 15} color={c.color} />
+                </div>
+                <div
+                  style={{
+                    fontSize: isCompact ? 18 : 22,
+                    fontWeight: 800,
+                    fontFamily: "var(--ff-mono)",
+                    lineHeight: 1.1,
+                  }}
+                >
+                  {c.value}
+                </div>
+                <div style={{ fontSize: isCompact ? 10 : 11, color: "var(--text3)", marginTop: 2 }}>{c.label}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === "users" && (
+          <section>
+            <h2 style={{ fontWeight: 700, margin: "0 0 12px", fontSize: isCompact ? 14 : 16 }}>User management</h2>
+            {tableShell(
           <>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)", textAlign: "left" }}>
@@ -403,11 +429,15 @@ export default function AdminDashboardPage() {
               })}
             </tbody>
           </>,
-          isCompact,
+              isCompact,
+            )}
+          </section>
         )}
 
-      {tab === "mixes" &&
-        tableShell(
+        {tab === "mixes" && (
+          <section>
+            <h2 style={{ fontWeight: 700, margin: "0 0 12px", fontSize: isCompact ? 14 : 16 }}>Mix catalog</h2>
+            {tableShell(
           <>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)", textAlign: "left" }}>
@@ -465,11 +495,15 @@ export default function AdminDashboardPage() {
               })}
             </tbody>
           </>,
-          isCompact,
+              isCompact,
+            )}
+          </section>
         )}
 
-      {tab === "logs" &&
-        tableShell(
+        {tab === "logs" && (
+          <section>
+            <h2 style={{ fontWeight: 700, margin: "0 0 12px", fontSize: isCompact ? 14 : 16 }}>Audit log</h2>
+            {tableShell(
           <>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)", textAlign: "left" }}>
@@ -511,8 +545,11 @@ export default function AdminDashboardPage() {
               ))}
             </tbody>
           </>,
-          isCompact,
+              isCompact,
+            )}
+          </section>
         )}
+      </div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
@@ -58,22 +59,20 @@ export default function LetsDJPage() {
   return (
     <div className="fade-in" style={{ padding: isCompact ? "16px 12px 100px" : "24px 28px 100px", maxWidth: 1400, margin: "0 auto" }}>
       <div style={{ marginBottom: 20, display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: 16 }}>
-        <div>
+        <PageHeader marginBottom={0}>
           <h1
             style={{
               fontFamily: "var(--ff-display)",
-              fontSize: isCompact ? 32 : 42,
+              fontSize: 42,
               letterSpacing: "0.08em",
               color: "#e2e8f0",
               textShadow: "0 0 40px rgba(52,211,153,0.15)",
+              margin: 0,
             }}
           >
             LET&apos;S DJ
           </h1>
-          <p style={{ color: "var(--text2)", fontSize: 14, marginTop: 6, maxWidth: 560 }}>
-            Two-deck Web Audio mixer with crossfader, tempo, FX, waveform, auto mix, recording, and profile publish.
-          </p>
-        </div>
+        </PageHeader>
         <div
           style={{
             padding: "10px 14px",

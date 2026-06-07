@@ -129,7 +129,8 @@ export default function AppLayout() {
           <div
             style={{
               flexShrink: 0,
-              position: "relative",
+              position: isMobile && isForYou ? "sticky" : "relative",
+              top: isMobile && isForYou ? 0 : undefined,
               zIndex: isMobile && isForYou ? 120 : undefined,
               width: "100%",
             }}

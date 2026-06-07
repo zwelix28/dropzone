@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import TrackCard from "../components/TrackCard.jsx";
 import { GENRES } from "../constants/genres.js";
 import { useApp } from "../context/AppContext.jsx";
@@ -34,19 +35,7 @@ export default function DiscoverPage() {
         paddingBottom: 100,
       }}
     >
-      <h1
-        style={{
-          fontFamily: "var(--ff-display)",
-          fontSize: isCompact ? 28 : 40,
-          letterSpacing: "0.04em",
-          marginBottom: 6,
-        }}
-      >
-        DISCOVER
-      </h1>
-      <p style={{ color: "var(--text2)", marginBottom: isCompact ? 16 : 28, fontSize: isCompact ? 13 : 15 }}>
-        Explore music & mixes from labels and independent artists and podcasters
-      </p>
+      <PageHeader title="DISCOVER" large marginBottom={28} />
 
       <div style={{ display: "flex", gap: 12, marginBottom: isCompact ? 16 : 28, flexWrap: "wrap" }}>
         <div style={{ display: "flex", gap: isCompact ? 6 : 6, flexWrap: "wrap" }}>

@@ -1,14 +1,8 @@
 export const GENRES = [
   "Tech House",
   "Deep House",
-  "Drum & Bass",
-  "Techno",
-  "Afrobeats",
+  "Soulful House",
+  "Classic House",
+  "Jazz House",
   "Amapiano",
-  "Hip-Hop",
-  "Jungle",
-  "Dubstep",
-  "Garage",
-  "Trance",
-  "Electro",
 ];

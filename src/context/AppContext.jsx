@@ -7,17 +7,6 @@ import { mixRowToEpisode, notificationRowToApp, profileRowToUser } from "../lib/
 
 const AppContext = createContext(null);
 
-const MILESTONES = [10, 50, 100, 250, 500, 1000, 5000, 10000, 50000, 100000];
-
-function nextMilestoneHit(value, lastNotified) {
-  const v = Number(value || 0);
-  const last = Number(lastNotified || 0);
-  for (const m of MILESTONES) {
-    if (m > last && v >= m) return m;
-  }
-  return null;
-}
-
 export function AppProvider({ children }) {
   const auth = useAuth();
   const location = useLocation();
@@ -49,9 +38,6 @@ export function AppProvider({ children }) {
   const [likedMixIds, setLikedMixIds] = useState([]);
   const [dataError, setDataError] = useState(null);
   const [dmUnreadCount, setDmUnreadCount] = useState(0);
-
-  const top10NotifiedRef = useRef(new Set());
-  const milestoneRef = useRef(new Map());
 
   const refreshMixes = useCallback(async () => {
     if (!isSupabaseConfigured()) {
@@ -97,13 +83,7 @@ export function AppProvider({ children }) {
       .order("created_at", { ascending: false })
       .limit(200);
     if (error) return;
-    const fromDb = (data || []).map(notificationRowToApp).filter(Boolean);
-    setNotifications((prev) => {
-      const locals = prev.filter((x) => String(x.id).startsWith("local_"));
-      return [...locals, ...fromDb].sort(
-        (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
-      );
-    });
+    setNotifications((data || []).map(notificationRowToApp).filter(Boolean));
   }, [auth.session?.user?.id]);
 
   const refreshDmUnreadCount = useCallback(async () => {
@@ -333,51 +313,10 @@ export function AppProvider({ children }) {
     [auth.session?.user?.id, refreshNotifications, refreshDmUnreadCount],
   );
 
-  /** Client-side only (milestones / top10 extras). DB handles download/share rows via RPC. */
-  const notify = useCallback((userId, notification) => {
-    if (!userId) return;
-    const n = {
-      id: notification.id || `local_${Date.now()}_${Math.random().toString(16).slice(2)}`,
-      createdAt: notification.createdAt || new Date().toISOString(),
-      read: Boolean(notification.read),
-      type: notification.type || "info",
-      title: notification.title || "Notification",
-      message: notification.message || "",
-      href: notification.href || null,
-      episodeId: notification.episodeId || null,
-      meta: notification.meta || {},
-    };
-    setNotifications((prev) => {
-      if (auth.session?.user?.id !== userId) return prev;
-      return [n, ...prev].slice(0, 200);
-    });
-  }, [auth.session?.user?.id]);
-
-  useEffect(() => {
-    const byDownloads = [...episodes].sort((a, b) => (b.downloads || 0) - (a.downloads || 0)).slice(0, 10);
-    const byPlays = [...episodes].sort((a, b) => (b.plays || 0) - (a.plays || 0)).slice(0, 10);
-    const topIds = new Set([...byDownloads, ...byPlays].map((e) => e.id));
-
-    for (const ep of episodes) {
-      if (!topIds.has(ep.id)) continue;
-      if (top10NotifiedRef.current.has(ep.id)) continue;
-      top10NotifiedRef.current.add(ep.id);
-      notify(ep.userId, {
-        type: "top10",
-        title: "Your mix is in the Top 10",
-        message: `"${ep.title}" just entered the Top 10.`,
-        href: `/mix/${ep.id}`,
-        episodeId: ep.id,
-      });
-    }
-  }, [episodes, notify]);
-
   const trackEvent = useCallback(
     async (event) => {
-      const { kind, episodeId, actorUserId } = event || {};
+      const { kind, episodeId } = event || {};
       if (!kind || !episodeId || !isSupabaseConfigured()) return;
-
-      const before = episodes.find((e) => e.id === episodeId);
 
       const { error } = await supabase.rpc("record_mix_interaction", {
         p_mix_id: episodeId,
@@ -388,32 +327,10 @@ export function AppProvider({ children }) {
         return;
       }
 
-      const list = await refreshMixes();
+      await refreshMixes();
       await refreshNotifications();
-
-      const after = list.find((e) => e.id === episodeId);
-      if (!after || !before) return;
-
-      if (actorUserId && actorUserId === after.userId) return;
-
-      const valAfter = kind === "play" ? after.plays : kind === "download" ? after.downloads : after.shares;
-      const key = `${episodeId}:${kind}`;
-      const last = milestoneRef.current.get(key) || 0;
-      const hit = nextMilestoneHit(valAfter, last);
-      if (hit) {
-        milestoneRef.current.set(key, hit);
-        const label = kind === "play" ? "plays" : kind === "download" ? "downloads" : "shares";
-        notify(after.userId, {
-          type: "milestone",
-          title: "Milestone reached",
-          message: `"${after.title}" hit ${hit.toLocaleString()} ${label}.`,
-          href: `/mix/${after.id}`,
-          episodeId: after.id,
-          meta: { kind, milestone: hit },
-        });
-      }
     },
-    [episodes, refreshMixes, refreshNotifications, notify],
+    [refreshMixes, refreshNotifications],
   );
 
   const updateMix = useCallback(
@@ -451,7 +368,6 @@ export function AppProvider({ children }) {
       markRead,
       trackEvent,
       updateMix,
-      notify,
       dataError,
       supabaseReady: isSupabaseConfigured(),
       likedMixIds,
@@ -478,7 +394,6 @@ export function AppProvider({ children }) {
       markRead,
       trackEvent,
       updateMix,
-      notify,
       dataError,
       likedMixIds,
       refreshLikes,

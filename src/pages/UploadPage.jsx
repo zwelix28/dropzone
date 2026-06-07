@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import { GENRES } from "../constants/genres.js";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
@@ -285,19 +286,7 @@ export default function UploadPage() {
         margin: isCompact ? 0 : undefined,
       }}
     >
-      <h1
-        style={{
-          fontFamily: "var(--ff-display)",
-          fontSize: isCompact ? 28 : 40,
-          letterSpacing: "0.04em",
-          marginBottom: 6,
-        }}
-      >
-        UPLOAD MIX
-      </h1>
-      <p style={{ color: "var(--text2)", marginBottom: isCompact ? 20 : 32, fontSize: isCompact ? 13 : 15 }}>
-        Share your mix with Music Vault by DHLab
-      </p>
+      <PageHeader title="UPLOAD MIX" large marginBottom={32} />
 
       <div style={{ display: "flex", gap: 0, marginBottom: isCompact ? 20 : 36, width: "100%" }}>
         {stepLabels.map((s, i) => (

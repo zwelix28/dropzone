@@ -136,11 +136,14 @@ export default function ForYouPage() {
     const clamped = Math.max(0, Math.min(feed.length - 1, nextIndex));
     programmaticScrollRef.current = true;
     setIndex(clamped);
+    const root = containerRef.current;
     const el = slideRefs.current[clamped];
-    if (el) el.scrollIntoView({ behavior, block: "start" });
+    if (root && el) {
+      root.scrollTo({ top: el.offsetTop, behavior });
+    }
     window.setTimeout(() => {
       programmaticScrollRef.current = false;
-    }, behavior === "smooth" ? 280 : 0);
+    }, behavior === "smooth" ? 400 : 0);
   }, [feed.length]);
 
   const startPreview = useCallback(
@@ -676,6 +679,22 @@ export default function ForYouPage() {
                           <Icon name="download" size={18} color="#fff" />
                         </ActionButton>
                       </div>
+                      {i < feed.length - 1 ? (
+                        <p
+                          style={{
+                            marginTop: 14,
+                            marginBottom: 0,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color: "rgba(255,255,255,0.55)",
+                            letterSpacing: "0.1em",
+                            textAlign: "center",
+                            textShadow: "0 1px 10px rgba(0,0,0,0.65)",
+                          }}
+                        >
+                          SWIPE UP · NEXT MIX
+                        </p>
+                      ) : null}
                     </div>
                   ) : showProgress ? (
                     <div style={{ marginTop: 14, width: "100%", maxWidth: 320 }}>
@@ -687,22 +706,26 @@ export default function ForYouPage() {
                 </div>
               </div>
 
-              <p
-                style={{
-                  position: "absolute",
-                  bottom: 16,
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  fontSize: 11,
-                  color: isCompact ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.45)",
-                  letterSpacing: "0.08em",
-                  zIndex: 2,
-                  margin: 0,
-                  pointerEvents: "none",
-                }}
-              >
-                SWIPE UP · NEXT MIX
-              </p>
+              {!isCompact && i < feed.length - 1 ? (
+                <p
+                  style={{
+                    position: "absolute",
+                    bottom: 16,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "rgba(255,255,255,0.45)",
+                    letterSpacing: "0.1em",
+                    zIndex: 5,
+                    margin: 0,
+                    pointerEvents: "none",
+                    textShadow: "0 1px 10px rgba(0,0,0,0.65)",
+                  }}
+                >
+                  SWIPE UP · NEXT MIX
+                </p>
+              ) : null}
             </section>
           );
         })}

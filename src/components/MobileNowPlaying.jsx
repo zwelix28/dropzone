@@ -1,9 +1,12 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "./Icon.jsx";
 import LikeButton from "./LikeButton.jsx";
 import UserAvatar from "./UserAvatar.jsx";
 import VerifiedBadge from "./VerifiedBadge.jsx";
+import { useApp } from "../context/AppContext.jsx";
+import { episodeHasAudioSource } from "../lib/audioUrls.js";
+import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
 import { fmtPlayerTime } from "../lib/format.js";
 import { getGuestPreviewSegment } from "../lib/forYouPreview.js";
 
@@ -33,18 +36,17 @@ export default function MobileNowPlaying({
   onToggleShuffle,
 }) {
   const navigate = useNavigate();
+  const { likedMixIds, trackEvent, auth } = useApp();
   const swipeRef = useRef({ y0: 0, x0: 0, armed: false });
   const progressRef = useRef(null);
   const scrubbingRef = useRef(false);
+  const [toast, setToast] = useState("");
 
-  if (!track) return null;
-
-  const fallbackTotal = guestPreviewOnly
-    ? Math.floor(getGuestPreviewSegment(track.durationSecs).windowSec)
-    : Math.floor(Math.max(0, Number(track.durationSecs) || 0));
-  const totalSec = durationSec > 0 ? durationSec : fallbackTotal;
-  const elapsedSec = totalSec > 0 ? Math.min(totalSec, Math.floor((totalSec * progress) / 100)) : 0;
-  const remainingSec = Math.max(0, totalSec - elapsedSec);
+  useEffect(() => {
+    if (!toast) return;
+    const t = window.setTimeout(() => setToast(""), 2800);
+    return () => window.clearTimeout(t);
+  }, [toast]);
 
   const setSeekFromClientX = useCallback(
     (clientX) => {
@@ -56,6 +58,37 @@ export default function MobileNowPlaying({
     },
     [onSeek],
   );
+
+  if (!track) return null;
+
+  const liked = likedMixIds.includes(track.id);
+  const hasAudioSource = episodeHasAudioSource(track);
+
+  const handleDownload = async () => {
+    if (!hasAudioSource) {
+      setToast("No audio available to download");
+      return;
+    }
+    if (!liked) {
+      setToast("Like this mix to unlock download");
+      return;
+    }
+    setToast("Preparing download…");
+    const { ok } = await downloadMixWithMetadata(track, { artist: user });
+    if (!ok) {
+      setToast("Download unavailable");
+      return;
+    }
+    setToast("Downloading full mix…");
+    void trackEvent({ kind: "download", episodeId: track.id, actorUserId: auth.currentUser?.id });
+  };
+
+  const fallbackTotal = guestPreviewOnly
+    ? Math.floor(getGuestPreviewSegment(track.durationSecs).windowSec)
+    : Math.floor(Math.max(0, Number(track.durationSecs) || 0));
+  const totalSec = durationSec > 0 ? durationSec : fallbackTotal;
+  const elapsedSec = totalSec > 0 ? Math.min(totalSec, Math.floor((totalSec * progress) / 100)) : 0;
+  const remainingSec = Math.max(0, totalSec - elapsedSec);
 
   const onSwipeTouchStart = (e) => {
     const t = e.touches[0];
@@ -343,13 +376,29 @@ export default function MobileNowPlaying({
 
           <div className="mobile-now-playing-controls">
             <div className="mobile-now-playing-controls-inner">
-            <div className="mobile-np-actions">
+            <div className="mobile-np-actions" style={{ flexWrap: "wrap" }}>
               {track.genre ? (
                 <span className="tag tag-blue mobile-np-float-chip" style={{ fontSize: 10, padding: "5px 10px" }}>
                   {track.genre}
                 </span>
               ) : null}
               <LikeButton mixId={track.id} variant="inline" size="sm" className="mobile-np-float-like" />
+              <button
+                type="button"
+                className="btn btn-ghost mobile-np-float-like"
+                onClick={() => void handleDownload()}
+                disabled={!hasAudioSource}
+                aria-label={liked ? "Download full mix" : "Like to download"}
+                title={liked ? "Download full mix" : "Like this mix to unlock download"}
+                style={{
+                  fontSize: 12,
+                  opacity: hasAudioSource ? 1 : 0.45,
+                  cursor: hasAudioSource ? "pointer" : "not-allowed",
+                }}
+              >
+                <Icon name="download" size={15} color={liked ? "var(--accent)" : "var(--text3)"} />
+                <span style={{ marginLeft: 6 }}>{liked ? "Download" : "Like to download"}</span>
+              </button>
             </div>
 
             <div
@@ -437,6 +486,28 @@ export default function MobileNowPlaying({
           </div>
         </div>
       </div>
+
+      {toast ? (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "max(88px, calc(72px + env(safe-area-inset-bottom, 0px)))",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(17,24,39,0.92)",
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+            padding: "10px 16px",
+            fontSize: 13,
+            zIndex: 10,
+            whiteSpace: "nowrap",
+            maxWidth: "calc(100% - 32px)",
+            textAlign: "center",
+          }}
+        >
+          {toast}
+        </div>
+      ) : null}
     </div>
   );
 }

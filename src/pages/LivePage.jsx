@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Icon from "../components/Icon.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import LiveCard from "../components/LiveCard.jsx";
 import UserAvatar from "../components/UserAvatar.jsx";
 import { useApp } from "../context/AppContext.jsx";
@@ -21,14 +22,13 @@ export default function LivePage() {
 
   return (
     <div className="fade-in" style={{ padding: "32px 36px", paddingBottom: 100 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+      <PageHeader marginBottom={32}>
         <span className="live-badge">
           <span className="live-dot" />
           LIVE
         </span>
-        <h1 style={{ fontFamily: "var(--ff-display)", fontSize: 40, letterSpacing: "0.04em" }}>LIVE STREAMS</h1>
-      </div>
-      <p style={{ color: "var(--text2)", marginBottom: 32 }}>Real-time DJ sets and radio shows</p>
+        <h1 style={{ fontFamily: "var(--ff-display)", fontSize: 40, letterSpacing: "0.04em", margin: 0 }}>LIVE STREAMS</h1>
+      </PageHeader>
 
       {activeStream && (
           <div

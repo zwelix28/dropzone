@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import Icon from "../components/Icon.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import TrackCard from "../components/TrackCard.jsx";
 import VerifiedBadge from "../components/VerifiedBadge.jsx";
 import WaveAnim from "../components/WaveAnim.jsx";
@@ -23,14 +24,6 @@ export default function Top10Page() {
   if (isCompact) {
     return (
       <div className="fade-in" style={{ padding: "16px 12px", paddingBottom: 100 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-          <Icon name="award" size={22} color="var(--accent)" />
-          <h1 style={{ fontFamily: "var(--ff-display)", fontSize: 28, letterSpacing: "0.04em" }}>TOP 10</h1>
-        </div>
-        <p style={{ color: "var(--text2)", marginBottom: 16, fontSize: 13 }}>
-          The most played and downloaded mixes on Music Vault by DHLab
-        </p>
-
         <div
           style={{
             display: "flex",
@@ -109,13 +102,7 @@ export default function Top10Page() {
 
   return (
     <div className="fade-in" style={{ padding: "32px 36px", paddingBottom: 100 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-        <Icon name="award" size={24} color="var(--accent)" />
-        <h1 style={{ fontFamily: "var(--ff-display)", fontSize: 40, letterSpacing: "0.04em" }}>TOP 10</h1>
-      </div>
-      <p style={{ color: "var(--text2)", marginBottom: 28 }}>
-        The most played and downloaded mixes on Music Vault by DHLab
-      </p>
+      <PageHeader icon="award" title="TOP 10" large marginBottom={28} />
 
       <div
         style={{
