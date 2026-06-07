@@ -10,6 +10,7 @@ import { useApp } from "../context/AppContext.jsx";
 import { FontLoader, GlobalStyles } from "../styles/GlobalStyles.jsx";
 import NotificationsPanel from "../components/NotificationsPanel.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
+import usePresenceHeartbeat from "../hooks/usePresenceHeartbeat.js";
 
 export default function AppLayout() {
   const { auth, player, users, notificationsByUser, markAllRead, markRead, refreshNotifications, dmUnreadCount } = useApp();
@@ -27,6 +28,12 @@ export default function AppLayout() {
   const showDesktopExpandedPlayer =
     !isMobile && desktopExpandedPlayerOpen && Boolean(player.currentTrack);
   const isForYou = location.pathname === "/foryou";
+
+  usePresenceHeartbeat({
+    userId: auth.session?.user?.id,
+    isPlaying: player.isPlaying,
+    currentTrack: player.currentTrack,
+  });
   const showCompactPlayerBar =
     !isForYou &&
     Boolean(player.currentTrack) &&

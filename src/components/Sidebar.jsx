@@ -238,7 +238,7 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
           <NavBtn compact={isDrawer} to="/profile" icon="user" label="My Profile" onClose={onClose} />
           <NavBtn compact={isDrawer} to="/connections" icon="people" label="Connections" onClose={onClose} />
           <NavBtn compact={isDrawer} to="/settings" icon="settings" label="Settings" onClose={onClose} />
-          {currentUser?.isAdmin ? <NavBtn compact={isDrawer} to="/admin" icon="shield" label="Admin" onClose={onClose} /> : null}
+          {currentUser?.isAdmin ? <NavBtn compact={isDrawer} to="/admin" icon="shield" label="Admin Panel" onClose={onClose} /> : null}
         </div>
       )}
 

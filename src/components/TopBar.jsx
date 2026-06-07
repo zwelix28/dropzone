@@ -32,7 +32,7 @@ export default function TopBar({
       "/likes": "Likes",
       "/stats": "Statistics",
       "/settings": "Settings",
-      "/admin": "Administration",
+      "/admin": "Admin Panel",
       "/register": "Create account",
       "/dj": "Let's DJ",
     };

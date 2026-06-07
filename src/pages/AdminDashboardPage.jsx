@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
+import AdminInsightsPanel from "../components/admin/AdminInsightsPanel.jsx";
 import PageHeader from "../components/PageHeader.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
@@ -9,6 +10,7 @@ import { PLAN_FREE, PLAN_PAID, PLAN_PRO } from "../constants/plans.js";
 import { profileRowToUser } from "../lib/maps.js";
 
 const TABS = [
+  { id: "insights", label: "Insights", icon: "trending" },
   { id: "overview", label: "Overview", icon: "bar2" },
   { id: "users", label: "Users", icon: "people" },
   { id: "mixes", label: "Mixes", icon: "music" },
@@ -37,7 +39,7 @@ export default function AdminDashboardPage() {
   const { auth, episodes, refreshMixes, refreshProfiles } = useApp();
   const adminId = auth.session?.user?.id;
   const isCompact = useMediaQuery("(max-width: 720px)");
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useState("insights");
   const [profiles, setProfiles] = useState([]);
   const [logs, setLogs] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -201,7 +203,7 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="fade-in" style={{ padding: pagePad, paddingBottom: 120 }}>
-      <div style={{ maxWidth: 960, margin: "0 auto" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         <PageHeader icon="shield" title="ADMIN" />
 
         {error ? (
@@ -260,6 +262,8 @@ export default function AdminDashboardPage() {
             </button>
           ))}
         </div>
+
+        {tab === "insights" && <AdminInsightsPanel />}
 
         {tab === "overview" && (
           <div
