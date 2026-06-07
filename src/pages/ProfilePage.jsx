@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import TrackCard from "../components/TrackCard.jsx";
 import UserAvatar from "../components/UserAvatar.jsx";
 import VerifiedBadge from "../components/VerifiedBadge.jsx";
@@ -17,17 +18,6 @@ export default function ProfilePage() {
     () => (user ? episodes.filter((e) => e.userId === user.id) : []),
     [episodes, user],
   );
-
-  const totals = useMemo(() => {
-    return userEps.reduce(
-      (acc, ep) => {
-        acc.plays += ep.plays || 0;
-        acc.downloads += ep.downloads || 0;
-        return acc;
-      },
-      { plays: 0, downloads: 0 },
-    );
-  }, [userEps]);
 
   if (!user) {
     return (
@@ -46,7 +36,7 @@ export default function ProfilePage() {
         <Icon name="user" size={isCompact ? 36 : 48} color="var(--text3)" />
         <h2 style={{ marginTop: 16, marginBottom: 8, fontSize: isCompact ? 20 : 24 }}>Sign in to view your profile</h2>
         <p style={{ color: "var(--text2)", marginBottom: 24, fontSize: isCompact ? 14 : 15, maxWidth: 320 }}>
-          Your public profile, mixes, and audience stats live here once you sign in.
+          Your public profile and mixes live here once you sign in.
         </p>
         <button type="button" className="btn btn-primary" onClick={() => auth.setShowAuth(true)}>
           Sign In / Register
@@ -58,40 +48,10 @@ export default function ProfilePage() {
   const pagePad = isCompact ? "16px 12px" : "32px 36px";
   const avatarSize = isCompact ? 72 : 88;
 
-  const statTiles = [
-    { label: "Mixes", value: userEps.length, icon: "music" },
-    { label: "Plays", value: fmt(totals.plays), icon: "headphones" },
-    { label: "Downloads", value: fmt(totals.downloads), icon: "download" },
-    { label: "Followers", value: fmt(user.followers || 0), icon: "people" },
-  ];
-
   return (
     <div className="fade-in" style={{ padding: pagePad, paddingBottom: 120 }}>
       <div style={{ maxWidth: 900, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <Icon name="user" size={isCompact ? 22 : 26} color="var(--accent)" />
-          <h1
-            style={{
-              fontFamily: "var(--ff-display)",
-              fontSize: isCompact ? 26 : 32,
-              letterSpacing: "0.04em",
-              margin: 0,
-            }}
-          >
-            MY PROFILE
-          </h1>
-        </div>
-        <p
-          style={{
-            color: "var(--text2)",
-            marginBottom: isCompact ? 18 : 24,
-            fontSize: isCompact ? 13 : 15,
-            lineHeight: 1.55,
-            maxWidth: 520,
-          }}
-        >
-          Your public artist page — mixes, bio, and how listeners find you on Music Vault by DHLab.
-        </p>
+        <PageHeader icon="user" title="MY PROFILE" />
 
         <div
           style={{
@@ -168,63 +128,6 @@ export default function ProfilePage() {
               Edit profile
             </Link>
           </div>
-        </div>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: isCompact ? "repeat(2, minmax(0, 1fr))" : "repeat(4, minmax(0, 1fr))",
-            gap: isCompact ? 8 : 10,
-            marginBottom: isCompact ? 14 : 18,
-          }}
-        >
-          {statTiles.map((tile) => (
-            <div
-              key={tile.label}
-              className="stat-card"
-              style={{
-                textAlign: "center",
-                padding: isCompact ? "10px 8px" : "14px 12px",
-                borderRadius: isCompact ? 10 : 12,
-              }}
-            >
-              <Icon name={tile.icon} size={isCompact ? 12 : 14} color="var(--accent)" />
-              <div
-                style={{
-                  fontSize: isCompact ? 16 : 20,
-                  fontWeight: 800,
-                  marginTop: isCompact ? 4 : 6,
-                  fontFamily: "var(--ff-mono)",
-                  lineHeight: 1.1,
-                }}
-              >
-                {tile.value}
-              </div>
-              <div style={{ fontSize: isCompact ? 10 : 11, color: "var(--text3)", marginTop: 2 }}>{tile.label}</div>
-            </div>
-          ))}
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            flexWrap: "wrap",
-            marginBottom: isCompact ? 18 : 24,
-          }}
-        >
-          <Link to="/connections" className="btn btn-ghost" style={{ textDecoration: "none", fontSize: isCompact ? 12 : 13 }}>
-            <Icon name="people" size={14} />
-            Connections
-          </Link>
-          <Link to="/stats" className="btn btn-ghost" style={{ textDecoration: "none", fontSize: isCompact ? 12 : 13 }}>
-            <Icon name="bar2" size={14} />
-            Statistics
-          </Link>
-          <Link to="/upload" className="btn btn-primary" style={{ textDecoration: "none", fontSize: isCompact ? 12 : 13 }}>
-            <Icon name="upload" size={14} />
-            Upload mix
-          </Link>
         </div>
 
         <div

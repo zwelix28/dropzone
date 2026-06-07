@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import UserAvatar from "../components/UserAvatar.jsx";
 import VerifiedBadge from "../components/VerifiedBadge.jsx";
 import WaveAnim from "../components/WaveAnim.jsx";
@@ -91,30 +92,7 @@ export default function StatsPage() {
   return (
     <div className="fade-in" style={{ padding: pagePad, paddingBottom: 120 }}>
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <Icon name="bar2" size={isCompact ? 22 : 26} color="var(--accent)" />
-          <h1
-            style={{
-              fontFamily: "var(--ff-display)",
-              fontSize: isCompact ? 26 : 32,
-              letterSpacing: "0.04em",
-              margin: 0,
-            }}
-          >
-            STATISTICS
-          </h1>
-        </div>
-        <p
-          style={{
-            color: "var(--text2)",
-            marginBottom: isCompact ? 18 : 24,
-            fontSize: isCompact ? 13 : 15,
-            lineHeight: 1.55,
-            maxWidth: 520,
-          }}
-        >
-          Real performance data for your catalog — plays, downloads, shares, and top mixes.
-        </p>
+        <PageHeader icon="bar2" title="STATISTICS" />
 
         <div
           style={{

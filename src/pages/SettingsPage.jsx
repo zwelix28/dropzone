@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import { GENRES } from "../constants/genres.js";
 import { isProPlan, planLabel } from "../constants/plans.js";
 import UserAvatar, { isLikelyImageFile } from "../components/UserAvatar.jsx";
@@ -220,29 +221,7 @@ export default function SettingsPage() {
           </Link>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <Icon name="settings" size={isCompact ? 22 : 26} color="var(--accent)" />
-          <h1
-            style={{
-              fontFamily: "var(--ff-display)",
-              fontSize: isCompact ? 26 : 32,
-              letterSpacing: "0.04em",
-              margin: 0,
-            }}
-          >
-            SETTINGS
-          </h1>
-        </div>
-        <p
-          style={{
-            color: "var(--text2)",
-            marginBottom: isCompact ? 16 : 20,
-            fontSize: isCompact ? 13 : 15,
-            lineHeight: 1.55,
-          }}
-        >
-          Manage your public profile, photo, and account security.
-        </p>
+        <PageHeader icon="settings" title="SETTINGS" />
 
         <div
           style={{

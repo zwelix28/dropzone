@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import TrackCard from "../components/TrackCard.jsx";
 import UserAvatar from "../components/UserAvatar.jsx";
 import VerifiedBadge from "../components/VerifiedBadge.jsx";
 import { useApp } from "../context/AppContext.jsx";
-import { episodeHasAudioSource } from "../lib/audioUrls.js";
+import { resolveDhlabUserId } from "../constants/dhlab.js";
 import { fetchFollowingWithProfiles } from "../lib/followLists.js";
+import { buildVaultFeed } from "../lib/vaultFeed.js";
 import { fmt } from "../lib/format.js";
 import { isSupabaseConfigured } from "../lib/supabaseClient.js";
 import useMediaQuery from "../hooks/useMediaQuery.js";
@@ -64,47 +66,40 @@ export default function VaultFeedPage() {
     void loadFollowing();
   }, [loadFollowing]);
 
+  const dhlabUserId = useMemo(() => resolveDhlabUserId(users, episodes), [users, episodes]);
+
   const feed = useMemo(() => {
-    if (!followingIds?.size) return [];
-    return episodes
-      .filter((ep) => followingIds.has(ep.userId) && episodeHasAudioSource(ep))
-      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-  }, [episodes, followingIds]);
+    try {
+      return buildVaultFeed({
+        episodes,
+        followingIds: followingIds ?? new Set(),
+        dhlabUserId,
+        viewerUserId: uid,
+      });
+    } catch (e) {
+      console.error("buildVaultFeed", e);
+      return [];
+    }
+  }, [episodes, followingIds, dhlabUserId, uid]);
+
+  if (auth.authLoading) {
+    return (
+      <div style={{ padding: 48, textAlign: "center", color: "var(--text2)", fontSize: 14 }}>Loading your feed…</div>
+    );
+  }
 
   if (!uid) {
     return <Navigate to="/discover" replace />;
   }
+
+  const showLoading = loading || followingIds === null;
 
   const pagePad = isCompact ? "16px 12px" : "32px 36px";
 
   return (
     <div className="fade-in" style={{ padding: pagePad, paddingBottom: 120 }}>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <Icon name="list" size={isCompact ? 22 : 26} color="var(--accent)" />
-          <h1
-            style={{
-              fontFamily: "var(--ff-display)",
-              fontSize: isCompact ? 26 : 32,
-              letterSpacing: "0.04em",
-              margin: 0,
-            }}
-          >
-            VAULT FEED
-          </h1>
-        </div>
-        <p
-          style={{
-            color: "var(--text2)",
-            marginBottom: isCompact ? 18 : 24,
-            fontSize: isCompact ? 13 : 15,
-            lineHeight: 1.55,
-            maxWidth: 560,
-          }}
-        >
-          New releases from {followingCount > 0 ? `${followingCount} artist${followingCount === 1 ? "" : "s"} you follow` : "artists you follow"}
-          , newest first.
-        </p>
+        <PageHeader icon="list" title="VAULT FEED" />
 
         {error ? (
           <div
@@ -122,32 +117,8 @@ export default function VaultFeedPage() {
           </div>
         ) : null}
 
-        {loading ? (
+        {showLoading ? (
           <div style={{ padding: "48px 0", textAlign: "center", color: "var(--text3)", fontSize: 14 }}>Loading your feed…</div>
-        ) : followingCount === 0 ? (
-          <div
-            style={{
-              padding: isCompact ? "28px 16px" : "40px 24px",
-              textAlign: "center",
-              background: "var(--surface)",
-              border: "1px solid var(--border)",
-              borderRadius: 12,
-              maxWidth: 420,
-            }}
-          >
-            <Icon name="people" size={36} color="var(--text3)" />
-            <p style={{ color: "var(--text2)", fontSize: isCompact ? 14 : 15, margin: "16px 0", lineHeight: 1.6 }}>
-              Follow DJs and artists to build your Vault Feed. Their new mixes will show up here as they publish.
-            </p>
-            <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-              <Link to="/discover" className="btn btn-primary">
-                Discover artists
-              </Link>
-              <Link to="/connections?tab=following" className="btn btn-ghost">
-                Connections
-              </Link>
-            </div>
-          </div>
         ) : feed.length === 0 ? (
           <div
             style={{
@@ -161,14 +132,21 @@ export default function VaultFeedPage() {
           >
             <Icon name="music" size={36} color="var(--text3)" />
             <p style={{ color: "var(--text2)", fontSize: isCompact ? 14 : 15, margin: "16px 0", lineHeight: 1.6 }}>
-              No releases yet from the artists you follow. Check back when they upload new mixes.
+              {followingCount === 0
+                ? "Follow DJs and artists to personalize your feed. Deep House Lab releases will appear here as they publish."
+                : "No releases yet from the artists you follow. Check back when they upload new mixes."}
             </p>
             <Link to="/discover" className="btn btn-ghost">
-              Explore more on Discover
+              {followingCount === 0 ? "Discover artists" : "Explore more on Discover"}
             </Link>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: isCompact ? 18 : 22 }}>
+            {followingCount === 0 ? (
+              <p style={{ color: "var(--text3)", fontSize: isCompact ? 12 : 13, margin: "0 0 4px", lineHeight: 1.5 }}>
+                Featuring Deep House Lab — follow more artists on Discover to grow your feed.
+              </p>
+            ) : null}
             {feed.map((ep) => {
               const artist = users.find((u) => u.id === ep.userId);
               return (

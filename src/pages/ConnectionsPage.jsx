@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
 import FollowButton from "../components/FollowButton.jsx";
 import Icon from "../components/Icon.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import UserAvatar from "../components/UserAvatar.jsx";
 import VerifiedBadge from "../components/VerifiedBadge.jsx";
 import { useApp } from "../context/AppContext.jsx";
@@ -118,29 +119,7 @@ export default function ConnectionsPage() {
           </Link>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <Icon name="people" size={isCompact ? 22 : 26} color="var(--accent)" />
-          <h1
-            style={{
-              fontFamily: "var(--ff-display)",
-              fontSize: isCompact ? 26 : 32,
-              letterSpacing: "0.04em",
-              margin: 0,
-            }}
-          >
-            CONNECTIONS
-          </h1>
-        </div>
-        <p
-          style={{
-            color: "var(--text2)",
-            marginBottom: isCompact ? 16 : 20,
-            fontSize: isCompact ? 13 : 15,
-            lineHeight: 1.55,
-          }}
-        >
-          Followers and accounts you follow — the people powering your Vault Feed.
-        </p>
+        <PageHeader icon="people" title="CONNECTIONS" />
 
         {!isSupabaseConfigured() ? (
           <p style={{ color: "var(--text3)", fontSize: 13, marginBottom: 16 }}>

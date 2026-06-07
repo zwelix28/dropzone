@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import LivePage from "./LivePage.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import { isProPlan, planLabel } from "../constants/plans.js";
@@ -19,13 +20,13 @@ function LockedShell({ title, children }) {
         textAlign: "center",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+      <PageHeader marginBottom={12}>
         <span className="live-badge" style={{ opacity: 0.6 }}>
           <span className="live-dot" />
           LIVE
         </span>
-        <h1 style={{ fontFamily: "var(--ff-display)", fontSize: 28, letterSpacing: "0.04em" }}>{title}</h1>
-      </div>
+        <h1 style={{ fontFamily: "var(--ff-display)", fontSize: 28, letterSpacing: "0.04em", margin: 0 }}>{title}</h1>
+      </PageHeader>
       {children}
     </div>
   );

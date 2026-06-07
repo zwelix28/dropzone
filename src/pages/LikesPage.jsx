@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Link, Navigate } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import TrackCard from "../components/TrackCard.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
@@ -20,15 +21,7 @@ export default function LikesPage() {
 
   return (
     <div className="fade-in" style={{ padding: isCompact ? "16px 12px" : "32px 36px", paddingBottom: 120 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-        <Icon name="heart" size={isCompact ? 22 : 26} color="var(--accent)" />
-        <h1 style={{ fontFamily: "var(--ff-display)", fontSize: isCompact ? 26 : 32, letterSpacing: "0.04em", margin: 0 }}>
-          LIKES
-        </h1>
-      </div>
-      <p style={{ color: "var(--text2)", marginBottom: isCompact ? 18 : 24, fontSize: isCompact ? 13 : 15, maxWidth: 520, lineHeight: 1.55 }}>
-        Mixes you’ve saved. Tap a card to play — use the heart on any mix to add or remove it from this list.
-      </p>
+      <PageHeader icon="heart" title="LIKES" />
 
       {favoriteEpisodes.length === 0 ? (
         <div

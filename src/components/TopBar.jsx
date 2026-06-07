@@ -26,14 +26,18 @@ export default function TopBar({
       "/foryou": "For You",
       "/live": "Live Streams",
       "/top10": "Top 10",
-      "/upload": "Upload",
+      "/upload": "Upload Mix",
       "/profile": "My Profile",
+      "/connections": "Connections",
+      "/likes": "Likes",
       "/stats": "Statistics",
       "/settings": "Settings",
       "/admin": "Administration",
       "/register": "Create account",
+      "/dj": "Let's DJ",
     };
     if (location.pathname.startsWith("/user/")) return "Profile";
+    if (location.pathname.startsWith("/mix/")) return "Mix";
     if (location.pathname === "/messages") return "Messages";
     if (location.pathname.startsWith("/messages/")) return "Conversation";
     return map[location.pathname] || "Music Vault by DHLab";

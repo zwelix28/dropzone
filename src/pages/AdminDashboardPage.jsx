@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
@@ -201,31 +202,7 @@ export default function AdminDashboardPage() {
   return (
     <div className="fade-in" style={{ padding: pagePad, paddingBottom: 120 }}>
       <div style={{ maxWidth: 960, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <Icon name="shield" size={isCompact ? 22 : 26} color="var(--accent)" />
-          <h1
-            style={{
-              fontFamily: "var(--ff-display)",
-              fontSize: isCompact ? 26 : 32,
-              letterSpacing: "0.04em",
-              margin: 0,
-            }}
-          >
-            ADMIN
-          </h1>
-        </div>
-        <p
-          style={{
-            color: "var(--text2)",
-            marginBottom: isCompact ? 16 : 20,
-            fontSize: isCompact ? 13 : 15,
-            lineHeight: 1.55,
-            maxWidth: 560,
-          }}
-        >
-          Moderate users, verified artists, and mixes. Destructive actions are logged — full Auth user deletion still
-          requires the Supabase Dashboard.
-        </p>
+        <PageHeader icon="shield" title="ADMIN" />
 
         {error ? (
           <div
