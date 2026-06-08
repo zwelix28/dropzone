@@ -10,6 +10,7 @@ import {
   episodeHasGuestPlayback,
 } from "../lib/audioUrls.js";
 import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
+import { shareMix } from "../lib/shareMix.js";
 import { getGuestPreviewSegment } from "../lib/forYouPreview.js";
 import { useApp } from "../context/AppContext.jsx";
 
@@ -52,8 +53,6 @@ export default function DesktopNowPlaying({
   const elapsedSec = totalSec > 0 ? Math.min(totalSec, Math.floor((totalSec * progress) / 100)) : 0;
   const remainingSec = Math.max(0, totalSec - elapsedSec);
   const cover = track.coverUrl?.trim();
-  const shareUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/mix/${track.id}`;
-
   const handleDownload = async () => {
     if (guest) {
       auth.setShowAuth(true);
@@ -66,28 +65,12 @@ export default function DesktopNowPlaying({
   };
 
   const handleShare = async () => {
-    const payload = {
-      title: track.title || "Mix",
-      text: user ? `${track.title} — ${user.username}` : track.title,
-      url: shareUrl,
-    };
-
-    if (navigator.share) {
-      try {
-        await navigator.share(payload);
-        return;
-      } catch {
-        // fallthrough
-      }
-    }
-
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-    } catch {
-      // ignore
-    }
-
-    void trackEvent({ kind: "share", episodeId: track.id, actorUserId: auth.currentUser?.id });
+    await shareMix({
+      episode: track,
+      artist: user,
+      trackEvent,
+      actorUserId: auth.currentUser?.id,
+    });
   };
 
   const iconBtn = (props) => (

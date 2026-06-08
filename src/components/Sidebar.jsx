@@ -1,5 +1,5 @@
 import { Link, NavLink } from "react-router-dom";
-import { FEATURE_LETS_DJ } from "../featureFlags.js";
+import { FEATURE_LETS_DJ, FEATURE_LIVE } from "../featureFlags.js";
 import Icon from "./Icon.jsx";
 import UserAvatar from "./UserAvatar.jsx";
 
@@ -213,7 +213,7 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
         <NavBtn compact={isDrawer} to="/foryou" icon="zap" label="For You" onClose={onClose} />
         {currentUser ? <NavBtn compact={isDrawer} to="/vault-feed" icon="list" label="Vault Feed" onClose={onClose} /> : null}
         {currentUser ? <NavBtn compact={isDrawer} to="/discover" icon="compass" label="Discover" onClose={onClose} /> : null}
-        <LiveNavBtn compact={isDrawer} onClose={onClose} />
+        {FEATURE_LIVE ? <LiveNavBtn compact={isDrawer} onClose={onClose} /> : null}
         <NavBtn compact={isDrawer} to="/top10" icon="trending" label="Top 10" onClose={onClose} />
         <NavBtn compact={isDrawer} to="/upload" icon="upload" label="Upload" onClose={onClose} />
         {FEATURE_LETS_DJ ? <NavBtn compact={isDrawer} to="/dj" icon="disc" label={"Let's DJ"} onClose={onClose} /> : null}
