@@ -9,6 +9,7 @@ import useForYouPreview from "../hooks/useForYouPreview.js";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { episodeHasAudioSource } from "../lib/audioUrls.js";
 import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
+import { shareMix } from "../lib/shareMix.js";
 
 function shuffleFeed(list) {
   const arr = [...list];
@@ -358,27 +359,14 @@ export default function ForYouPage() {
 
   const handleShare = async () => {
     if (!current) return;
-    const shareUrl = `${window.location.origin}/mix/${current.id}`;
-    const payload = {
-      title: current.title || "Mix",
-      text: currentUser ? `${current.title} — ${currentUser.username}` : current.title,
-      url: shareUrl,
-    };
-    if (navigator.share) {
-      try {
-        await navigator.share(payload);
-      } catch {
-        // ignore cancel
-      }
-    } else {
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-        setToast("Link copied");
-      } catch {
-        setToast("Could not copy link");
-      }
-    }
-    void trackEvent({ kind: "share", episodeId: current.id, actorUserId: auth.currentUser?.id });
+    const result = await shareMix({
+      episode: current,
+      artist: currentUser,
+      trackEvent,
+      actorUserId: auth.currentUser?.id,
+    });
+    if (result.ok && result.method === "clipboard") setToast("Link copied");
+    else if (!result.ok && !result.aborted) setToast("Could not copy link");
   };
 
   const promptGuestAuth = (action) => {

@@ -1,4 +1,5 @@
 import { resolveMixDownloadUrl } from "./audioUrls.js";
+import { getMixShareUrl } from "./shareMix.js";
 
 const ALBUM_NAME = "Music Vault by DHLab";
 
@@ -85,8 +86,7 @@ async function embedMp3Metadata(arrayBuffer, episode, artist, cover) {
   const year = episode.createdAt ? new Date(episode.createdAt).getFullYear() : null;
   if (year && !Number.isNaN(year)) writer.setFrame("TYER", year);
 
-  const mixUrl =
-    typeof window !== "undefined" && episode.id ? `${window.location.origin}/mix/${episode.id}` : "";
+  const mixUrl = getMixShareUrl(episode.id);
   const comment = buildComment(episode, artist, mixUrl);
   if (comment) {
     writer.setFrame("COMM", {

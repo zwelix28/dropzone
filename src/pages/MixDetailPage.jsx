@@ -10,6 +10,8 @@ import useMediaQuery from "../hooks/useMediaQuery.js";
 import { GENRES } from "../constants/genres.js";
 import { episodeHasAudioSource } from "../lib/audioUrls.js";
 import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
+import { fetchMixById } from "../lib/mixLookup.js";
+import { shareMix } from "../lib/shareMix.js";
 
 export default function MixDetailPage() {
   const { id } = useParams();
@@ -17,10 +19,80 @@ export default function MixDetailPage() {
   const { auth, episodes, users, player, trackEvent, updateMix } = useApp();
   const isCompact = useMediaQuery("(max-width: 720px)");
 
-  const episode = useMemo(() => episodes.find((e) => e.id === id) || null, [episodes, id]);
-  const user = useMemo(() => (episode ? users.find((u) => u.id === episode.userId) : null), [episode, users]);
+  const episodeFromCatalog = useMemo(() => episodes.find((e) => e.id === id) || null, [episodes, id]);
+  const [fetchedEpisode, setFetchedEpisode] = useState(null);
+  const [fetchedUser, setFetchedUser] = useState(null);
+  const [lookupState, setLookupState] = useState("idle");
+
+  const episode = episodeFromCatalog || fetchedEpisode;
+  const user = useMemo(() => {
+    if (!episode) return null;
+    return users.find((u) => u.id === episode.userId) || fetchedUser;
+  }, [episode, users, fetchedUser]);
+
+  const loggedIn = Boolean(auth.session?.user?.id);
+  const canEdit = Boolean(loggedIn && auth.currentUser && episode && auth.currentUser.id === episode.userId);
+  const [isEditing, setIsEditing] = useState(false);
+  const [edit, setEdit] = useState({
+    title: "",
+    description: "",
+    genre: "Tech House",
+    tags: "",
+  });
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!id) {
+      setLookupState("error");
+      return;
+    }
+    if (episodeFromCatalog) {
+      setLookupState("done");
+      return;
+    }
+
+    let cancelled = false;
+    setLookupState("loading");
+
+    (async () => {
+      const result = await fetchMixById(id);
+      if (cancelled) return;
+      if (!result) {
+        setFetchedEpisode(null);
+        setFetchedUser(null);
+        setLookupState("error");
+        return;
+      }
+      setFetchedEpisode(result.episode);
+      setFetchedUser(result.user);
+      setLookupState("done");
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, episodeFromCatalog]);
+
+  useEffect(() => {
+    if (!episode) return;
+    setEdit({
+      title: episode.title || "",
+      description: episode.description || "",
+      genre: episode.genre || "Tech House",
+      tags: Array.isArray(episode.tags) ? episode.tags.join(", ") : "",
+    });
+  }, [episode?.description, episode?.genre, episode?.tags, episode?.title, episode]);
 
   const browseRoot = auth.session?.user?.id ? "/discover" : "/";
+  const isLoading = lookupState === "loading" || (lookupState === "idle" && !episodeFromCatalog);
+
+  if (isLoading) {
+    return (
+      <div className="fade-in" style={{ padding: isCompact ? "16px 12px" : "32px 36px", paddingBottom: 100 }}>
+        <p style={{ color: "var(--text2)", fontSize: isCompact ? 14 : 15 }}>Loading mix…</p>
+      </div>
+    );
+  }
 
   if (!episode) {
     return (
@@ -36,52 +108,24 @@ export default function MixDetailPage() {
     );
   }
 
-  const loggedIn = Boolean(auth.session?.user?.id);
-  if (!loggedIn) {
-    return (
-      <div className="fade-in" style={{ padding: isCompact ? "16px 12px" : "32px 36px", paddingBottom: 100, maxWidth: 520 }}>
-        <div style={{ marginBottom: isCompact ? 14 : 20 }}>
-          <Link to={location.state?.from || "/"} style={{ color: "var(--text2)", fontSize: isCompact ? 12 : 13 }}>
-            ← Back
-          </Link>
-        </div>
-        <Icon name="eye" size={isCompact ? 32 : 40} color="var(--text3)" />
-        <h1 style={{ fontSize: isCompact ? 20 : 24, fontWeight: 800, marginTop: 16, marginBottom: 10 }}>Mix details</h1>
-        <p style={{ color: "var(--text2)", lineHeight: 1.65, marginBottom: 24, fontSize: isCompact ? 14 : 15 }}>
-          Sign in or create an account to view full track information and download mixes. While browsing as a guest, the player streams a 50-second preview from 2:30 in each mix.
-        </p>
-        <button type="button" className="btn btn-primary" style={isCompact ? { width: "100%", justifyContent: "center" } : undefined} onClick={() => auth.setShowAuth(true)}>
-          Sign in / Register
-        </button>
-      </div>
-    );
-  }
-
-  const canEdit = Boolean(auth.currentUser && auth.currentUser.id === episode.userId);
-  const [isEditing, setIsEditing] = useState(false);
-  const [edit, setEdit] = useState({
-    title: episode.title || "",
-    description: episode.description || "",
-    genre: episode.genre || "Tech House",
-    tags: Array.isArray(episode.tags) ? episode.tags.join(", ") : "",
-  });
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    setEdit({
-      title: episode.title || "",
-      description: episode.description || "",
-      genre: episode.genre || "Tech House",
-      tags: Array.isArray(episode.tags) ? episode.tags.join(", ") : "",
-    });
-  }, [episode.description, episode.genre, episode.tags, episode.title]);
-
-  const canDownload = episodeHasAudioSource(episode);
   const handleDownload = async () => {
-    if (!canDownload) return;
+    if (!loggedIn) {
+      auth.setShowAuth(true);
+      return;
+    }
+    if (!episodeHasAudioSource(episode)) return;
     const { ok } = await downloadMixWithMetadata(episode, { artist: user });
     if (!ok) return;
     void trackEvent({ kind: "download", episodeId: episode.id, actorUserId: auth.currentUser?.id });
+  };
+
+  const handleShare = async () => {
+    await shareMix({
+      episode,
+      artist: user,
+      trackEvent,
+      actorUserId: auth.currentUser?.id,
+    });
   };
 
   const handleSave = async () => {
@@ -110,10 +154,16 @@ export default function MixDetailPage() {
   return (
     <div className="fade-in" style={{ padding: isCompact ? "16px 12px" : "32px 36px", paddingBottom: 120, maxWidth: isCompact ? undefined : 1040, width: "100%", boxSizing: "border-box" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: isCompact ? 12 : 18 }}>
-        <Link to={location.state?.from || "/discover"} style={{ color: "var(--text2)", fontSize: isCompact ? 12 : 13 }}>
+        <Link to={location.state?.from || (loggedIn ? "/discover" : "/")} style={{ color: "var(--text2)", fontSize: isCompact ? 12 : 13 }}>
           ← Back
         </Link>
       </div>
+
+      {!loggedIn ? (
+        <p style={{ color: "var(--text3)", fontSize: isCompact ? 12 : 13, marginBottom: isCompact ? 12 : 16, lineHeight: 1.5 }}>
+          Sign in for full playback and downloads. As a guest, the player streams a 50-second preview from 2:30 in each mix.
+        </p>
+      ) : null}
 
       <div
         style={{
@@ -223,7 +273,7 @@ export default function MixDetailPage() {
                       <div style={{ fontSize: isCompact ? 11 : 12, color: "var(--text3)" }}>{user.handle}</div>
                     </div>
                   </Link>
-                  <FollowButton targetUserId={user.id} variant="compact" />
+                  {loggedIn ? <FollowButton targetUserId={user.id} variant="compact" /> : null}
                 </div>
               ) : null}
             </div>
@@ -280,12 +330,34 @@ export default function MixDetailPage() {
               </div>
               <button
                 className="btn btn-ghost"
-                onClick={() => void handleDownload()}
-                disabled={!canDownload}
-                title={canDownload ? "Download" : "No audio available to download"}
+                onClick={() => void handleShare()}
+                title="Share mix"
                 style={{
-                  opacity: canDownload ? 1 : 0.55,
-                  cursor: canDownload ? "pointer" : "not-allowed",
+                  minWidth: 0,
+                  width: isCompact ? "100%" : undefined,
+                  boxSizing: "border-box",
+                  padding: isCompact ? "8px 10px" : undefined,
+                  fontSize: isCompact ? 12 : undefined,
+                  justifyContent: "center",
+                }}
+              >
+                <Icon name="share" size={isCompact ? 14 : 16} />
+                Share
+              </button>
+              <button
+                className="btn btn-ghost"
+                onClick={() => void handleDownload()}
+                disabled={!episodeHasAudioSource(episode)}
+                title={
+                  !loggedIn
+                    ? "Sign in to download"
+                    : episodeHasAudioSource(episode)
+                      ? "Download"
+                      : "No audio available to download"
+                }
+                style={{
+                  opacity: episodeHasAudioSource(episode) ? 1 : 0.55,
+                  cursor: episodeHasAudioSource(episode) ? "pointer" : "not-allowed",
                   minWidth: 0,
                   width: isCompact ? "100%" : undefined,
                   boxSizing: "border-box",
@@ -337,11 +409,7 @@ export default function MixDetailPage() {
                   >
                     Title
                   </label>
-                  <input
-                    className="inp"
-                    value={edit.title}
-                    onChange={(e) => setEdit((s) => ({ ...s, title: e.target.value }))}
-                  />
+                  <input className="inp" value={edit.title} onChange={(e) => setEdit((s) => ({ ...s, title: e.target.value }))} />
                 </div>
 
                 <div>
@@ -356,11 +424,7 @@ export default function MixDetailPage() {
                   >
                     Genre
                   </label>
-                  <select
-                    className="inp"
-                    value={edit.genre}
-                    onChange={(e) => setEdit((s) => ({ ...s, genre: e.target.value }))}
-                  >
+                  <select className="inp" value={edit.genre} onChange={(e) => setEdit((s) => ({ ...s, genre: e.target.value }))}>
                     {GENRES.map((g) => (
                       <option key={g} value={g}>
                         {g}
@@ -462,4 +526,3 @@ export default function MixDetailPage() {
     </div>
   );
 }
-

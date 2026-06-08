@@ -3,6 +3,7 @@ import Icon from "../components/Icon.jsx";
 import LiveCard from "../components/LiveCard.jsx";
 import TrackCard from "../components/TrackCard.jsx";
 import { useApp } from "../context/AppContext.jsx";
+import { FEATURE_LIVE } from "../featureFlags.js";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 
 export default function HomePage() {
@@ -56,13 +57,17 @@ export default function HomePage() {
             padding: "clamp(16px, 3vw, 26px)",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span className="live-badge">
-              <span className="live-dot" />
-              LIVE NOW
-            </span>
-            {!mobileHero ? <span style={{ fontSize: 13, color: "var(--text2)" }}>{liveStreams.length} streams active</span> : null}
-          </div>
+          {FEATURE_LIVE ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span className="live-badge">
+                <span className="live-dot" />
+                LIVE NOW
+              </span>
+              {!mobileHero ? <span style={{ fontSize: 13, color: "var(--text2)" }}>{liveStreams.length} streams active</span> : null}
+            </div>
+          ) : (
+            <div />
+          )}
 
           {!mobileHero ? (
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -95,7 +100,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      {liveStreams.length > 0 && (
+      {FEATURE_LIVE && liveStreams.length > 0 && (
         <section style={{ marginBottom: "clamp(24px, 5vw, 40px)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: "clamp(12px, 3vw, 20px)" }}>
             <span className="live-badge">

@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Icon from "./Icon.jsx";
 import VerifiedBadge from "./VerifiedBadge.jsx";
@@ -10,6 +9,7 @@ import {
 } from "../lib/audioUrls.js";
 import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
 import { getGuestPreviewSegment } from "../lib/forYouPreview.js";
+import { shareMix } from "../lib/shareMix.js";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 
@@ -44,14 +44,6 @@ export default function PlayerBar({
     durationSec > 0 ? durationSec : guest ? Math.floor(guestEffDuration) : Math.floor(Math.max(0, track.durationSecs || 0));
   const elapsedSec = totalSec > 0 ? Math.min(totalSec, Math.floor((totalSec * progress) / 100)) : 0;
   const remainingSec = Math.max(0, totalSec - elapsedSec);
-  const shareUrl = useMemo(() => {
-    try {
-      return `${window.location.origin}/mix/${track.id}`;
-    } catch {
-      return `/mix/${track.id}`;
-    }
-  }, [track.id]);
-
   const handleDownload = async () => {
     if (guest) {
       auth.setShowAuth(true);
@@ -64,28 +56,12 @@ export default function PlayerBar({
   };
 
   const handleShare = async () => {
-    const payload = {
-      title: track.title || "Mix",
-      text: user ? `${track.title} — ${user.username}` : track.title,
-      url: shareUrl,
-    };
-
-    if (navigator.share) {
-      try {
-        await navigator.share(payload);
-        return;
-      } catch {
-        // fallthrough
-      }
-    }
-
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-    } catch {
-      // ignore
-    }
-
-    void trackEvent({ kind: "share", episodeId: track.id, actorUserId: auth.currentUser?.id });
+    await shareMix({
+      episode: track,
+      artist: user,
+      trackEvent,
+      actorUserId: auth.currentUser?.id,
+    });
   };
 
   const progressRow = (

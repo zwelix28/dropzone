@@ -20,7 +20,7 @@ import RegisterPage from "./pages/RegisterPage.jsx";
 import AdminDashboardPage from "./pages/AdminDashboardPage.jsx";
 import MessagesPage from "./pages/MessagesPage.jsx";
 import MessageStartPage from "./pages/MessageStartPage.jsx";
-import { FEATURE_LETS_DJ } from "./featureFlags.js";
+import { FEATURE_LETS_DJ, FEATURE_LIVE } from "./featureFlags.js";
 import LetsDJPage from "./pages/LetsDJPage.jsx";
 
 function AdminRoute() {
@@ -59,7 +59,7 @@ export default function App() {
         <Route path="/discover" element={<DiscoverRoute />} />
         <Route path="/vault-feed" element={<VaultFeedPage />} />
         <Route path="/foryou" element={<ForYouPage />} />
-        <Route path="/live" element={<LiveRoute />} />
+        <Route path="/live" element={FEATURE_LIVE ? <LiveRoute /> : <Navigate to="/" replace />} />
         <Route path="/top10" element={<Top10Page />} />
         <Route path="/upload" element={<UploadPage />} />
         <Route path="/dj" element={FEATURE_LETS_DJ ? <LetsDJPage /> : <Navigate to="/" replace />} />
