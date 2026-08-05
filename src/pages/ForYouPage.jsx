@@ -366,8 +366,10 @@ export default function ForYouPage() {
       trackEvent,
       actorUserId: auth.currentUser?.id,
     });
-    if (result.ok && result.method === "clipboard") setToast("Link copied");
-    else if (!result.ok && !result.aborted) setToast("Could not copy link");
+    if (result.ok && result.method === "clipboard") setToast("Title & link copied");
+    else if (!result.ok && !result.aborted) {
+      setToast(result.text || result.url ? `Copy: ${(result.text || result.url).trim()}` : "Could not copy link");
+    }
   };
 
   const promptGuestAuth = (action) => {
