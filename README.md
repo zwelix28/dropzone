@@ -27,6 +27,14 @@ Open [http://localhost:5173/dj](http://localhost:5173/dj). Leave `VITE_DJ_API_UR
 
 **Testing:** load MP3/WAV on decks A & B, click the page once if audio is suspended, adjust crossfader and FX, use **Sync BPM** to align deck B to deck A’s effective tempo, toggle **Auto mix** with queued tracks, **record** then **Publish** (requires sign-in + Supabase).
 
+## Security
+
+Daily dependency and configuration checks can run in GitHub Actions or locally. See [docs/SECURITY_HEALTH_CHECKS.md](docs/SECURITY_HEALTH_CHECKS.md).
+
+```bash
+npm run security:check
+```
+
 ## Routes
 
 - `/` Home

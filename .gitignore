@@ -6,3 +6,5 @@ dist
 *.log
 .DS_Store
 server/uploads
+security-health-report.json
+security-email.txt
