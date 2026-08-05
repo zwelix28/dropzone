@@ -72,14 +72,6 @@ export default function HomePage() {
           {!mobileHero ? (
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               <button
-                className="btn btn-primary"
-                style={{ padding: "12px 28px", fontSize: 15, justifyContent: "center" }}
-                onClick={() => navigate("/upload")}
-              >
-                <Icon name="upload" size={16} />
-                Upload Your Mix
-              </button>
-              <button
                 className="btn btn-ghost"
                 style={{ padding: "12px 24px", fontSize: 15, justifyContent: "center" }}
                 onClick={() => navigate("/register")}

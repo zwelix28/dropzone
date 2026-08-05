@@ -14,13 +14,14 @@ import VaultFeedPage from "./pages/VaultFeedPage.jsx";
 import UserProfilePage from "./pages/UserProfilePage.jsx";
 import StatsPage from "./pages/StatsPage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
+import MixesPage from "./pages/MixesPage.jsx";
 import MixDetailPage from "./pages/MixDetailPage.jsx";
 import PasswordResetPage from "./pages/PasswordResetPage.jsx";
 import RegisterPage from "./pages/RegisterPage.jsx";
 import AdminDashboardPage from "./pages/AdminDashboardPage.jsx";
 import MessagesPage from "./pages/MessagesPage.jsx";
 import MessageStartPage from "./pages/MessageStartPage.jsx";
-import { FEATURE_LETS_DJ, FEATURE_LIVE } from "./featureFlags.js";
+import { FEATURE_DISCOVER, FEATURE_LETS_DJ, FEATURE_LIVE, FEATURE_STATS, FEATURE_TOP10, FEATURE_VAULT_FEED, signedInHomePath } from "./featureFlags.js";
 import LetsDJPage from "./pages/LetsDJPage.jsx";
 
 function AdminRoute() {
@@ -33,7 +34,7 @@ function AdminRoute() {
     );
   }
   if (!auth.session?.user?.id) return <Navigate to="/" replace />;
-  if (!auth.currentUser?.isAdmin) return <Navigate to="/discover" replace />;
+  if (!auth.currentUser?.isAdmin) return <Navigate to={signedInHomePath()} replace />;
   return <AdminDashboardPage />;
 }
 
@@ -50,18 +51,55 @@ function DiscoverRoute() {
   return <DiscoverPage />;
 }
 
+function MixesRoute() {
+  const { auth } = useApp();
+  if (auth.authLoading) {
+    return (
+      <div style={{ padding: 48, textAlign: "center", color: "var(--text2)", fontSize: 14 }}>
+        Loading…
+      </div>
+    );
+  }
+  if (!auth.session?.user?.id) return <Navigate to="/" replace />;
+  return <MixesPage />;
+}
+
+function UploadRoute() {
+  const { auth } = useApp();
+  if (auth.authLoading) {
+    return (
+      <div style={{ padding: 48, textAlign: "center", color: "var(--text2)", fontSize: 14 }}>
+        Loading…
+      </div>
+    );
+  }
+  if (!auth.session?.user?.id) return <Navigate to="/" replace />;
+  if (!auth.currentUser?.isAdmin) return <Navigate to={signedInHomePath()} replace />;
+  return <UploadPage />;
+}
+
 export default function App() {
   return (
     <Routes>
       <Route path="/reset-password" element={<PasswordResetPage />} />
       <Route element={<AppLayout />}>
         <Route path="/" element={<HomeRoute />} />
-        <Route path="/discover" element={<DiscoverRoute />} />
-        <Route path="/vault-feed" element={<VaultFeedPage />} />
+        <Route
+          path="/discover"
+          element={FEATURE_DISCOVER ? <DiscoverRoute /> : <Navigate to={signedInHomePath()} replace />}
+        />
+        <Route path="/mixes" element={<MixesRoute />} />
+        <Route
+          path="/vault-feed"
+          element={FEATURE_VAULT_FEED ? <VaultFeedPage /> : <Navigate to={signedInHomePath()} replace />}
+        />
         <Route path="/foryou" element={<ForYouPage />} />
         <Route path="/live" element={FEATURE_LIVE ? <LiveRoute /> : <Navigate to="/" replace />} />
-        <Route path="/top10" element={<Top10Page />} />
-        <Route path="/upload" element={<UploadPage />} />
+        <Route
+          path="/top10"
+          element={FEATURE_TOP10 ? <Top10Page /> : <Navigate to={signedInHomePath()} replace />}
+        />
+        <Route path="/upload" element={<UploadRoute />} />
         <Route path="/dj" element={FEATURE_LETS_DJ ? <LetsDJPage /> : <Navigate to="/" replace />} />
         <Route path="/mix/:id" element={<MixDetailPage />} />
         <Route path="/profile" element={<ProfilePage />} />
@@ -71,7 +109,10 @@ export default function App() {
         <Route path="/messages/to/:userId" element={<MessageStartPage />} />
         <Route path="/messages/:threadId" element={<MessagesPage />} />
         <Route path="/user/:userId" element={<UserProfilePage />} />
-        <Route path="/stats" element={<StatsPage />} />
+        <Route
+          path="/stats"
+          element={FEATURE_STATS ? <StatsPage /> : <Navigate to={signedInHomePath()} replace />}
+        />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/admin" element={<AdminRoute />} />

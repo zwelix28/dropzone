@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
 import PageHeader from "../components/PageHeader.jsx";
+import ProfileListeningStats from "../components/ProfileListeningStats.jsx";
 import TrackCard from "../components/TrackCard.jsx";
 import UserAvatar from "../components/UserAvatar.jsx";
 import VerifiedBadge from "../components/VerifiedBadge.jsx";
@@ -10,9 +11,10 @@ import useMediaQuery from "../hooks/useMediaQuery.js";
 import { fmt } from "../lib/format.js";
 
 export default function ProfilePage() {
-  const { auth, episodes, users, player } = useApp();
+  const { auth, episodes, users, player, likedMixIds } = useApp();
   const user = auth.currentUser;
   const isCompact = useMediaQuery("(max-width: 720px)");
+  const isAdmin = Boolean(user?.isAdmin);
 
   const userEps = useMemo(
     () => (user ? episodes.filter((e) => e.userId === user.id) : []),
@@ -36,7 +38,7 @@ export default function ProfilePage() {
         <Icon name="user" size={isCompact ? 36 : 48} color="var(--text3)" />
         <h2 style={{ marginTop: 16, marginBottom: 8, fontSize: isCompact ? 20 : 24 }}>Sign in to view your profile</h2>
         <p style={{ color: "var(--text2)", marginBottom: 24, fontSize: isCompact ? 14 : 15, maxWidth: 320 }}>
-          Your public profile and mixes live here once you sign in.
+          Your public profile and listening stats live here once you sign in.
         </p>
         <button type="button" className="btn btn-primary" onClick={() => auth.setShowAuth(true)}>
           Sign In / Register
@@ -130,70 +132,81 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            marginBottom: isCompact ? 12 : 16,
-          }}
-        >
-          <h2 style={{ fontWeight: 700, margin: 0, fontSize: isCompact ? 15 : 17 }}>
-            Your mixes
-            {userEps.length > 0 ? (
-              <span style={{ color: "var(--text3)", fontWeight: 500, marginLeft: 8, fontSize: isCompact ? 12 : 14 }}>
-                {userEps.length}
-              </span>
-            ) : null}
-          </h2>
-          <Link
-            to="/connections?tab=following"
-            style={{ fontSize: isCompact ? 11 : 12, color: "var(--text3)", textDecoration: "none" }}
-          >
-            {fmt(user.following || 0)} following
-          </Link>
-        </div>
+        {isAdmin ? (
+          <>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                marginBottom: isCompact ? 12 : 16,
+              }}
+            >
+              <h2 style={{ fontWeight: 700, margin: 0, fontSize: isCompact ? 15 : 17 }}>
+                Your mixes
+                {userEps.length > 0 ? (
+                  <span style={{ color: "var(--text3)", fontWeight: 500, marginLeft: 8, fontSize: isCompact ? 12 : 14 }}>
+                    {userEps.length}
+                  </span>
+                ) : null}
+              </h2>
+              <Link
+                to="/connections?tab=following"
+                style={{ fontSize: isCompact ? 11 : 12, color: "var(--text3)", textDecoration: "none" }}
+              >
+                {fmt(user.following || 0)} following
+              </Link>
+            </div>
 
-        {userEps.length === 0 ? (
-          <div
-            style={{
-              background: "var(--surface)",
-              border: "1px solid var(--border)",
-              borderRadius: isCompact ? 12 : 16,
-              padding: isCompact ? "24px 16px" : "32px 24px",
-              textAlign: "center",
-            }}
-          >
-            <Icon name="music" size={isCompact ? 32 : 40} color="var(--text3)" />
-            <p style={{ color: "var(--text2)", marginTop: 12, marginBottom: 16, fontSize: isCompact ? 13 : 14 }}>
-              No mixes on your profile yet. Upload your first set to get started.
-            </p>
-            <Link to="/upload" className="btn btn-primary" style={{ textDecoration: "none" }}>
-              <Icon name="upload" size={15} />
-              Upload a mix
-            </Link>
-          </div>
+            {userEps.length === 0 ? (
+              <div
+                style={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  borderRadius: isCompact ? 12 : 16,
+                  padding: isCompact ? "24px 16px" : "32px 24px",
+                  textAlign: "center",
+                }}
+              >
+                <Icon name="music" size={isCompact ? 32 : 40} color="var(--text3)" />
+                <p style={{ color: "var(--text2)", marginTop: 12, marginBottom: 16, fontSize: isCompact ? 13 : 14 }}>
+                  No mixes on your profile yet. Upload your first set to get started.
+                </p>
+                <Link to="/upload" className="btn btn-primary" style={{ textDecoration: "none" }}>
+                  <Icon name="upload" size={15} />
+                  Upload a mix
+                </Link>
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: isCompact ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fill, minmax(220px, 1fr))",
+                  gap: isCompact ? 10 : 16,
+                }}
+              >
+                {userEps.map((ep) => (
+                  <TrackCard
+                    key={ep.id}
+                    episode={ep}
+                    users={users}
+                    compact={isCompact}
+                    isActive={player.currentTrack?.id === ep.id}
+                    isPlaying={player.isPlaying && player.currentTrack?.id === ep.id}
+                    onPlay={player.playTrack}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         ) : (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: isCompact ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fill, minmax(220px, 1fr))",
-              gap: isCompact ? 10 : 16,
-            }}
-          >
-            {userEps.map((ep) => (
-              <TrackCard
-                key={ep.id}
-                episode={ep}
-                users={users}
-                compact={isCompact}
-                isActive={player.currentTrack?.id === ep.id}
-                isPlaying={player.isPlaying && player.currentTrack?.id === ep.id}
-                onPlay={player.playTrack}
-              />
-            ))}
-          </div>
+          <ProfileListeningStats
+            user={user}
+            episodes={episodes}
+            likedMixIds={likedMixIds}
+            compact={isCompact}
+          />
         )}
       </div>
     </div>

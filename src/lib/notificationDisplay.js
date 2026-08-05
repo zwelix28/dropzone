@@ -2,11 +2,13 @@
 
 const TYPE_PRESETS = {
   new_mix: { icon: "music", color: "var(--accent)", category: "New release" },
+  new_user: { icon: "user", color: "var(--orange)", category: "New signup" },
   milestone: { icon: "award", color: "var(--orange)", category: "Milestone" },
   follow: { icon: "people", color: "var(--green)", category: "Follower" },
   dm: { icon: "mail", color: "var(--accent)", category: "Message" },
   download: { icon: "download", color: "var(--green)", category: "Download" },
   share: { icon: "share", color: "var(--accent)", category: "Share" },
+  sale: { icon: "zap", color: "var(--green)", category: "New sale" },
 };
 
 export function getNotificationPresentation(notification) {

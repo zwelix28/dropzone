@@ -8,6 +8,7 @@ import { useApp } from "../context/AppContext.jsx";
 import useForYouPreview from "../hooks/useForYouPreview.js";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { episodeHasAudioSource } from "../lib/audioUrls.js";
+import { isForYouItem } from "../lib/contentType.js";
 import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
 import { shareMix } from "../lib/shareMix.js";
 
@@ -21,7 +22,7 @@ function shuffleFeed(list) {
 }
 
 function buildStableFeed(episodes, feedRef) {
-  const playable = episodes.filter((ep) => episodeHasAudioSource(ep));
+  const playable = episodes.filter((ep) => isForYouItem(ep) && episodeHasAudioSource(ep));
   if (playable.length === 0) {
     feedRef.current = [];
     return [];

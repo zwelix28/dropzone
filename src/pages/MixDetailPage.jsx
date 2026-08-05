@@ -5,9 +5,11 @@ import UserAvatar from "../components/UserAvatar.jsx";
 import VerifiedBadge from "../components/VerifiedBadge.jsx";
 import FollowButton from "../components/FollowButton.jsx";
 import LikeButton from "../components/LikeButton.jsx";
+import BuyButton from "../components/BuyButton.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { GENRES } from "../constants/genres.js";
+import { signedInHomePath } from "../featureFlags.js";
 import { episodeHasAudioSource } from "../lib/audioUrls.js";
 import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
 import { fetchMixById } from "../lib/mixLookup.js";
@@ -83,7 +85,7 @@ export default function MixDetailPage() {
     });
   }, [episode?.description, episode?.genre, episode?.tags, episode?.title, episode]);
 
-  const browseRoot = auth.session?.user?.id ? "/discover" : "/";
+  const browseRoot = auth.session?.user?.id ? signedInHomePath() : "/";
   const isLoading = lookupState === "loading" || (lookupState === "idle" && !episodeFromCatalog);
 
   if (isLoading) {
@@ -108,11 +110,15 @@ export default function MixDetailPage() {
     );
   }
 
+  const [purchaseUnlocked, setPurchaseUnlocked] = useState(false);
+  const hasDownloadAccess = !episode.isForSale || episode.userId === auth.currentUser?.id || purchaseUnlocked;
+
   const handleDownload = async () => {
     if (!loggedIn) {
       auth.setShowAuth(true);
       return;
     }
+    if (!hasDownloadAccess) return;
     if (!episodeHasAudioSource(episode)) return;
     const { ok } = await downloadMixWithMetadata(episode, { artist: user });
     if (!ok) return;
@@ -154,7 +160,7 @@ export default function MixDetailPage() {
   return (
     <div className="fade-in" style={{ padding: isCompact ? "16px 12px" : "32px 36px", paddingBottom: 120, maxWidth: isCompact ? undefined : 1040, width: "100%", boxSizing: "border-box" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: isCompact ? 12 : 18 }}>
-        <Link to={location.state?.from || (loggedIn ? "/discover" : "/")} style={{ color: "var(--text2)", fontSize: isCompact ? 12 : 13 }}>
+        <Link to={location.state?.from || (loggedIn ? signedInHomePath() : "/")} style={{ color: "var(--text2)", fontSize: isCompact ? 12 : 13 }}>
           ← Back
         </Link>
       </div>
@@ -344,32 +350,43 @@ export default function MixDetailPage() {
                 <Icon name="share" size={isCompact ? 14 : 16} />
                 Share
               </button>
-              <button
-                className="btn btn-ghost"
-                onClick={() => void handleDownload()}
-                disabled={!episodeHasAudioSource(episode)}
-                title={
-                  !loggedIn
-                    ? "Sign in to download"
-                    : episodeHasAudioSource(episode)
-                      ? "Download"
-                      : "No audio available to download"
-                }
-                style={{
-                  opacity: episodeHasAudioSource(episode) ? 1 : 0.55,
-                  cursor: episodeHasAudioSource(episode) ? "pointer" : "not-allowed",
-                  minWidth: 0,
-                  width: isCompact ? "100%" : undefined,
-                  boxSizing: "border-box",
-                  gridColumn: isCompact && !canEdit ? "1 / -1" : undefined,
-                  padding: isCompact ? "8px 10px" : undefined,
-                  fontSize: isCompact ? 12 : undefined,
-                  justifyContent: "center",
-                }}
-              >
-                <Icon name="download" size={isCompact ? 14 : 16} />
-                Download
-              </button>
+              {episode.isForSale && episode.priceZar && episode.userId !== auth.currentUser?.id ? (
+                <BuyButton
+                  episode={episode}
+                  session={auth.session}
+                  onSignIn={() => auth.setShowAuth(true)}
+                  compact={isCompact}
+                  onUnlocked={() => setPurchaseUnlocked(true)}
+                />
+              ) : null}
+              {hasDownloadAccess ? (
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => void handleDownload()}
+                  disabled={!episodeHasAudioSource(episode)}
+                  title={
+                    !loggedIn
+                      ? "Sign in to download"
+                      : episodeHasAudioSource(episode)
+                        ? "Download"
+                        : "No audio available to download"
+                  }
+                  style={{
+                    opacity: episodeHasAudioSource(episode) ? 1 : 0.55,
+                    cursor: episodeHasAudioSource(episode) ? "pointer" : "not-allowed",
+                    minWidth: 0,
+                    width: isCompact ? "100%" : undefined,
+                    boxSizing: "border-box",
+                    gridColumn: isCompact && !canEdit ? "1 / -1" : undefined,
+                    padding: isCompact ? "8px 10px" : undefined,
+                    fontSize: isCompact ? 12 : undefined,
+                    justifyContent: "center",
+                  }}
+                >
+                  <Icon name="download" size={isCompact ? 14 : 16} />
+                  Download
+                </button>
+              ) : null}
               {canEdit ? (
                 <button
                   className="btn btn-ghost"

@@ -3,6 +3,7 @@ import useMediaQuery from "../hooks/useMediaQuery.js";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import Icon from "./Icon.jsx";
 import UserAvatar from "./UserAvatar.jsx";
+import { FEATURE_DISCOVER, signedInHomePath } from "../featureFlags.js";
 
 export default function TopBar({
   currentUser,
@@ -22,11 +23,12 @@ export default function TopBar({
     const map = {
       "/": "Home",
       "/discover": "Discover",
+      "/mixes": "Mixes",
       "/vault-feed": "Vault Feed",
       "/foryou": "For You",
       "/live": "Live Streams",
       "/top10": "Top 10",
-      "/upload": "Upload Mix",
+      "/upload": "Upload",
       "/profile": "My Profile",
       "/connections": "Connections",
       "/likes": "Likes",
@@ -57,7 +59,13 @@ export default function TopBar({
         onChange={(e) => {
           const q = e.target.value;
           if (!currentUser) return;
-          if (location.pathname !== "/discover") navigate("/discover");
+          const searchPath =
+            location.pathname === "/mixes"
+              ? "/mixes"
+              : FEATURE_DISCOVER
+                ? "/discover"
+                : signedInHomePath();
+          if (location.pathname !== searchPath) navigate(searchPath);
           const next = new URLSearchParams(params);
           if (q) next.set("q", q);
           else next.delete("q");

@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useLocation } from "react-router-dom";
 import useAuth from "../hooks/useAuth.js";
 import usePlayer from "../hooks/usePlayer.js";
+import { backfillMissingMixDurations } from "../lib/backfillMixDurations.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 import { mixRowToEpisode, notificationRowToApp, profileRowToUser } from "../lib/maps.js";
 
@@ -14,12 +15,35 @@ export function AppProvider({ children }) {
   forYouRouteRef.current = location.pathname === "/foryou";
   const episodesRef = useRef([]);
   const getPlaylist = useCallback(() => episodesRef.current, []);
+  const durationBackfillGenRef = useRef(0);
+
+  const applyKnownMixDuration = useCallback((mixId, durationSecs) => {
+    const sec = Math.round(Number(durationSecs) || 0);
+    if (!mixId || sec < 1) return;
+    setEpisodes((eps) =>
+      eps.map((ep) =>
+        ep.id === mixId && Number(ep.durationSecs) < 1 ? { ...ep, durationSecs: sec } : ep,
+      ),
+    );
+    if (!isSupabaseConfigured()) return;
+    void (async () => {
+      const { error } = await supabase.rpc("set_mix_duration_if_unset", {
+        p_mix_id: mixId,
+        p_duration_secs: sec,
+      });
+      if (error) {
+        await supabase.from("mixes").update({ duration_secs: sec }).eq("id", mixId).lte("duration_secs", 0);
+      }
+    })();
+  }, []);
 
   const player = usePlayer({
     guestPreviewOnly: !auth.session?.user?.id,
     isAuthenticated: Boolean(auth.session?.user?.id),
+    userId: auth.session?.user?.id ?? null,
     getPlaylist,
     getSuspendPlayback: () => forYouRouteRef.current,
+    onDurationKnown: applyKnownMixDuration,
   });
 
   useEffect(() => {
@@ -52,8 +76,19 @@ export function AppProvider({ children }) {
     setDataError(null);
     const list = (data || []).map(mixRowToEpisode);
     setEpisodes(list);
+
+    const gen = ++durationBackfillGenRef.current;
+    const authed = Boolean(auth.session?.user?.id);
+    void backfillMissingMixDurations(list, {
+      isAuthenticated: authed,
+      onUpdate: (id, durationSecs) => {
+        if (gen !== durationBackfillGenRef.current) return;
+        applyKnownMixDuration(id, durationSecs);
+      },
+    });
+
     return list;
-  }, []);
+  }, [auth.session?.user?.id, applyKnownMixDuration]);
 
   const refreshProfiles = useCallback(async () => {
     if (!isSupabaseConfigured()) {

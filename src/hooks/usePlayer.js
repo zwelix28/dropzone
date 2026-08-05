@@ -10,6 +10,14 @@ import {
   resolveMixPlaybackUrl,
 } from "../lib/audioUrls.js";
 import { getGuestPreviewSegment } from "../lib/forYouPreview.js";
+import {
+  clearPlaybackProgress,
+  fetchPlaybackProgress,
+  savePlaybackProgress,
+  shouldResumeAt,
+} from "../lib/playbackProgress.js";
+
+const SAVE_INTERVAL_MS = 10000;
 
 function effectiveDurationSec(audio, track, guestPreviewOnly, segment) {
   if (!guestPreviewOnly) {
@@ -67,11 +75,27 @@ async function beginGuestSegmentPlayback(audio, startSec) {
   return seekAndPlay();
 }
 
+async function waitForMetadata(audio) {
+  if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) return;
+  await new Promise((resolve) => {
+    const onReady = () => {
+      audio.removeEventListener("loadedmetadata", onReady);
+      audio.removeEventListener("canplay", onReady);
+      resolve();
+    };
+    audio.addEventListener("loadedmetadata", onReady, { once: true });
+    audio.addEventListener("canplay", onReady, { once: true });
+    setTimeout(resolve, 4000);
+  });
+}
+
 export default function usePlayer({
   guestPreviewOnly = false,
   isAuthenticated = false,
+  userId = null,
   getPlaylist = null,
   getSuspendPlayback = null,
+  onDurationKnown = null,
 } = {}) {
   const [currentTrack, setCurrentTrack] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -87,6 +111,17 @@ export default function usePlayer({
   const suspendRef = useRef(getSuspendPlayback);
   suspendRef.current = getSuspendPlayback;
   const playAdjacentRef = useRef(null);
+  const currentTrackRef = useRef(null);
+  currentTrackRef.current = currentTrack;
+  const userIdRef = useRef(userId);
+  userIdRef.current = userId;
+  const guestPreviewOnlyRef = useRef(guestPreviewOnly);
+  guestPreviewOnlyRef.current = guestPreviewOnly;
+  const lastSaveAtRef = useRef(0);
+  const seekSaveTimerRef = useRef(null);
+  const onDurationKnownRef = useRef(onDurationKnown);
+  onDurationKnownRef.current = onDurationKnown;
+  const reportedDurationIdsRef = useRef(new Set());
 
   if (!audioRef.current && typeof Audio !== "undefined") {
     audioRef.current = new Audio();
@@ -95,12 +130,34 @@ export default function usePlayer({
 
   const isSuspended = useCallback(() => Boolean(suspendRef.current?.()), []);
 
+  const persistProgress = useCallback(async ({ force = false, clear = false } = {}) => {
+    const uid = userIdRef.current;
+    const track = currentTrackRef.current;
+    const audio = audioRef.current;
+    if (!uid || !track?.id || guestPreviewOnlyRef.current) return;
+
+    if (clear) {
+      await clearPlaybackProgress(uid, track.id);
+      return;
+    }
+    if (!audio) return;
+
+    const now = Date.now();
+    if (!force && now - lastSaveAtRef.current < SAVE_INTERVAL_MS) return;
+
+    const positionSec = Number(audio.currentTime) || 0;
+    const duration = Number(audio.duration) || Number(track.durationSecs) || 0;
+    lastSaveAtRef.current = now;
+    await savePlaybackProgress(uid, track.id, positionSec, duration);
+  }, []);
+
   const pause = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
     audio.pause();
     setIsPlaying(false);
-  }, []);
+    void persistProgress({ force: true });
+  }, [persistProgress]);
 
   useEffect(() => registerExclusiveAudioOwner(AUDIO_OWNER_MAIN, pause), [pause]);
 
@@ -148,8 +205,16 @@ export default function usePlayer({
         } else {
           audio.pause();
           setIsPlaying(false);
+          void persistProgress({ force: true });
         }
         return;
+      }
+
+      // Save outgoing track before switching
+      if (currentTrack?.id && userIdRef.current && !guestPreviewOnly) {
+        const pos = Number(audio.currentTime) || 0;
+        const dur = Number(audio.duration) || Number(currentTrack.durationSecs) || 0;
+        void savePlaybackProgress(userIdRef.current, currentTrack.id, pos, dur);
       }
 
       const gen = ++trackGenRef.current;
@@ -192,20 +257,47 @@ export default function usePlayer({
         const ok = await beginGuestSegmentPlayback(audio, segment.start);
         if (gen !== trackGenRef.current) return;
         setIsPlaying(ok);
-      } else {
-        await startPlayback();
+        return;
       }
+
+      let resumeSec = 0;
+      if (userId && isAuthenticated) {
+        const saved = await fetchPlaybackProgress(userId, ep.id);
+        if (gen !== trackGenRef.current) return;
+        if (saved && shouldResumeAt(saved.positionSec, saved.durationSec || ep.durationSecs)) {
+          resumeSec = saved.positionSec;
+        }
+      }
+
+      await waitForMetadata(audio);
+      if (gen !== trackGenRef.current) return;
+
+      if (resumeSec > 0) {
+        const mediaDur = Number(audio.duration) || Number(ep.durationSecs) || 0;
+        if (shouldResumeAt(resumeSec, mediaDur)) {
+          const ok = await seekToAndPlay(audio, resumeSec);
+          if (gen !== trackGenRef.current) return;
+          const eff = mediaDur || resumeSec;
+          setProgress(eff ? (resumeSec / eff) * 100 : 0);
+          setIsPlaying(ok);
+          return;
+        }
+      }
+
+      await startPlayback();
     },
     [
       currentTrack,
       volume,
       guestPreviewOnly,
       isAuthenticated,
+      userId,
       isSuspended,
       pause,
       startPlayback,
       isGuestPreviewEnded,
       restartGuestPreview,
+      persistProgress,
     ],
   );
 
@@ -218,6 +310,19 @@ export default function usePlayer({
     if (!audio) return;
 
     const syncDuration = () => {
+      const mediaDur = Number(audio.duration);
+      const trackDur = Number(currentTrack?.durationSecs) || 0;
+      if (
+        !guestPreviewOnly &&
+        currentTrack?.id &&
+        Number.isFinite(mediaDur) &&
+        mediaDur > 0 &&
+        trackDur < 1 &&
+        !reportedDurationIdsRef.current.has(currentTrack.id)
+      ) {
+        reportedDurationIdsRef.current.add(currentTrack.id);
+        onDurationKnownRef.current?.(currentTrack.id, Math.round(mediaDur));
+      }
       const eff = effectiveDurationSec(audio, currentTrack, guestPreviewOnly, segmentRef.current);
       const sec = Math.floor(Math.max(0, eff));
       setDurationSec(sec);
@@ -254,12 +359,19 @@ export default function usePlayer({
       const eff = effectiveDurationSec(audio, currentTrack, guestPreviewOnly, segmentRef.current);
       if (!eff) return;
       setProgress((audio.currentTime / eff) * 100);
+      if (!audio.paused && userIdRef.current) {
+        void persistProgress({ force: false });
+      }
     };
     const onPlay = () => setIsPlaying(true);
-    const onPause = () => setIsPlaying(false);
+    const onPause = () => {
+      setIsPlaying(false);
+      void persistProgress({ force: true });
+    };
     const onEnded = () => {
       setIsPlaying(false);
       setProgress(0);
+      void persistProgress({ clear: true });
       if (!guestPreviewOnly) {
         void playAdjacentRef.current?.("next");
       }
@@ -276,7 +388,23 @@ export default function usePlayer({
       audio.removeEventListener("pause", onPause);
       audio.removeEventListener("ended", onEnded);
     };
-  }, [currentTrack, guestPreviewOnly]);
+  }, [currentTrack, guestPreviewOnly, persistProgress]);
+
+  // Flush progress when leaving the page / tab
+  useEffect(() => {
+    const flush = () => {
+      void persistProgress({ force: true });
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [persistProgress]);
 
   const getPlaylistTracks = useCallback(() => {
     const list = typeof getPlaylist === "function" ? getPlaylist() : [];
@@ -298,6 +426,9 @@ export default function usePlayer({
           } else {
             audio.currentTime = 0;
             setProgress(0);
+            if (userIdRef.current) {
+              void clearPlaybackProgress(userIdRef.current, currentTrack.id);
+            }
           }
           await startPlayback();
         }
@@ -370,8 +501,12 @@ export default function usePlayer({
       if (!eff) return;
       audio.currentTime = (eff * p) / 100;
       setProgress(p);
+      if (seekSaveTimerRef.current) clearTimeout(seekSaveTimerRef.current);
+      seekSaveTimerRef.current = setTimeout(() => {
+        void persistProgress({ force: true });
+      }, 400);
     },
-    [currentTrack, guestPreviewOnly],
+    [currentTrack, guestPreviewOnly, persistProgress],
   );
 
   const toggle = useCallback(async () => {
@@ -391,8 +526,18 @@ export default function usePlayer({
     } else {
       audio.pause();
       setIsPlaying(false);
+      void persistProgress({ force: true });
     }
-  }, [currentTrack, guestPreviewOnly, isSuspended, pause, startPlayback, isGuestPreviewEnded, restartGuestPreview]);
+  }, [
+    currentTrack,
+    guestPreviewOnly,
+    isSuspended,
+    pause,
+    startPlayback,
+    isGuestPreviewEnded,
+    restartGuestPreview,
+    persistProgress,
+  ]);
 
   useEffect(() => {
     const prev = prevGuestAuthRef.current;
