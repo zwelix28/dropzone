@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import Icon from "./Icon.jsx";
+import MarqueeText from "./MarqueeText.jsx";
 import VerifiedBadge from "./VerifiedBadge.jsx";
 import WaveAnim from "./WaveAnim.jsx";
 import { fmtPlayerTime } from "../lib/format.js";
@@ -257,19 +258,12 @@ export default function PlayerBar({
               style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover" }}
             />
           )}
-          <div style={{ overflow: "hidden" }}>
-            <div
-              style={{
-                fontWeight: 600,
-                fontSize: 13,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                maxWidth: 160,
-              }}
-            >
-              {track.title}
-            </div>
+          <div style={{ overflow: "hidden", minWidth: 0 }}>
+            <MarqueeText
+              text={track.title}
+              maxWidth={180}
+              style={{ fontWeight: 600, fontSize: 13 }}
+            />
             {user && (
               <div
                 style={{
@@ -297,7 +291,7 @@ export default function PlayerBar({
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
-                  maxWidth: 160,
+                  maxWidth: 180,
                 }}
               >
                 {track.description}
