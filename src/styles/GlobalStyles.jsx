@@ -397,6 +397,64 @@ export const GlobalStyles = () => (
       }
     }
 
+    /* Desktop bottom player — sliding mix title when truncated */
+    .marquee-title {
+      position: relative;
+      overflow: hidden;
+      white-space: nowrap;
+      min-width: 0;
+    }
+    .marquee-title-measure {
+      position: absolute;
+      visibility: hidden;
+      pointer-events: none;
+      white-space: nowrap;
+      font: inherit;
+      font-weight: inherit;
+      letter-spacing: inherit;
+    }
+    .marquee-title-track {
+      display: inline-flex;
+      width: max-content;
+      will-change: transform;
+    }
+    .marquee-title-item {
+      display: inline-block;
+      white-space: nowrap;
+      padding-right: 2.25rem;
+      box-sizing: content-box;
+    }
+    .marquee-title:not(.is-overflowing) .marquee-title-item {
+      padding-right: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+    .marquee-title.is-overflowing .marquee-title-track {
+      animation: player-title-marquee 14s linear infinite;
+    }
+    .marquee-title.is-overflowing:hover .marquee-title-track {
+      animation-play-state: paused;
+    }
+    @keyframes player-title-marquee {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .marquee-title.is-overflowing .marquee-title-track {
+        animation: none;
+      }
+      .marquee-title.is-overflowing .marquee-title-item:last-child {
+        display: none;
+      }
+      .marquee-title.is-overflowing .marquee-title-item {
+        padding-right: 0;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+
     /* Mobile nav drawer */
     .mobile-nav-backdrop {
       position: fixed; inset: 0; z-index: 850;
