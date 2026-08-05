@@ -100,7 +100,24 @@ create table if not exists public.admin_logs (
 
 create index if not exists idx_admin_logs_created_at on public.admin_logs(created_at desc);
 
--- New user → profile row
+-- New user → profile row (+ auto-follow @deephouselab)
+create or replace function public.resolve_dhlab_profile_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p.id
+  from public.profiles p
+  where lower(regexp_replace(coalesce(p.handle, ''), '^@', '')) = 'deephouselab'
+     or lower(trim(coalesce(p.username, ''))) in ('deephouselab', 'deep house lab')
+  order by
+    case when lower(regexp_replace(coalesce(p.handle, ''), '^@', '')) = 'deephouselab' then 0 else 1 end,
+    p.created_at asc nulls last
+  limit 1;
+$$;
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -110,6 +127,7 @@ as $$
 declare
   uname text;
   h text;
+  dhlab_id uuid;
 begin
   uname := coalesce(new.raw_user_meta_data->>'username', split_part(coalesce(new.email, ''), '@', 1));
   if uname = '' or uname is null then uname := 'DJ'; end if;
@@ -122,6 +140,14 @@ begin
     coalesce(new.raw_user_meta_data->>'genre', 'Tech House')
   )
   on conflict (id) do nothing;
+
+  dhlab_id := public.resolve_dhlab_profile_id();
+  if dhlab_id is not null and dhlab_id is distinct from new.id then
+    insert into public.follows (follower_id, following_id)
+    values (new.id, dhlab_id)
+    on conflict do nothing;
+  end if;
+
   return new;
 end;
 $$;

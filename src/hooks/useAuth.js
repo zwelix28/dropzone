@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { normalizePlan } from "../constants/plans.js";
+import { ensureFollowDhlab } from "../lib/followDhlab.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 
 /** User-facing copy for common GoTrue / Supabase Auth responses */
@@ -122,12 +123,19 @@ export default function useAuth() {
       return { ok: false, error: shown };
     }
 
+    // DB trigger should auto-follow; client backup when a session exists.
+    const newUserId = data.user?.id;
+    if (newUserId && data.session) {
+      void ensureFollowDhlab(newUserId);
+    }
+
     if (data.session) {
       return { ok: true, needsEmailConfirmation: false };
     }
 
     const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
     if (!signInErr && signInData.session) {
+      if (newUserId) void ensureFollowDhlab(newUserId);
       return { ok: true, needsEmailConfirmation: false };
     }
 
