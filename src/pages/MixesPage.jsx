@@ -6,9 +6,10 @@ import TrackCard from "../components/TrackCard.jsx";
 import { GENRES } from "../constants/genres.js";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
-import { isDiscoverItem } from "../lib/contentType.js";
+import { isMixesItem } from "../lib/contentType.js";
 
-export default function DiscoverPage() {
+/** Full-length mixes. Singles / songs live on Discover. */
+export default function MixesPage() {
   const { episodes, users, player } = useApp();
   const [params] = useSearchParams();
   const q = params.get("q") || "";
@@ -18,7 +19,7 @@ export default function DiscoverPage() {
 
   const filtered = useMemo(() => {
     return episodes.filter((ep) => {
-      if (!isDiscoverItem(ep)) return false;
+      if (!isMixesItem(ep)) return false;
       const user = users.find((u) => u.id === ep.userId);
       const matchesGenre = genre === "All" || ep.genre === genre;
       const matchesSearch =
@@ -37,7 +38,7 @@ export default function DiscoverPage() {
         paddingBottom: 100,
       }}
     >
-      <PageHeader title="DISCOVER" large marginBottom={12} />
+      <PageHeader title="MIXES" large marginBottom={12} />
       <p
         style={{
           margin: `0 0 ${isCompact ? 16 : 28}px`,
@@ -47,7 +48,7 @@ export default function DiscoverPage() {
           lineHeight: 1.5,
         }}
       >
-        Singles and short tracks. Full-length mixes are on Mixes.
+        Full-length mixes and sessions. Singles are on Discover.
       </p>
 
       <div style={{ display: "flex", gap: 12, marginBottom: isCompact ? 16 : 28, flexWrap: "wrap" }}>
@@ -55,6 +56,7 @@ export default function DiscoverPage() {
           {["All", ...GENRES.slice(0, 6)].map((g) => (
             <button
               key={g}
+              type="button"
               onClick={() => setGenre(g)}
               style={{
                 padding: isCompact ? "6px 10px" : "8px 14px",
@@ -75,8 +77,8 @@ export default function DiscoverPage() {
 
       {filtered.length === 0 ? (
         <div style={{ textAlign: "center", padding: "80px 0", color: "var(--text3)" }}>
-          <Icon name="search" size={40} color="var(--text3)" />
-          <p style={{ marginTop: 12 }}>No results found</p>
+          <Icon name="music" size={40} color="var(--text3)" />
+          <p style={{ marginTop: 12 }}>No mixes found</p>
         </div>
       ) : (
         <div
@@ -104,4 +106,3 @@ export default function DiscoverPage() {
     </div>
   );
 }
-

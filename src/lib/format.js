@@ -1,9 +1,13 @@
 export const fmt = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : n);
 
 export const fmtDuration = (s) => {
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  const total = Math.max(0, Math.floor(Number(s) || 0));
+  if (total < 1) return "—";
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  if (m < 1) return "<1m";
+  return `${m}m`;
 };
 
 /** Player / scrubber: `3:45` or `1:02:03` (always includes seconds). */

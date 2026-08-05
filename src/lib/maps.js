@@ -26,6 +26,10 @@ export function mixRowToEpisode(row) {
     createdAt: row.created_at,
     tracklist: Array.isArray(row.tracklist) ? row.tracklist : [],
     trending: row.trending ?? 999,
+    isForSale: row.is_for_sale ?? false,
+    priceZar: row.price_zar != null ? Number(row.price_zar) : null,
+    salesCount: row.sales_count ?? 0,
+    contentType: row.content_type === "single" ? "single" : "mix",
   };
 }
 

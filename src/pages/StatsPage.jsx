@@ -1,19 +1,159 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
 import PageHeader from "../components/PageHeader.jsx";
+import ProUpgradePrompt from "../components/ProUpgradePrompt.jsx";
 import UserAvatar from "../components/UserAvatar.jsx";
 import VerifiedBadge from "../components/VerifiedBadge.jsx";
 import WaveAnim from "../components/WaveAnim.jsx";
+import { isProPlan } from "../constants/plans.js";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
+import { FEATURE_TOP10 } from "../featureFlags.js";
 import { fmt } from "../lib/format.js";
-
-const PLAY_MILESTONES = [10, 50, 100, 250, 500, 1000, 5000, 10000, 50000, 100000];
+import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 
 function nextPlayMilestone(totalPlays) {
   const v = Number(totalPlays) || 0;
   return PLAY_MILESTONES.find((m) => m > v) ?? null;
+}
+
+function EarningsTab({ uid, isCompact }) {
+  const [purchases, setPurchases] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const channelRef = useRef(null);
+
+  const loadPurchases = async () => {
+    if (!uid || !isSupabaseConfigured()) { setLoading(false); return; }
+    const { data } = await supabase
+      .from("mix_purchases")
+      .select("id, mix_id, buyer_user_id, amount_zar, seller_net_zar, period_month, created_at, status, mixes(title, cover_url)")
+      .eq("seller_user_id", uid)
+      .eq("status", "paid")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    setPurchases(data ?? []);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    void loadPurchases();
+
+    if (!uid || !isSupabaseConfigured()) return;
+
+    // Real-time: subscribe to new purchases for this seller
+    const channel = supabase
+      .channel(`seller-purchases-${uid}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "mix_purchases", filter: `seller_user_id=eq.${uid}` },
+        () => { void loadPurchases(); },
+      )
+      .subscribe();
+
+    channelRef.current = channel;
+    return () => {
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid]);
+
+  const totals = useMemo(() => {
+    return purchases.reduce(
+      (acc, p) => {
+        acc.gross += Number(p.amount_zar);
+        acc.net += Number(p.seller_net_zar);
+        return acc;
+      },
+      { gross: 0, net: 0 },
+    );
+  }, [purchases]);
+
+  if (loading) {
+    return <p style={{ fontSize: 13, color: "var(--text3)", padding: "12px 0" }}>Loading earnings…</p>;
+  }
+
+  if (!purchases.length) {
+    return (
+      <div style={{ textAlign: "center", padding: isCompact ? "20px 8px" : "32px 16px" }}>
+        <Icon name="zap" size={isCompact ? 28 : 36} color="var(--text3)" />
+        <p style={{ color: "var(--text2)", marginTop: 12, fontSize: isCompact ? 13 : 14 }}>
+          No sales yet. Set a mix for sale on the upload page to start earning.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+          gap: isCompact ? 8 : 10,
+          marginBottom: isCompact ? 16 : 20,
+        }}
+      >
+        {[
+          { label: "Gross revenue", value: `R${totals.gross.toFixed(2)}`, icon: "zap", color: "var(--accent)" },
+          { label: "Your net earnings", value: `R${totals.net.toFixed(2)}`, icon: "download", color: "var(--green)" },
+        ].map((tile) => (
+          <div
+            key={tile.label}
+            className="stat-card"
+            style={{ textAlign: "center", padding: isCompact ? "10px 8px" : "14px 12px", borderRadius: isCompact ? 10 : 12 }}
+          >
+            <Icon name={tile.icon} size={isCompact ? 12 : 14} color={tile.color} />
+            <div style={{ fontSize: isCompact ? 16 : 20, fontWeight: 800, marginTop: isCompact ? 4 : 6, fontFamily: "var(--ff-mono)", color: tile.color }}>
+              {tile.value}
+            </div>
+            <div style={{ fontSize: isCompact ? 10 : 11, color: "var(--text3)", marginTop: 2 }}>{tile.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: isCompact ? 8 : 10 }}>
+        {purchases.map((p) => (
+          <div
+            key={p.id}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: isCompact ? 10 : 14,
+              padding: isCompact ? "10px 10px" : "12px 14px",
+              borderRadius: isCompact ? 10 : 12,
+              background: "var(--surface2)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            {p.mixes?.cover_url ? (
+              <img
+                src={p.mixes.cover_url}
+                alt=""
+                style={{ width: isCompact ? 38 : 44, height: isCompact ? 38 : 44, borderRadius: 8, objectFit: "cover", flexShrink: 0, background: "var(--surface)" }}
+              />
+            ) : (
+              <div style={{ width: isCompact ? 38 : 44, height: isCompact ? 38 : 44, borderRadius: 8, background: "var(--surface)", flexShrink: 0 }} />
+            )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: isCompact ? 12 : 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {p.mixes?.title ?? "Unknown mix"}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>
+                {new Date(p.created_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
+              </div>
+            </div>
+            <div style={{ textAlign: "right", flexShrink: 0 }}>
+              <div style={{ fontWeight: 800, fontFamily: "var(--ff-mono)", fontSize: isCompact ? 13 : 15, color: "var(--green)" }}>
+                +R{Number(p.seller_net_zar).toFixed(2)}
+              </div>
+              <div style={{ fontSize: 10, color: "var(--text3)", marginTop: 2 }}>net</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function StatsPage() {
@@ -21,6 +161,7 @@ export default function StatsPage() {
   const currentUser = auth.currentUser;
   const isCompact = useMediaQuery("(max-width: 720px)");
   const [rankTab, setRankTab] = useState("plays");
+  const [mainTab, setMainTab] = useState("stats");
 
   const userEps = useMemo(
     () => (currentUser ? episodes.filter((e) => e.userId === currentUser.id) : []),
@@ -94,6 +235,72 @@ export default function StatsPage() {
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
         <PageHeader icon="bar2" title="STATISTICS" />
 
+        {/* Tab switcher */}
+        <div
+          style={{
+            display: "flex",
+            gap: 4,
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: 12,
+            padding: 4,
+            marginBottom: isCompact ? 14 : 18,
+          }}
+        >
+          {(currentUser?.isAdmin
+            ? [
+                ["stats", "Stats"],
+                ["earnings", "Earnings"],
+              ]
+            : [["stats", "Stats"]]
+          ).map(([val, label]) => (
+            <button
+              key={val}
+              type="button"
+              onClick={() => setMainTab(val)}
+              style={{
+                flex: 1,
+                padding: "8px 12px",
+                borderRadius: 9,
+                fontSize: isCompact ? 12 : 13,
+                fontWeight: 600,
+                background: mainTab === val ? "var(--accent2)" : "transparent",
+                color: mainTab === val ? "#07090F" : "var(--text2)",
+                transition: "all 0.2s",
+              }}
+            >
+              {label === "Earnings" && !isProPlan(currentUser) ? (
+                <span style={{ opacity: 0.5 }}>🔒 </span>
+              ) : null}
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {mainTab === "earnings" && currentUser?.isAdmin ? (
+          isProPlan(currentUser) ? (
+            <div
+              style={{
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                borderRadius: isCompact ? 12 : 16,
+                padding: isCompact ? "14px" : "20px",
+              }}
+            >
+              <h2 style={{ fontWeight: 700, margin: "0 0 16px", fontSize: isCompact ? 15 : 17 }}>Sales & earnings</h2>
+              <EarningsTab uid={currentUser.id} isCompact={isCompact} />
+            </div>
+          ) : (
+            <ProUpgradePrompt
+              title="Earnings (Pro only)"
+              description="Upgrade to Pro to sell your mixes, track revenue in real time, and withdraw earnings monthly."
+              compact={isCompact}
+            />
+          )
+        ) : null}
+
+        {mainTab === "stats" ? (
+        <>
         <div
           style={{
             background: "var(--surface)",
@@ -277,12 +484,16 @@ export default function StatsPage() {
             <div style={{ textAlign: "center", padding: isCompact ? "20px 8px" : "28px 16px" }}>
               <Icon name="upload" size={isCompact ? 28 : 36} color="var(--text3)" />
               <p style={{ color: "var(--text2)", marginTop: 12, marginBottom: 16, fontSize: isCompact ? 13 : 14 }}>
-                Publish your first mix to start tracking performance here.
+                {currentUser?.isAdmin
+                  ? "Publish your first mix to start tracking performance here."
+                  : "No mixes to track yet."}
               </p>
-              <Link to="/upload" className="btn btn-primary" style={{ textDecoration: "none" }}>
-                <Icon name="upload" size={15} />
-                Upload a mix
-              </Link>
+              {currentUser?.isAdmin ? (
+                <Link to="/upload" className="btn btn-primary" style={{ textDecoration: "none" }}>
+                  <Icon name="upload" size={15} />
+                  Upload a mix
+                </Link>
+              ) : null}
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: isCompact ? 8 : 10 }}>
@@ -387,11 +598,15 @@ export default function StatsPage() {
             <Link to="/profile" className="btn btn-ghost" style={{ textDecoration: "none" }}>
               View my profile
             </Link>
-            <Link to="/top10" className="btn btn-ghost" style={{ textDecoration: "none" }}>
-              <Icon name="award" size={14} />
-              Top 10 chart
-            </Link>
+            {FEATURE_TOP10 ? (
+              <Link to="/top10" className="btn btn-ghost" style={{ textDecoration: "none" }}>
+                <Icon name="award" size={14} />
+                Top 10 chart
+              </Link>
+            ) : null}
           </div>
+        ) : null}
+        </>
         ) : null}
       </div>
     </div>

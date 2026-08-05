@@ -17,7 +17,6 @@ export default function TrackCard({
   const user = users.find((u) => u.id === episode.userId);
   const pad = compact ? "8px 10px" : "14px 16px";
   const titleSize = compact ? 12 : 14;
-  const descSize = compact ? 10 : 12;
   const metaSize = compact ? 10 : 12;
   const iconSm = compact ? 11 : 13;
   const avatarSz = compact ? 16 : 20;
@@ -111,7 +110,7 @@ export default function TrackCard({
           style={{
             fontWeight: 600,
             fontSize: titleSize,
-            marginBottom: compact ? 2 : 4,
+            marginBottom: compact ? 6 : 10,
             lineHeight: 1.3,
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -122,38 +121,6 @@ export default function TrackCard({
         >
           {episode.title}
         </div>
-        {episode.description && !compact ? (
-          <div
-            title={episode.description}
-            style={{
-              fontSize: descSize,
-              color: "var(--text3)",
-              marginBottom: 10,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-            }}
-          >
-            {episode.description}
-          </div>
-        ) : null}
-        {episode.description && compact ? (
-          <div
-            title={episode.description}
-            style={{
-              fontSize: descSize,
-              color: "var(--text3)",
-              marginBottom: 6,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {episode.description}
-          </div>
-        ) : null}
         {user && (
           <div
             style={{

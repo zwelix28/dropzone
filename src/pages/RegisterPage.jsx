@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { GENRES } from "../constants/genres.js";
 import Icon from "../components/Icon.jsx";
+import { signedInHomePath } from "../featureFlags.js";
 import { isSupabaseConfigured } from "../lib/supabaseClient.js";
 import { useApp } from "../context/AppContext.jsx";
 
@@ -19,7 +20,7 @@ export default function RegisterPage() {
 
   useEffect(() => {
     if (auth.authLoading) return;
-    if (auth.session?.user?.id) navigate("/discover", { replace: true });
+    if (auth.session?.user?.id) navigate(signedInHomePath(), { replace: true });
   }, [auth.authLoading, auth.session?.user?.id, navigate]);
 
   const goSignIn = () => {
@@ -43,7 +44,7 @@ export default function RegisterPage() {
             "Check your email to confirm your address, then sign in. (You can disable “Confirm email” in Supabase for instant login while testing.)",
           );
         } else {
-          navigate("/discover", { replace: true });
+          navigate(signedInHomePath(), { replace: true });
         }
       }
     } finally {

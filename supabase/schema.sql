@@ -41,6 +41,7 @@ create table if not exists public.mixes (
   shares int not null default 0,
   likes_count int not null default 0,
   trending int not null default 999,
+  content_type text not null default 'mix' check (content_type in ('single', 'mix')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -60,6 +61,7 @@ create table if not exists public.notifications (
 
 create index if not exists idx_mixes_user_id on public.mixes(user_id);
 create index if not exists idx_mixes_created_at on public.mixes(created_at desc);
+create index if not exists idx_mixes_content_type on public.mixes (content_type, created_at desc);
 create index if not exists idx_notifications_user on public.notifications(user_id, created_at desc);
 
 -- Follows: follower_id follows following_id (counts on profiles maintained by trigger)
@@ -467,10 +469,17 @@ drop policy if exists "mixes_select_all" on public.mixes;
 create policy "mixes_select_all" on public.mixes for select using (true);
 
 drop policy if exists "mixes_insert_own" on public.mixes;
-create policy "mixes_insert_own" on public.mixes for insert with check (
-  auth.uid() = user_id
-  and not coalesce((select pr.is_banned from public.profiles pr where pr.id = auth.uid()), false)
-);
+drop policy if exists "mixes_insert_admin" on public.mixes;
+create policy "mixes_insert_admin" on public.mixes for insert to authenticated
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid()
+        and coalesce(p.is_admin, false) = true
+        and coalesce(p.is_banned, false) = false
+    )
+  );
 
 drop policy if exists "mixes_update_own" on public.mixes;
 create policy "mixes_update_own" on public.mixes for update using (auth.uid() = user_id);
