@@ -9,6 +9,7 @@ import { episodeHasAudioSource } from "../lib/audioUrls.js";
 import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
 import { fmtPlayerTime } from "../lib/format.js";
 import { getGuestPreviewSegment } from "../lib/forYouPreview.js";
+import { shareMix } from "../lib/shareMix.js";
 
 /** For You–style overlay: legibility tint, then +25% transparency for glass feel. */
 const opa = (a) => {
@@ -81,6 +82,21 @@ export default function MobileNowPlaying({
     }
     setToast("Downloading full mix…");
     void trackEvent({ kind: "download", episodeId: track.id, actorUserId: auth.currentUser?.id });
+  };
+
+  const handleShare = async () => {
+    const result = await shareMix({
+      episode: track,
+      artist: user,
+      trackEvent,
+      actorUserId: auth.currentUser?.id,
+    });
+    if (result?.aborted) return;
+    if (result?.ok && result.method === "clipboard") {
+      setToast("Link copied");
+      return;
+    }
+    if (!result?.ok) setToast("Couldn't share this mix");
   };
 
   const fallbackTotal = guestPreviewOnly
@@ -398,6 +414,17 @@ export default function MobileNowPlaying({
               >
                 <Icon name="download" size={15} color={liked ? "var(--accent)" : "var(--text3)"} />
                 <span style={{ marginLeft: 6 }}>{liked ? "Download" : "Like to download"}</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost mobile-np-float-like"
+                onClick={() => void handleShare()}
+                aria-label="Share mix"
+                title="Share mix"
+                style={{ fontSize: 12 }}
+              >
+                <Icon name="share" size={15} color="var(--text2)" />
+                <span style={{ marginLeft: 6 }}>Share</span>
               </button>
             </div>
 
