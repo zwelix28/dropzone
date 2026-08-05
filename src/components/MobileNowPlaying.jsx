@@ -93,10 +93,15 @@ export default function MobileNowPlaying({
     });
     if (result?.aborted) return;
     if (result?.ok && result.method === "clipboard") {
-      setToast("Link copied");
+      setToast("Title & link copied");
       return;
     }
-    if (!result?.ok) setToast("Couldn't share this mix");
+    if (result?.ok && result.method === "share") return;
+    if (result?.text || result?.url) {
+      setToast(`Copy: ${(result.text || result.url).trim()}`);
+      return;
+    }
+    setToast("Couldn't share this mix");
   };
 
   const fallbackTotal = guestPreviewOnly
@@ -527,7 +532,8 @@ export default function MobileNowPlaying({
             padding: "10px 16px",
             fontSize: 13,
             zIndex: 10,
-            whiteSpace: "nowrap",
+            whiteSpace: "normal",
+            wordBreak: "break-all",
             maxWidth: "calc(100% - 32px)",
             textAlign: "center",
           }}
