@@ -162,7 +162,7 @@ export default function MixDetailPage() {
   };
 
   return (
-    <div className="fade-in" style={{ padding: isCompact ? "16px 12px" : "32px 36px", paddingBottom: 120, maxWidth: isCompact ? undefined : 1040, width: "100%", boxSizing: "border-box" }}>
+    <div className="fade-in" style={{ padding: isCompact ? "16px 12px" : "32px 36px", paddingBottom: 120, maxWidth: isCompact ? undefined : 1120, width: "100%", boxSizing: "border-box" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: isCompact ? 12 : 18 }}>
         <Link to={location.state?.from || (loggedIn ? signedInHomePath() : "/")} style={{ color: "var(--text2)", fontSize: isCompact ? 12 : 13 }}>
           ← Back
@@ -178,9 +178,9 @@ export default function MixDetailPage() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: isCompact ? "1fr" : "minmax(200px, 280px) minmax(0, 1fr)",
+          gridTemplateColumns: isCompact ? "1fr" : "minmax(220px, 300px) minmax(0, 1fr)",
           alignItems: "start",
-          gap: isCompact ? 14 : 28,
+          gap: isCompact ? 14 : 32,
           background: "var(--surface)",
           border: "1px solid var(--border)",
           borderRadius: isCompact ? 12 : 16,
@@ -206,32 +206,24 @@ export default function MixDetailPage() {
           />
         </div>
 
-        <div style={{ minWidth: 0, width: "100%", overflow: "visible" }}>
+        <div style={{ minWidth: 0, width: "100%" }}>
           <div
             style={{
               display: "flex",
-              alignItems: isCompact ? "stretch" : "flex-start",
-              justifyContent: "space-between",
-              gap: isCompact ? 12 : 20,
-              flexDirection: isCompact ? "column" : "row",
-              flexWrap: isCompact ? "nowrap" : "wrap",
+              flexDirection: "column",
+              alignItems: "stretch",
+              gap: isCompact ? 12 : 16,
+              width: "100%",
             }}
           >
-            <div
-              style={{
-                minWidth: 0,
-                flex: isCompact ? undefined : "1 1 240px",
-                width: isCompact ? "100%" : undefined,
-                overflow: "visible",
-              }}
-            >
+            <div style={{ minWidth: 0, width: "100%" }}>
               <div
                 style={{
                   display: "flex",
                   gap: isCompact ? 6 : 8,
                   alignItems: "center",
                   flexWrap: "wrap",
-                  marginBottom: isCompact ? 6 : 8,
+                  marginBottom: isCompact ? 8 : 10,
                 }}
               >
                 <span className="tag tag-blue" style={{ fontSize: isCompact ? 10 : undefined, padding: isCompact ? "2px 8px" : undefined }}>
@@ -247,21 +239,25 @@ export default function MixDetailPage() {
 
               <h1
                 style={{
-                  fontSize: isCompact ? 19 : 28,
-                  fontWeight: 850,
-                  lineHeight: 1.2,
-                  marginBottom: isCompact ? 8 : 12,
+                  fontFamily: "var(--ff-display)",
+                  fontSize: isCompact ? "clamp(1.25rem, 5.2vw, 1.7rem)" : "clamp(1.65rem, 2.5vw, 2.25rem)",
+                  fontWeight: 700,
+                  letterSpacing: "0.02em",
+                  lineHeight: 1.28,
+                  marginBottom: isCompact ? 10 : 14,
                   marginTop: 0,
-                  ...(isCompact
-                    ? { overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }
-                    : { wordBreak: "break-word", overflowWrap: "anywhere" }),
+                  width: "100%",
+                  maxWidth: "100%",
+                  whiteSpace: "normal",
+                  overflowWrap: "break-word",
+                  wordBreak: "normal",
                 }}
               >
                 {episode.title}
               </h1>
 
               {user ? (
-                <div style={{ display: "flex", alignItems: "center", gap: isCompact ? 8 : 10, marginBottom: isCompact ? 0 : 12, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: isCompact ? 8 : 10, marginBottom: 0, flexWrap: "wrap" }}>
                   <Link
                     to={`/user/${user.id}`}
                     style={{
@@ -293,11 +289,10 @@ export default function MixDetailPage() {
                 display: isCompact ? "grid" : "flex",
                 gridTemplateColumns: isCompact ? "minmax(0, 1fr) minmax(0, 1fr)" : undefined,
                 gap: isCompact ? 10 : 10,
-                flexShrink: 0,
                 flexWrap: isCompact ? undefined : "wrap",
-                width: isCompact ? "100%" : "auto",
-                justifyContent: isCompact ? undefined : "flex-end",
-                alignItems: isCompact ? "stretch" : undefined,
+                width: "100%",
+                justifyContent: isCompact ? undefined : "flex-start",
+                alignItems: isCompact ? "stretch" : "center",
               }}
             >
               <button

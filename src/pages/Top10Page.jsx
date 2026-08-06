@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
 import PageHeader from "../components/PageHeader.jsx";
 import TrackCard from "../components/TrackCard.jsx";
@@ -12,6 +13,8 @@ export default function Top10Page() {
   const { episodes, users, player } = useApp();
   const [tab, setTab] = useState("plays");
   const isCompact = useMediaQuery("(max-width: 720px)");
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const sorted = useMemo(() => {
     return [...episodes].sort((a, b) =>
@@ -145,13 +148,13 @@ export default function Top10Page() {
           return (
             <div
               key={ep.id}
-              role="button"
+              role="link"
               tabIndex={0}
-              onClick={() => player.playTrack(ep)}
+              onClick={() => navigate(`/mix/${ep.id}`, { state: { from: location.pathname } })}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  player.playTrack(ep);
+                  navigate(`/mix/${ep.id}`, { state: { from: location.pathname } });
                 }
               }}
               style={{
@@ -189,7 +192,7 @@ export default function Top10Page() {
                   </div>
                 )}
               </div>
-              <div style={{ display: "flex", gap: 24, textAlign: "right", flexShrink: 0 }}>
+              <div style={{ display: "flex", gap: 24, textAlign: "right", flexShrink: 0, alignItems: "center" }}>
                 <div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: tab === "downloads" ? "var(--accent)" : "var(--text)" }}>
                     {fmt(ep.downloads)}
@@ -202,9 +205,33 @@ export default function Top10Page() {
                   </div>
                   <div style={{ fontSize: 10, color: "var(--text3)" }}>Plays</div>
                 </div>
-                <div style={{ width: 32, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  {active ? <WaveAnim active={player.isPlaying} /> : <Icon name="play" size={18} color="var(--text3)" />}
-                </div>
+                <button
+                  type="button"
+                  aria-label={active && player.isPlaying ? "Pause mix" : "Play mix"}
+                  title={active && player.isPlaying ? "Pause" : "Play"}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void player.playTrack(ep);
+                  }}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: "50%",
+                    border: "none",
+                    background: active ? "var(--accent2)" : "rgba(255,255,255,0.08)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    flexShrink: 0,
+                  }}
+                >
+                  {active && player.isPlaying ? (
+                    <WaveAnim active />
+                  ) : (
+                    <Icon name="play" size={18} color={active ? "#07090F" : "var(--text2)"} />
+                  )}
+                </button>
               </div>
             </div>
           );

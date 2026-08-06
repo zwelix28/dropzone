@@ -194,6 +194,39 @@ export const GlobalStyles = () => (
     }
     .track-card:hover { border-color: rgba(56,189,248,0.4); transform:translateY(-3px); box-shadow: 0 12px 36px rgba(0,0,0,0.5); }
     .track-card.active { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2), 0 8px 32px var(--glow); }
+    .track-card-play-layer {
+      z-index: 3;
+    }
+    .track-card:not(.active) .track-card-play-btn {
+      opacity: 0.92;
+      transform: scale(0.96);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    @media (hover: hover) and (pointer: fine) {
+      .track-card:not(.active) .track-card-play-layer {
+        background: rgba(7,9,15,0) !important;
+      }
+      .track-card:not(.active) .track-card-play-btn {
+        opacity: 0;
+        transform: scale(0.9);
+      }
+      .track-card:not(.active):hover .track-card-play-layer {
+        background: rgba(7,9,15,0.28) !important;
+      }
+      .track-card:not(.active):hover .track-card-play-btn {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+    .track-card-play-btn:hover {
+      filter: brightness(1.06);
+    }
+    .track-card-play-btn:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+      opacity: 1 !important;
+      transform: scale(1) !important;
+    }
 
     /* Top 10 rank */
     .rank-num {
