@@ -433,7 +433,8 @@ export const GlobalStyles = () => (
     .marquee-title.is-overflowing .marquee-title-track {
       animation: player-title-marquee 14s linear infinite;
     }
-    .marquee-title.is-overflowing:hover .marquee-title-track {
+    .marquee-title.is-overflowing:hover .marquee-title-track,
+    .marquee-title.is-overflowing:active .marquee-title-track {
       animation-play-state: paused;
     }
     @keyframes player-title-marquee {
