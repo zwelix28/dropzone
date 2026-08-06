@@ -7,6 +7,7 @@ import VerifiedBadge from "../components/VerifiedBadge.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import useForYouPreview from "../hooks/useForYouPreview.js";
 import useMediaQuery from "../hooks/useMediaQuery.js";
+import { canDownloadMix } from "../constants/plans.js";
 import { episodeHasAudioSource } from "../lib/audioUrls.js";
 import { isForYouItem } from "../lib/contentType.js";
 import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
@@ -377,10 +378,18 @@ export default function ForYouPage() {
     auth.setShowAuth(true);
   };
 
+  const allowDownload = canDownloadMix(auth.currentUser, {
+    isOwner: Boolean(auth.currentUser?.id && current?.userId === auth.currentUser.id),
+  });
+
   const handleDownload = async () => {
     if (!current) return;
     if (!auth.session?.user?.id) {
       promptGuestAuth("download mixes");
+      return;
+    }
+    if (!allowDownload) {
+      setToast("Downloads require a Paid or Pro plan");
       return;
     }
     if (!liked) {
@@ -662,13 +671,15 @@ export default function ForYouPage() {
                         <ActionButton compact label="Share" onClick={() => void handleShare()}>
                           <Icon name="share" size={18} color="#fff" />
                         </ActionButton>
-                        <ActionButton
-                          compact
-                          label={likedMixIds.includes(ep.id) ? "Download full mix" : "Like to download"}
-                          onClick={() => void handleDownload()}
-                        >
-                          <Icon name="download" size={18} color="#fff" />
-                        </ActionButton>
+                        {allowDownload ? (
+                          <ActionButton
+                            compact
+                            label={likedMixIds.includes(ep.id) ? "Download full mix" : "Like to download"}
+                            onClick={() => void handleDownload()}
+                          >
+                            <Icon name="download" size={18} color="#fff" />
+                          </ActionButton>
+                        ) : null}
                       </div>
                       {i < feed.length - 1 ? (
                         <p
@@ -763,12 +774,14 @@ export default function ForYouPage() {
             <Icon name="share" size={20} color="#fff" />
           </ActionButton>
 
-          <ActionButton
-            label={liked ? "Download full mix" : "Like to download"}
-            onClick={() => void handleDownload()}
-          >
-            <Icon name="download" size={20} color="#fff" />
-          </ActionButton>
+          {allowDownload ? (
+            <ActionButton
+              label={liked ? "Download full mix" : "Like to download"}
+              onClick={() => void handleDownload()}
+            >
+              <Icon name="download" size={20} color="#fff" />
+            </ActionButton>
+          ) : null}
         </div>
       ) : null}
 
