@@ -1,10 +1,14 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import Icon from "./Icon.jsx";
 import LikeButton from "./LikeButton.jsx";
 import UserAvatar from "./UserAvatar.jsx";
 import VerifiedBadge from "./VerifiedBadge.jsx";
 import { fmt, fmtDuration } from "../lib/format.js";
 
+/**
+ * Mix grid card. Card click opens the mix page without starting playback.
+ * Only the cover play control starts / toggles audio.
+ */
 export default function TrackCard({
   episode,
   users,
@@ -14,6 +18,8 @@ export default function TrackCard({
   onDownload,
   compact = false,
 }) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const user = users.find((u) => u.id === episode.userId);
   const pad = compact ? "8px 10px" : "14px 16px";
   const titleSize = compact ? 12 : 14;
@@ -27,11 +33,29 @@ export default function TrackCard({
   const cornerPad = compact ? 6 : 10;
   const durSize = compact ? 10 : 11;
 
+  const openMix = () => {
+    navigate(`/mix/${episode.id}`, { state: { from: location.pathname } });
+  };
+
+  const handlePlayClick = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onPlay?.(episode);
+  };
+
   return (
     <div
       className={`track-card ${isActive ? "active" : ""}`}
-      onClick={() => onPlay(episode)}
-      style={compact ? { borderRadius: 12 } : undefined}
+      role="link"
+      tabIndex={0}
+      onClick={openMix}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openMix();
+        }
+      }}
+      style={{ cursor: "pointer", ...(compact ? { borderRadius: 12 } : undefined) }}
     >
       <div style={{ position: "relative" }}>
         <img
@@ -51,42 +75,46 @@ export default function TrackCard({
           style={{
             position: "absolute",
             inset: 0,
-            background:
-              "linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 50%)",
+            background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 50%)",
           }}
         />
-        {isActive && (
-          <div
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: isActive ? "rgba(7,9,15,0.45)" : "rgba(7,9,15,0.22)",
+            opacity: isActive ? 1 : undefined,
+            transition: "background 0.2s ease",
+          }}
+          className="track-card-play-layer"
+        >
+          <button
+            type="button"
+            className="track-card-play-btn"
+            aria-label={isActive && isPlaying ? "Pause mix" : "Play mix"}
+            title={isActive && isPlaying ? "Pause" : "Play"}
+            onClick={handlePlayClick}
             style={{
-              position: "absolute",
-              inset: 0,
+              width: playBtn,
+              height: playBtn,
+              borderRadius: "50%",
+              border: "none",
+              padding: 0,
+              background: "var(--accent2)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              background: "rgba(7,9,15,0.45)",
+              boxShadow: "0 0 24px var(--glow)",
+              cursor: "pointer",
+              animation: isActive && isPlaying ? "glow 2s ease-in-out infinite" : undefined,
             }}
           >
-            <div
-              style={{
-                width: playBtn,
-                height: playBtn,
-                borderRadius: "50%",
-                background: "var(--accent2)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 0 24px var(--glow)",
-                animation: "glow 2s ease-in-out infinite",
-              }}
-            >
-              <Icon
-                name={isPlaying ? "pause" : "play"}
-                size={playIcon}
-                color="#07090F"
-              />
-            </div>
-          </div>
-        )}
+            <Icon name={isActive && isPlaying ? "pause" : "play"} size={playIcon} color="#07090F" />
+          </button>
+        </div>
         <div
           style={{
             position: "absolute",
@@ -99,7 +127,7 @@ export default function TrackCard({
         >
           <LikeButton mixId={episode.id} size={compact ? "sm" : "md"} />
         </div>
-        <div style={{ position: "absolute", bottom: cornerPad, left: cornerPad, right: cornerPad }}>
+        <div style={{ position: "absolute", bottom: cornerPad, left: cornerPad, right: cornerPad, zIndex: 2 }}>
           <span className="tag tag-blue" style={{ fontSize: genreTagSize, padding: compact ? "2px 8px" : undefined }}>
             {episode.genre}
           </span>
