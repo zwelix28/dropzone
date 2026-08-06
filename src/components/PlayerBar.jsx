@@ -174,17 +174,11 @@ export default function PlayerBar({
               />
             </button>
             <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
-              <div
-                style={{
-                  fontWeight: 600,
-                  fontSize: 13,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {track.title}
-              </div>
+              <MarqueeText
+                text={track.title}
+                fill
+                style={{ fontWeight: 600, fontSize: 13 }}
+              />
               {user ? (
                 <div
                   style={{
