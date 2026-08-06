@@ -6,6 +6,7 @@ import UserAvatar from "./UserAvatar.jsx";
 import VerifiedBadge from "./VerifiedBadge.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import { episodeHasAudioSource } from "../lib/audioUrls.js";
+import { canDownloadMix } from "../constants/plans.js";
 import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
 import { fmtPlayerTime } from "../lib/format.js";
 import { getGuestPreviewSegment } from "../lib/forYouPreview.js";
@@ -63,8 +64,12 @@ export default function MobileNowPlaying({
 
   const liked = likedMixIds.includes(track.id);
   const hasAudioSource = episodeHasAudioSource(track);
+  const allowDownload = canDownloadMix(auth.currentUser, {
+    isOwner: Boolean(auth.currentUser?.id && track.userId === auth.currentUser.id),
+  });
 
   const handleDownload = async () => {
+    if (!allowDownload) return;
     if (!hasAudioSource) {
       setToast("No audio available to download");
       return;
@@ -383,22 +388,24 @@ export default function MobileNowPlaying({
                 </span>
               ) : null}
               <LikeButton mixId={track.id} variant="inline" size="sm" className="mobile-np-float-like" />
-              <button
-                type="button"
-                className="btn btn-ghost mobile-np-float-like"
-                onClick={() => void handleDownload()}
-                disabled={!hasAudioSource}
-                aria-label={liked ? "Download full mix" : "Like to download"}
-                title={liked ? "Download full mix" : "Like this mix to unlock download"}
-                style={{
-                  fontSize: 12,
-                  opacity: hasAudioSource ? 1 : 0.45,
-                  cursor: hasAudioSource ? "pointer" : "not-allowed",
-                }}
-              >
-                <Icon name="download" size={15} color={liked ? "var(--accent)" : "var(--text3)"} />
-                <span style={{ marginLeft: 6 }}>{liked ? "Download" : "Like to download"}</span>
-              </button>
+              {allowDownload ? (
+                <button
+                  type="button"
+                  className="btn btn-ghost mobile-np-float-like"
+                  onClick={() => void handleDownload()}
+                  disabled={!hasAudioSource}
+                  aria-label={liked ? "Download full mix" : "Like to download"}
+                  title={liked ? "Download full mix" : "Like this mix to unlock download"}
+                  style={{
+                    fontSize: 12,
+                    opacity: hasAudioSource ? 1 : 0.45,
+                    cursor: hasAudioSource ? "pointer" : "not-allowed",
+                  }}
+                >
+                  <Icon name="download" size={15} color={liked ? "var(--accent)" : "var(--text3)"} />
+                  <span style={{ marginLeft: 6 }}>{liked ? "Download" : "Like to download"}</span>
+                </button>
+              ) : null}
             </div>
 
             <div

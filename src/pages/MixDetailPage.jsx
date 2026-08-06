@@ -9,6 +9,7 @@ import BuyButton from "../components/BuyButton.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { GENRES } from "../constants/genres.js";
+import { canDownloadMix } from "../constants/plans.js";
 import { signedInHomePath } from "../featureFlags.js";
 import { episodeHasAudioSource } from "../lib/audioUrls.js";
 import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
@@ -42,6 +43,7 @@ export default function MixDetailPage() {
     tags: "",
   });
   const [saved, setSaved] = useState(false);
+  const [purchaseUnlocked, setPurchaseUnlocked] = useState(false);
 
   useEffect(() => {
     if (!id) {
@@ -110,8 +112,10 @@ export default function MixDetailPage() {
     );
   }
 
-  const [purchaseUnlocked, setPurchaseUnlocked] = useState(false);
-  const hasDownloadAccess = !episode.isForSale || episode.userId === auth.currentUser?.id || purchaseUnlocked;
+  const isOwner = Boolean(auth.currentUser && episode.userId === auth.currentUser.id);
+  const hasDownloadAccess =
+    (!episode.isForSale || isOwner || purchaseUnlocked) &&
+    canDownloadMix(auth.currentUser, { isOwner, purchaseUnlocked });
 
   const handleDownload = async () => {
     if (!loggedIn) {
@@ -167,7 +171,7 @@ export default function MixDetailPage() {
 
       {!loggedIn ? (
         <p style={{ color: "var(--text3)", fontSize: isCompact ? 12 : 13, marginBottom: isCompact ? 12 : 16, lineHeight: 1.5 }}>
-          Sign in for full playback and downloads. As a guest, the player streams a 50-second preview from 2:30 in each mix.
+          Sign in for full playback. As a guest, the player streams a 50-second preview from 2:30 in each mix. Downloads require a Paid or Pro plan.
         </p>
       ) : null}
 

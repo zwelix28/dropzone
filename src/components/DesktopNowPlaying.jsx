@@ -12,6 +12,7 @@ import {
 import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
 import { shareMix } from "../lib/shareMix.js";
 import { getGuestPreviewSegment } from "../lib/forYouPreview.js";
+import { canDownloadMix } from "../constants/plans.js";
 import { useApp } from "../context/AppContext.jsx";
 
 export default function DesktopNowPlaying({
@@ -53,12 +54,15 @@ export default function DesktopNowPlaying({
   const elapsedSec = totalSec > 0 ? Math.min(totalSec, Math.floor((totalSec * progress) / 100)) : 0;
   const remainingSec = Math.max(0, totalSec - elapsedSec);
   const cover = track.coverUrl?.trim();
+  const allowDownload = canDownloadMix(auth.currentUser, {
+    isOwner: Boolean(auth.currentUser?.id && track.userId === auth.currentUser.id),
+  });
   const handleDownload = async () => {
     if (guest) {
       auth.setShowAuth(true);
       return;
     }
-    if (!hasAudioSource) return;
+    if (!allowDownload || !hasAudioSource) return;
     const { ok } = await downloadMixWithMetadata(track, { artist: user });
     if (!ok) return;
     void trackEvent({ kind: "download", episodeId: track.id, actorUserId: auth.currentUser?.id });
@@ -301,16 +305,18 @@ export default function DesktopNowPlaying({
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                {iconBtn({
-                  onClick: () => void handleDownload(),
-                  disabled: !hasAudioSource,
-                  title: guest ? "Sign in to download" : "Download",
-                  style: {
-                    opacity: hasAudioSource ? (guest ? 0.5 : 1) : 0.35,
-                    cursor: hasAudioSource ? "pointer" : "not-allowed",
-                  },
-                  children: <Icon name="download" size={18} />,
-                })}
+                {allowDownload
+                  ? iconBtn({
+                      onClick: () => void handleDownload(),
+                      disabled: !hasAudioSource,
+                      title: guest ? "Sign in to download" : "Download",
+                      style: {
+                        opacity: hasAudioSource ? (guest ? 0.5 : 1) : 0.35,
+                        cursor: hasAudioSource ? "pointer" : "not-allowed",
+                      },
+                      children: <Icon name="download" size={18} />,
+                    })
+                  : null}
                 {iconBtn({
                   onClick: handleShare,
                   title: "Share",
@@ -362,7 +368,7 @@ export default function DesktopNowPlaying({
                 >
                   Sign in
                 </button>{" "}
-                {guestPlaybackOk ? "for full playback & download." : "when available."}
+                {guestPlaybackOk ? "for full playback." : "when available."}
               </div>
             ) : null}
           </div>

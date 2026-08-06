@@ -11,6 +11,7 @@ import {
 import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
 import { getGuestPreviewSegment } from "../lib/forYouPreview.js";
 import { shareMix } from "../lib/shareMix.js";
+import { canDownloadMix } from "../constants/plans.js";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 
@@ -37,6 +38,9 @@ export default function PlayerBar({
   const navigate = useNavigate();
   const location = useLocation();
   const guest = !auth.session?.user?.id;
+  const allowDownload = canDownloadMix(auth.currentUser, {
+    isOwner: Boolean(auth.currentUser?.id && track.userId === auth.currentUser.id),
+  });
 
   const hasAudioSource = episodeHasAudioSource(track);
   const guestPlaybackOk = episodeHasGuestPlayback(track);
@@ -50,7 +54,7 @@ export default function PlayerBar({
       auth.setShowAuth(true);
       return;
     }
-    if (!hasAudioSource) return;
+    if (!allowDownload || !hasAudioSource) return;
     const { ok } = await downloadMixWithMetadata(track, { artist: user });
     if (!ok) return;
     void trackEvent({ kind: "download", episodeId: track.id, actorUserId: auth.currentUser?.id });
@@ -130,8 +134,8 @@ export default function PlayerBar({
       </button>{" "}
       {guestPlaybackOk
         ? isMobile
-          ? "for full playback & download."
-          : "for the full-length stream and download."
+          ? "for full playback."
+          : "for the full-length stream."
         : "when available."}
     </div>
   ) : null;
@@ -377,26 +381,28 @@ export default function PlayerBar({
               }}
             />
           </div>
-          <button
-            type="button"
-            onClick={() => void handleDownload()}
-            disabled={!hasAudioSource}
-            title={
-              guest
-                ? "Sign in to download"
-                : hasAudioSource
-                  ? "Download"
-                  : "No audio available to download"
-            }
-            style={{
-              background: "none",
-              color: "var(--text2)",
-              opacity: hasAudioSource ? (guest ? 0.45 : 1) : 0.5,
-              cursor: hasAudioSource ? "pointer" : "not-allowed",
-            }}
-          >
-            <Icon name="download" size={16} />
-          </button>
+          {allowDownload ? (
+            <button
+              type="button"
+              onClick={() => void handleDownload()}
+              disabled={!hasAudioSource}
+              title={
+                guest
+                  ? "Sign in to download"
+                  : hasAudioSource
+                    ? "Download"
+                    : "No audio available to download"
+              }
+              style={{
+                background: "none",
+                color: "var(--text2)",
+                opacity: hasAudioSource ? (guest ? 0.45 : 1) : 0.5,
+                cursor: hasAudioSource ? "pointer" : "not-allowed",
+              }}
+            >
+              <Icon name="download" size={16} />
+            </button>
+          ) : null}
           <button type="button" onClick={handleShare} title="Share" style={{ background: "none", color: "var(--text2)" }}>
             <Icon name="share" size={16} />
           </button>
