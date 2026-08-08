@@ -3,7 +3,7 @@ import HomePage from "../pages/HomePage.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import { signedInHomePath } from "../featureFlags.js";
 
-/** Marketing home is for guests only; signed-in users land on the active catalog. */
+/** Guest landing is for visitors only; signed-in users go straight into the vault. */
 export default function HomeRoute() {
   const { auth } = useApp();
   if (auth.authLoading) {
