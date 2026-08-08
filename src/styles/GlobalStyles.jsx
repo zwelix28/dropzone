@@ -111,7 +111,7 @@ export const GlobalStyles = () => (
     .landing-atmosphere-image {
       position: absolute;
       inset: -4%;
-      background-image: url("/images/landing-banner.png");
+      background-image: url("/images/landing-banner.jpg");
       background-size: cover;
       background-position: center;
       transform: scale(1.06);
