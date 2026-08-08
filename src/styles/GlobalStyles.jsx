@@ -77,6 +77,175 @@ export const GlobalStyles = () => (
     .fade-in { animation: fadeIn 0.4s ease both; }
     .slide-in { animation: slideIn 0.3s ease both; }
 
+    /* Guest landing — brand-first, no app chrome */
+    @keyframes landingRise {
+      from { opacity: 0; transform: translateY(18px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes landingOrbDrift {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(3%, -4%) scale(1.06); }
+    }
+    @keyframes landingLogoBreath {
+      0%, 100% { filter: drop-shadow(0 0 18px rgba(56,189,248,0.22)); }
+      50% { filter: drop-shadow(0 0 34px rgba(14,165,233,0.45)); }
+    }
+    .landing-page {
+      position: relative;
+      min-height: 100dvh;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: var(--bg);
+      padding: max(24px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
+        max(28px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+    }
+    .landing-atmosphere {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .landing-atmosphere-image {
+      position: absolute;
+      inset: -4%;
+      background-image: url("/images/landing-banner.png");
+      background-size: cover;
+      background-position: center;
+      transform: scale(1.06);
+      filter: saturate(1.05) brightness(0.55);
+      opacity: 0.55;
+    }
+    .landing-atmosphere-wash {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 70% 55% at 50% 28%, rgba(14,165,233,0.18), transparent 62%),
+        linear-gradient(180deg, rgba(7,9,15,0.35) 0%, rgba(7,9,15,0.72) 48%, rgba(7,9,15,0.94) 100%);
+    }
+    .landing-atmosphere-grid {
+      position: absolute;
+      inset: 0;
+      opacity: 0.12;
+      background-image:
+        linear-gradient(rgba(56,189,248,0.12) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(56,189,248,0.12) 1px, transparent 1px);
+      background-size: 56px 56px;
+      mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 20%, transparent 75%);
+    }
+    .landing-atmosphere-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(48px);
+      animation: landingOrbDrift 14s ease-in-out infinite;
+    }
+    .landing-atmosphere-orb-a {
+      width: min(48vw, 420px);
+      height: min(48vw, 420px);
+      top: 8%;
+      left: 4%;
+      background: rgba(14,165,233,0.22);
+    }
+    .landing-atmosphere-orb-b {
+      width: min(42vw, 360px);
+      height: min(42vw, 360px);
+      right: 0;
+      bottom: 6%;
+      background: rgba(56,189,248,0.14);
+      animation-delay: -5s;
+    }
+    .landing-frame {
+      position: relative;
+      z-index: 1;
+      width: min(560px, 100%);
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: clamp(28px, 6vw, 40px);
+    }
+    .landing-brand-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .landing-logo {
+      width: clamp(88px, 22vw, 120px);
+      height: clamp(88px, 22vw, 120px);
+      object-fit: contain;
+      border-radius: 18px;
+      animation: landingLogoBreath 5.5s ease-in-out infinite;
+    }
+    .landing-product {
+      margin: 6px 0 0;
+      font-family: var(--ff-display);
+      font-size: clamp(2.1rem, 8vw, 3.1rem);
+      letter-spacing: 0.14em;
+      line-height: 1;
+      color: var(--text);
+      text-transform: uppercase;
+      font-weight: 400;
+    }
+    .landing-tagline {
+      margin: 8px 0 0;
+      max-width: 34ch;
+      font-size: clamp(14px, 3.2vw, 16px);
+      line-height: 1.55;
+      color: var(--text2);
+      font-weight: 400;
+    }
+    .landing-cta-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+    }
+    .landing-cta {
+      min-height: 52px;
+      padding: 14px 28px;
+      font-size: 15px;
+      letter-spacing: 0.02em;
+      border-radius: 10px;
+      width: min(100%, 300px);
+      justify-content: center;
+      box-shadow: 0 10px 36px rgba(14,165,233,0.28);
+    }
+    .landing-cta:hover {
+      box-shadow: 0 14px 44px rgba(56,189,248,0.38);
+    }
+    .landing-cta-hint {
+      margin: 0;
+      font-size: 12px;
+      color: var(--text3);
+      letter-spacing: 0.02em;
+    }
+    .landing-page.is-ready .landing-logo {
+      animation: landingLogoBreath 5.5s ease-in-out infinite, landingRise 0.7s ease both;
+    }
+    .landing-page.is-ready .landing-product {
+      animation: landingRise 0.7s ease 0.08s both;
+    }
+    .landing-page.is-ready .landing-tagline {
+      animation: landingRise 0.7s ease 0.16s both;
+    }
+    .landing-page.is-ready .landing-cta-block {
+      animation: landingRise 0.75s ease 0.24s both;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .landing-atmosphere-orb,
+      .landing-logo,
+      .landing-page.is-ready .landing-logo,
+      .landing-page.is-ready .landing-product,
+      .landing-page.is-ready .landing-tagline,
+      .landing-page.is-ready .landing-cta-block {
+        animation: none !important;
+      }
+    }
+
     /* Noise texture overlay */
     .noise::after {
       content:''; position:absolute; inset:0; pointer-events:none; opacity:0.025;
@@ -393,6 +562,14 @@ export const GlobalStyles = () => (
       background: rgba(0,0,0,0.75); backdrop-filter:blur(4px);
       z-index:900; display:flex; align-items:center; justify-content:center;
       padding: 20px; animation: fadeIn 0.2s ease;
+    }
+    /* Register sits on the landing atmosphere; blur matches AuthModal */
+    .register-page .register-modal-overlay {
+      position: absolute;
+      z-index: 2;
+      background: rgba(7,9,15,0.55);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
     }
     .modal {
       background: var(--surface); border: 1px solid var(--border);

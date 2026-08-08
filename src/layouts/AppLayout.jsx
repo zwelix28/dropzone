@@ -20,6 +20,10 @@ export default function AppLayout() {
   const [desktopExpandedPlayerOpen, setDesktopExpandedPlayerOpen] = useState(false);
   const isMobile = useMediaQuery("(max-width: 720px)");
   const location = useLocation();
+  const isGuestAuthSurface =
+    !auth.authLoading &&
+    !auth.session?.user?.id &&
+    (location.pathname === "/" || location.pathname === "/register");
   const registeredMobile = Boolean(isMobile && auth.session?.user?.id);
   const showMobileFullPlayer =
     registeredMobile && mobileFullPlayerOpen && Boolean(player.currentTrack);
@@ -96,6 +100,17 @@ export default function AppLayout() {
       : player.currentTrack
         ? 96
         : 0;
+
+  if (isGuestAuthSurface) {
+    return (
+      <>
+        <FontLoader />
+        <GlobalStyles />
+        <Outlet />
+        {auth.showAuth ? <AuthModal onClose={() => auth.setShowAuth(false)} /> : null}
+      </>
+    );
+  }
 
   return (
     <>
