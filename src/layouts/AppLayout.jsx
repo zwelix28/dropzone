@@ -1,4 +1,4 @@
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import AuthModal from "../components/AuthModal.jsx";
 import DesktopNowPlaying from "../components/DesktopNowPlaying.jsx";
@@ -20,6 +20,7 @@ export default function AppLayout() {
   const [desktopExpandedPlayerOpen, setDesktopExpandedPlayerOpen] = useState(false);
   const isMobile = useMediaQuery("(max-width: 720px)");
   const location = useLocation();
+  const navigate = useNavigate();
   const isGuestAuthSurface =
     !auth.authLoading &&
     !auth.session?.user?.id &&
@@ -101,6 +102,11 @@ export default function AppLayout() {
         ? 96
         : 0;
 
+  const handleLogout = async () => {
+    await auth.signOut();
+    navigate("/", { replace: true });
+  };
+
   if (isGuestAuthSurface) {
     return (
       <>
@@ -129,7 +135,7 @@ export default function AppLayout() {
         {!isMobile ? (
           <Sidebar
             currentUser={auth.currentUser}
-            onLogout={() => auth.signOut()}
+            onLogout={handleLogout}
             onLogin={() => auth.setShowAuth(true)}
             variant="desktop"
           />
@@ -202,7 +208,7 @@ export default function AppLayout() {
           <div className={`mobile-nav-drawer ${navOpen ? "open" : "closed"}`}>
             <Sidebar
               currentUser={auth.currentUser}
-              onLogout={() => auth.signOut()}
+              onLogout={handleLogout}
               onLogin={() => auth.setShowAuth(true)}
               variant="drawer"
               onClose={() => setNavOpen(false)}
