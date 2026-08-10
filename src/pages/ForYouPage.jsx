@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import ForYouComments from "../components/ForYouComments.jsx";
 import Icon from "../components/Icon.jsx";
 import UserAvatar from "../components/UserAvatar.jsx";
@@ -88,6 +88,7 @@ function ActionButton({ label, onClick, children, active = false, compact = fals
 export default function ForYouPage() {
   const { auth, episodes, users, likedMixIds, toggleLike, trackEvent } = useApp();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isCompact = useMediaQuery("(max-width: 720px)");
   const containerRef = useRef(null);
   const slideRefs = useRef([]);
@@ -102,6 +103,8 @@ export default function ForYouPage() {
 
   const [index, setIndex] = useState(0);
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentsTargetMixId, setCommentsTargetMixId] = useState(null);
+  const [highlightCommentId, setHighlightCommentId] = useState(null);
   const [toast, setToast] = useState("");
 
   const isAuthenticated = Boolean(auth.session?.user?.id);
@@ -116,6 +119,11 @@ export default function ForYouPage() {
   const current = feed[index] || null;
   const currentUser = current ? users.find((u) => u.id === current.userId) : null;
   const liked = Boolean(current && likedMixIds.includes(current.id));
+  const commentsMix = useMemo(() => {
+    const id = commentsTargetMixId || current?.id;
+    if (!id) return current;
+    return feed.find((ep) => ep.id === id) || current;
+  }, [commentsTargetMixId, current, feed]);
 
   const syncIndexFromScroll = useCallback(() => {
     const root = containerRef.current;
@@ -148,6 +156,23 @@ export default function ForYouPage() {
       programmaticScrollRef.current = false;
     }, behavior === "smooth" ? 400 : 0);
   }, [feed.length]);
+
+  useEffect(() => {
+    const mixId = searchParams.get("mix");
+    if (!mixId || feed.length === 0) return;
+
+    const idx = feed.findIndex((ep) => ep.id === mixId);
+    if (idx < 0) return;
+
+    scrollToIndex(idx, "auto");
+    if (searchParams.get("comments") === "1") {
+      setCommentsTargetMixId(mixId);
+      setCommentsOpen(true);
+    }
+    const commentId = searchParams.get("comment");
+    if (commentId) setHighlightCommentId(commentId);
+    setSearchParams({}, { replace: true });
+  }, [feed, searchParams, scrollToIndex, setSearchParams]);
 
   const startPreview = useCallback(
     async (track) => {
@@ -663,6 +688,7 @@ export default function ForYouPage() {
                               promptGuestAuth("comment");
                               return;
                             }
+                            setCommentsTargetMixId(ep.id);
                             setCommentsOpen(true);
                           }}
                         >
@@ -764,6 +790,7 @@ export default function ForYouPage() {
                 promptGuestAuth("comment");
                 return;
               }
+              setCommentsTargetMixId(current?.id);
               setCommentsOpen(true);
             }}
           >
@@ -806,10 +833,15 @@ export default function ForYouPage() {
       ) : null}
 
       <ForYouComments
-        mixId={current?.id}
-        mixTitle={current?.title}
+        mixId={commentsMix?.id}
+        mixTitle={commentsMix?.title}
         open={commentsOpen}
-        onClose={() => setCommentsOpen(false)}
+        highlightCommentId={highlightCommentId}
+        onClose={() => {
+          setCommentsOpen(false);
+          setCommentsTargetMixId(null);
+          setHighlightCommentId(null);
+        }}
       />
     </div>
   );
