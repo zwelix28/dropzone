@@ -6,6 +6,7 @@ const TYPE_PRESETS = {
   milestone: { icon: "award", color: "var(--orange)", category: "Milestone" },
   follow: { icon: "people", color: "var(--green)", category: "Follower" },
   dm: { icon: "mail", color: "var(--accent)", category: "Message" },
+  mention: { icon: "comment", color: "var(--accent3)", category: "Mention" },
   download: { icon: "download", color: "var(--green)", category: "Download" },
   share: { icon: "share", color: "var(--accent)", category: "Share" },
   sale: { icon: "zap", color: "var(--green)", category: "New sale" },

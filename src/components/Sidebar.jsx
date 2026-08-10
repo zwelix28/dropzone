@@ -157,7 +157,7 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
           <div style={{ display: "flex", alignItems: "center", gap: isDrawer ? 8 : 10 }}>
             <img
               src="/logo.png"
-              alt="Music Vault by DHLab"
+              alt="Music Vault"
               width={isDrawer ? 34 : 43}
               height={isDrawer ? 34 : 43}
               style={{
@@ -178,18 +178,6 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
                 }}
               >
                 Music Vault
-              </div>
-              <div
-                style={{
-                  fontSize: isDrawer ? 10 : 12,
-                  color: "var(--accent)",
-                  letterSpacing: "0.04em",
-                  marginTop: 2,
-                  whiteSpace: "nowrap",
-                  lineHeight: 1.2,
-                }}
-              >
-                by DHLab
               </div>
             </div>
           </div>
