@@ -93,14 +93,30 @@ export default function AdminDashboardPage() {
     const banned = profiles.filter((p) => p.isBanned).length;
     const verified = profiles.filter((p) => p.verified).length;
     const admins = profiles.filter((p) => p.isAdmin).length;
+    const pending = profiles.filter((p) => !p.isBanned && p.isApproved === false).length;
     return {
       users: profiles.length,
       mixes: episodes.length,
       banned,
       verifiedArtists: verified,
       admins,
+      pending,
     };
   }, [profiles, episodes]);
+
+  const setApproved = async (userId, value) => {
+    setBusy(true);
+    setError(null);
+    const { error: err } = await supabase.from("profiles").update({ is_approved: value }).eq("id", userId);
+    setBusy(false);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    await writeLog(value ? "approve_user" : "revoke_approval", "profile", userId, { is_approved: value });
+    await loadProfiles();
+    await refreshProfiles();
+  };
 
   const setVerified = async (userId, value) => {
     setBusy(true);
@@ -269,12 +285,13 @@ export default function AdminDashboardPage() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: isCompact ? "repeat(2, minmax(0, 1fr))" : "repeat(5, minmax(0, 1fr))",
+              gridTemplateColumns: isCompact ? "repeat(2, minmax(0, 1fr))" : "repeat(3, minmax(0, 1fr))",
               gap: isCompact ? 8 : 12,
             }}
           >
             {[
               { label: "Users", value: overview.users, icon: "people", color: "var(--accent)" },
+              { label: "Pending", value: overview.pending, icon: "shield", color: "var(--orange)" },
               { label: "Mixes", value: overview.mixes, icon: "music", color: "#A78BFA" },
               { label: "Banned", value: overview.banned, icon: "x", color: "var(--red)" },
               { label: "Verified", value: overview.verifiedArtists, icon: "award", color: "var(--orange)" },
@@ -322,12 +339,20 @@ export default function AdminDashboardPage() {
 
         {tab === "users" && (
           <section>
-            <h2 style={{ fontWeight: 700, margin: "0 0 12px", fontSize: isCompact ? 14 : 16 }}>User management</h2>
+            <h2 style={{ fontWeight: 700, margin: "0 0 12px", fontSize: isCompact ? 14 : 16 }}>
+              User management
+              {overview.pending > 0 ? (
+                <span style={{ marginLeft: 8, color: "var(--orange)", fontWeight: 600, fontSize: isCompact ? 12 : 13 }}>
+                  · {overview.pending} awaiting approval
+                </span>
+              ) : null}
+            </h2>
             {tableShell(
           <>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)", textAlign: "left" }}>
                 <th style={{ padding: tp.thL, color: "var(--text3)", fontWeight: 600 }}>User</th>
+                <th style={{ padding: tp.thS, color: "var(--text3)", fontWeight: 600 }}>Approved</th>
                 <th style={{ padding: tp.thS, color: "var(--text3)", fontWeight: 600 }}>Plan</th>
                 <th style={{ padding: tp.thS, color: "var(--text3)", fontWeight: 600 }}>Verified</th>
                 <th style={{ padding: tp.thS, color: "var(--text3)", fontWeight: 600 }}>Banned</th>
@@ -336,10 +361,19 @@ export default function AdminDashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {profiles.map((p) => {
+              {[...profiles]
+                .sort((a, b) => Number(a.isApproved !== false) - Number(b.isApproved !== false))
+                .map((p) => {
                 const isSelf = p.id === adminId;
+                const pending = p.isApproved === false && !p.isBanned;
                 return (
-                  <tr key={p.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                  <tr
+                    key={p.id}
+                    style={{
+                      borderBottom: "1px solid var(--border)",
+                      background: pending ? "rgba(251,146,60,0.06)" : undefined,
+                    }}
+                  >
                     <td style={{ padding: tp.tdL }}>
                       <div style={{ fontWeight: 600 }}>{p.username}</div>
                       <div
@@ -353,6 +387,24 @@ export default function AdminDashboardPage() {
                         {p.id}
                       </div>
                       <div style={{ fontSize: isCompact ? 11 : 12, color: "var(--accent)" }}>{p.handle}</div>
+                    </td>
+                    <td style={{ padding: tp.tdS }}>
+                      <button
+                        type="button"
+                        className={`btn ${pending ? "btn-primary" : "btn-ghost"}`}
+                        style={{ padding: isCompact ? "4px 8px" : "6px 10px", fontSize: isCompact ? 11 : 12 }}
+                        disabled={busy || isSelf || p.isAdmin}
+                        onClick={() => setApproved(p.id, p.isApproved === false)}
+                        title={pending ? "Approve this account" : "Revoke approval"}
+                      >
+                        {pending ? (
+                          "Approve"
+                        ) : (
+                          <span style={{ color: "var(--green)" }}>
+                            <Icon name="check" size={isCompact ? 12 : 14} /> Yes
+                          </span>
+                        )}
+                      </button>
                     </td>
                     <td style={{ padding: tp.tdS }}>
                       <select

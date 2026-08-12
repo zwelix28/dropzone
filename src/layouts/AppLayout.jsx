@@ -9,8 +9,10 @@ import TopBar from "../components/TopBar.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import { FontLoader, GlobalStyles } from "../styles/GlobalStyles.jsx";
 import NotificationsPanel from "../components/NotificationsPanel.jsx";
+import PendingApprovalGate from "../components/PendingApprovalGate.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import usePresenceHeartbeat from "../hooks/usePresenceHeartbeat.js";
+import { isAccountApproved } from "../lib/accountAccess.js";
 
 export default function AppLayout() {
   const { auth, player, users, notificationsByUser, markAllRead, markRead, refreshNotifications, dmUnreadCount } = useApp();
@@ -25,6 +27,11 @@ export default function AppLayout() {
     !auth.authLoading &&
     !auth.session?.user?.id &&
     (location.pathname === "/" || location.pathname === "/register");
+  const awaitingApproval =
+    !auth.authLoading &&
+    Boolean(auth.session?.user?.id) &&
+    Boolean(auth.currentUser) &&
+    !isAccountApproved(auth.currentUser);
   const registeredMobile = Boolean(isMobile && auth.session?.user?.id);
   const showMobileFullPlayer =
     registeredMobile && mobileFullPlayerOpen && Boolean(player.currentTrack);
@@ -114,6 +121,16 @@ export default function AppLayout() {
         <GlobalStyles />
         <Outlet />
         {auth.showAuth ? <AuthModal onClose={() => auth.setShowAuth(false)} /> : null}
+      </>
+    );
+  }
+
+  if (awaitingApproval) {
+    return (
+      <>
+        <FontLoader />
+        <GlobalStyles />
+        <PendingApprovalGate username={auth.currentUser?.username} onLogout={() => void handleLogout()} />
       </>
     );
   }

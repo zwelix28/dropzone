@@ -2,7 +2,8 @@
 
 const TYPE_PRESETS = {
   new_mix: { icon: "music", color: "var(--accent)", category: "New release" },
-  new_user: { icon: "user", color: "var(--orange)", category: "New signup" },
+  new_user: { icon: "user", color: "var(--orange)", category: "Approval" },
+  account_approved: { icon: "check", color: "var(--green)", category: "Account" },
   milestone: { icon: "award", color: "var(--orange)", category: "Milestone" },
   follow: { icon: "people", color: "var(--green)", category: "Follower" },
   dm: { icon: "mail", color: "var(--accent)", category: "Message" },

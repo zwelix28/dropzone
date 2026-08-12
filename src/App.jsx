@@ -9,7 +9,9 @@ import Top10Page from "./pages/Top10Page.jsx";
 import UploadPage from "./pages/UploadPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import ConnectionsPage from "./pages/ConnectionsPage.jsx";
+import CommunityPage from "./pages/CommunityPage.jsx";
 import LikesPage from "./pages/LikesPage.jsx";
+import LibraryPage from "./pages/LibraryPage.jsx";
 import VaultFeedPage from "./pages/VaultFeedPage.jsx";
 import UserProfilePage from "./pages/UserProfilePage.jsx";
 import StatsPage from "./pages/StatsPage.jsx";
@@ -104,7 +106,9 @@ export default function App() {
         <Route path="/mix/:id" element={<MixDetailPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/connections" element={<ConnectionsPage />} />
+        <Route path="/community" element={<CommunityPage />} />
         <Route path="/likes" element={<LikesPage />} />
+        <Route path="/library" element={<LibraryPage />} />
         <Route path="/messages" element={<MessagesPage />} />
         <Route path="/messages/to/:userId" element={<MessageStartPage />} />
         <Route path="/messages/:threadId" element={<MessagesPage />} />

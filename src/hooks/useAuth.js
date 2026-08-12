@@ -32,6 +32,8 @@ function mapProfile(row) {
     location: row.location || "",
     isAdmin: row.is_admin ?? false,
     isBanned: row.is_banned ?? false,
+    // Missing column (pre-migration) stays usable; explicit false = pending approval.
+    isApproved: row.is_approved !== false,
     plan: normalizePlan(row.plan),
   };
 }
