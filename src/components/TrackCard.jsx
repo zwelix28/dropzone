@@ -4,6 +4,8 @@ import LikeButton from "./LikeButton.jsx";
 import UserAvatar from "./UserAvatar.jsx";
 import VerifiedBadge from "./VerifiedBadge.jsx";
 import { fmt, fmtDuration } from "../lib/format.js";
+import { isProPlan } from "../constants/plans.js";
+import { useApp } from "../context/AppContext.jsx";
 
 /**
  * Mix grid card. Card click opens the mix page without starting playback.
@@ -18,9 +20,11 @@ export default function TrackCard({
   onDownload,
   compact = false,
 }) {
+  const { auth } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const user = users.find((u) => u.id === episode.userId);
+  const showDownloads = isProPlan(auth.currentUser);
   const pad = compact ? "8px 10px" : "14px 16px";
   const titleSize = compact ? 12 : 14;
   const metaSize = compact ? 10 : 12;
@@ -199,18 +203,20 @@ export default function TrackCard({
               <Icon name="headphones" size={iconSm} color="var(--text3)" />
               {fmt(episode.plays)}
             </span>
-            <span
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 3,
-                fontSize: metaSize,
-                color: "var(--text3)",
-              }}
-            >
-              <Icon name="download" size={iconSm} color="var(--text3)" />
-              {fmt(episode.downloads)}
-            </span>
+            {showDownloads ? (
+              <span
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 3,
+                  fontSize: metaSize,
+                  color: "var(--text3)",
+                }}
+              >
+                <Icon name="download" size={iconSm} color="var(--text3)" />
+                {fmt(episode.downloads)}
+              </span>
+            ) : null}
           </div>
           <span style={{ fontSize: durSize, color: "var(--text3)", flexShrink: 0 }}>
             {fmtDuration(episode.durationSecs)}

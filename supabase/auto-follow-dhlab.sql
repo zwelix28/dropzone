@@ -35,12 +35,13 @@ begin
   uname := coalesce(new.raw_user_meta_data->>'username', split_part(coalesce(new.email, ''), '@', 1));
   if uname = '' or uname is null then uname := 'DJ'; end if;
   h := coalesce(new.raw_user_meta_data->>'handle', '@' || lower(replace(uname, ' ', '')));
-  insert into public.profiles (id, username, handle, genre)
+  insert into public.profiles (id, username, handle, genre, is_approved)
   values (
     new.id,
     uname,
     h,
-    coalesce(new.raw_user_meta_data->>'genre', 'Tech House')
+    coalesce(new.raw_user_meta_data->>'genre', 'Tech House'),
+    false
   )
   on conflict (id) do nothing;
 

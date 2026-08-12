@@ -196,12 +196,12 @@ export default function ConnectionsPage() {
             <Icon name="people" size={isCompact ? 32 : 36} color="var(--text3)" />
             <p style={{ color: "var(--text2)", marginTop: 12, marginBottom: 16, fontSize: isCompact ? 13 : 14, lineHeight: 1.55 }}>
               {tab === "following"
-                ? "You’re not following anyone yet. Discover DJs and tap Follow to fill your Vault Feed."
+                ? "You’re not following anyone yet. Open Community to find DJs who share your taste."
                 : "No followers yet. Share your profile and mixes to grow your audience."}
             </p>
-            <Link to="/discover" className="btn btn-primary" style={{ textDecoration: "none" }}>
-              <Icon name="compass" size={14} />
-              Discover mixes
+            <Link to="/community" className="btn btn-primary" style={{ textDecoration: "none" }}>
+              <Icon name="people" size={14} />
+              Find people
             </Link>
           </div>
         ) : (

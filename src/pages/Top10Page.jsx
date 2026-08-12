@@ -8,19 +8,29 @@ import WaveAnim from "../components/WaveAnim.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { fmt } from "../lib/format.js";
+import { isProPlan } from "../constants/plans.js";
 
 export default function Top10Page() {
-  const { episodes, users, player } = useApp();
+  const { auth, episodes, users, player } = useApp();
   const [tab, setTab] = useState("plays");
   const isCompact = useMediaQuery("(max-width: 720px)");
   const navigate = useNavigate();
   const location = useLocation();
+  const showDownloads = isProPlan(auth.currentUser);
+
+  const rankingTabs = showDownloads
+    ? [
+        ["plays", isCompact ? "Plays" : "Most Played"],
+        ["downloads", isCompact ? "Downloads" : "Most Downloaded"],
+      ]
+    : [["plays", isCompact ? "Plays" : "Most Played"]];
+  const rankingTab = showDownloads ? tab : "plays";
 
   const sorted = useMemo(() => {
     return [...episodes].sort((a, b) =>
-      tab === "downloads" ? b.downloads - a.downloads : b.plays - a.plays,
+      rankingTab === "downloads" ? b.downloads - a.downloads : b.plays - a.plays,
     );
-  }, [episodes, tab]);
+  }, [episodes, rankingTab]);
 
   const top10 = sorted.slice(0, 10);
 
@@ -39,10 +49,7 @@ export default function Top10Page() {
             marginBottom: 16,
           }}
         >
-          {[
-            ["plays", "Plays"],
-            ["downloads", "Downloads"],
-          ].map(([val, label]) => (
+          {rankingTabs.map(([val, label]) => (
             <button
               key={val}
               type="button"
@@ -53,8 +60,8 @@ export default function Top10Page() {
                 borderRadius: 8,
                 fontSize: 12,
                 fontWeight: 600,
-                background: tab === val ? "var(--accent2)" : "transparent",
-                color: tab === val ? "#07090F" : "var(--text2)",
+                background: rankingTab === val ? "var(--accent2)" : "transparent",
+                color: rankingTab === val ? "#07090F" : "var(--text2)",
                 transition: "all 0.2s",
               }}
             >
@@ -118,10 +125,7 @@ export default function Top10Page() {
           marginBottom: 32,
         }}
       >
-        {[
-          ["plays", "Most Played"],
-          ["downloads", "Most Downloaded"],
-        ].map(([val, label]) => (
+        {rankingTabs.map(([val, label]) => (
           <button
             key={val}
             type="button"
@@ -131,8 +135,8 @@ export default function Top10Page() {
               borderRadius: 8,
               fontSize: 13,
               fontWeight: 600,
-              background: tab === val ? "var(--accent2)" : "transparent",
-              color: tab === val ? "#07090F" : "var(--text2)",
+              background: rankingTab === val ? "var(--accent2)" : "transparent",
+              color: rankingTab === val ? "#07090F" : "var(--text2)",
               transition: "all 0.2s",
             }}
           >
@@ -193,12 +197,14 @@ export default function Top10Page() {
                 )}
               </div>
               <div style={{ display: "flex", gap: 24, textAlign: "right", flexShrink: 0, alignItems: "center" }}>
-                <div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: tab === "downloads" ? "var(--accent)" : "var(--text)" }}>
-                    {fmt(ep.downloads)}
+                {showDownloads ? (
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: rankingTab === "downloads" ? "var(--accent)" : "var(--text)" }}>
+                      {fmt(ep.downloads)}
+                    </div>
+                    <div style={{ fontSize: 10, color: "var(--text3)" }}>Downloads</div>
                   </div>
-                  <div style={{ fontSize: 10, color: "var(--text3)" }}>Downloads</div>
-                </div>
+                ) : null}
                 <div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: tab === "plays" ? "var(--accent)" : "var(--text)" }}>
                     {fmt(ep.plays)}

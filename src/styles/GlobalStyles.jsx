@@ -236,13 +236,45 @@ export const GlobalStyles = () => (
     .landing-page.is-ready .landing-cta-block {
       animation: landingRise 0.75s ease 0.24s both;
     }
+    .pending-approval-copy {
+      max-width: 36ch;
+      text-align: center;
+      margin: 0 auto;
+    }
+    .pending-approval-copy p {
+      margin: 0;
+      font-size: clamp(14px, 3.2vw, 15px);
+      line-height: 1.55;
+      color: var(--text2);
+    }
+    .pending-approval-hint {
+      margin-top: 10px !important;
+      font-size: 13px !important;
+      color: var(--text3) !important;
+    }
+    .pending-approval-logout {
+      box-shadow: none;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(7, 9, 15, 0.45);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .pending-approval-logout:hover {
+      box-shadow: none;
+      border-color: rgba(56, 189, 248, 0.35);
+      background: rgba(7, 9, 15, 0.6);
+    }
+    .landing-page.is-ready .pending-approval-copy {
+      animation: landingRise 0.7s ease 0.2s both;
+    }
     @media (prefers-reduced-motion: reduce) {
       .landing-atmosphere-orb,
       .landing-logo,
       .landing-page.is-ready .landing-logo,
       .landing-page.is-ready .landing-product,
       .landing-page.is-ready .landing-tagline,
-      .landing-page.is-ready .landing-cta-block {
+      .landing-page.is-ready .landing-cta-block,
+      .landing-page.is-ready .pending-approval-copy {
         animation: none !important;
       }
     }

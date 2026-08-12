@@ -206,6 +206,7 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
           <NavBtn compact={isDrawer} to="/discover" icon="compass" label="Discover" onClose={onClose} />
         ) : null}
         {currentUser ? <NavBtn compact={isDrawer} to="/mixes" icon="music" label="Mixes" onClose={onClose} /> : null}
+        {currentUser ? <NavBtn compact={isDrawer} to="/library" icon="library" label="Library" onClose={onClose} /> : null}
         {FEATURE_LIVE ? <LiveNavBtn compact={isDrawer} onClose={onClose} /> : null}
         {FEATURE_TOP10 ? <NavBtn compact={isDrawer} to="/top10" icon="trending" label="Top 10" onClose={onClose} /> : null}
         {currentUser?.isAdmin ? <NavBtn compact={isDrawer} to="/upload" icon="upload" label="Upload" onClose={onClose} /> : null}
@@ -228,6 +229,7 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
           </div>
           {FEATURE_STATS ? <NavBtn compact={isDrawer} to="/stats" icon="bar2" label="My Stats" onClose={onClose} /> : null}
           <NavBtn compact={isDrawer} to="/likes" icon="heart" label="Likes" onClose={onClose} />
+          <NavBtn compact={isDrawer} to="/community" icon="community" label="Community" onClose={onClose} />
           <NavBtn compact={isDrawer} to="/profile" icon="user" label="My Profile" onClose={onClose} />
           <NavBtn compact={isDrawer} to="/connections" icon="people" label="Connections" onClose={onClose} />
           <NavBtn compact={isDrawer} to="/settings" icon="settings" label="Settings" onClose={onClose} />

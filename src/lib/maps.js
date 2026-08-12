@@ -48,6 +48,7 @@ export function profileRowToUser(row) {
     location: row.location ?? "",
     isAdmin: row.is_admin ?? false,
     isBanned: row.is_banned ?? false,
+    isApproved: row.is_approved !== false,
     plan: normalizePlan(row.plan),
   };
 }

@@ -10,6 +10,7 @@ import useMediaQuery from "../hooks/useMediaQuery.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 import { profileRowToUser } from "../lib/maps.js";
 import { fmt } from "../lib/format.js";
+import { isProPlan } from "../constants/plans.js";
 
 export default function UserProfilePage() {
   const { userId } = useParams();
@@ -148,7 +149,9 @@ export default function UserProfilePage() {
   const statTiles = [
     { label: "Mixes", value: userEps.length, icon: "music" },
     { label: "Total Plays", value: fmt(totalPlays), icon: "headphones" },
-    { label: "Downloads", value: fmt(totalDownloads), icon: "download" },
+    ...(isProPlan(auth.currentUser)
+      ? [{ label: "Downloads", value: fmt(totalDownloads), icon: "download" }]
+      : []),
     { label: "Followers", value: fmt(profileUser.followers), icon: "people" },
   ];
 

@@ -197,6 +197,13 @@ export default function Icon({ name, size = 18, color = "currentColor" }) {
         <path d="M16 3.13a4 4 0 0 1 0 7.75" />
       </>
     ),
+    community: (
+      <>
+        <circle cx="12" cy="12" r="10" />
+        <line x1="2" y1="12" x2="22" y2="12" />
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+      </>
+    ),
     shuffle: (
       <>
         <polyline points="16 3 21 3 21 8" />
@@ -227,6 +234,13 @@ export default function Icon({ name, size = 18, color = "currentColor" }) {
         <line x1="3" y1="6" x2="3.01" y2="6" />
         <line x1="3" y1="12" x2="3.01" y2="12" />
         <line x1="3" y1="18" x2="3.01" y2="18" />
+      </>
+    ),
+    library: (
+      <>
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+        <line x1="12" y1="6" x2="12" y2="16" />
       </>
     ),
     zap: (
