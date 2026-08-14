@@ -206,6 +206,7 @@ export default function ProfilePage() {
             episodes={episodes}
             likedMixIds={likedMixIds}
             compact={isCompact}
+            isOwn
           />
         )}
       </div>

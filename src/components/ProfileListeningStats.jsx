@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Icon from "./Icon.jsx";
 import { fetchListenerProfileStats, formatListenHours } from "../lib/playbackProgress.js";
@@ -43,30 +43,57 @@ function StatTile({ label, value, hint, icon, color = "var(--accent)", compact }
 }
 
 /**
- * High-level listening behaviour for non-admin profiles.
+ * High-level listening behaviour for listener profiles.
+ * @param {{ user: object, episodes: object[], likedMixIds?: string[], compact?: boolean, isOwn?: boolean }} props
  */
-export default function ProfileListeningStats({ user, episodes, likedMixIds, compact = false }) {
+export default function ProfileListeningStats({
+  user,
+  episodes,
+  likedMixIds = [],
+  compact = false,
+  isOwn = false,
+}) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const loadedForUserRef = useRef(null);
+  const episodesRef = useRef(episodes);
+  const likedMixIdsRef = useRef(likedMixIds);
+  episodesRef.current = episodes;
+  likedMixIdsRef.current = likedMixIds;
 
   useEffect(() => {
+    const userId = user?.id;
+    if (!userId) {
+      loadedForUserRef.current = null;
+      setStats(null);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
+    const alreadyLoaded = loadedForUserRef.current === userId;
+    if (!alreadyLoaded) setLoading(true);
+
     (async () => {
-      setLoading(true);
-      const next = await fetchListenerProfileStats(user?.id, episodes, likedMixIds);
-      if (!cancelled) {
-        setStats(next);
-        setLoading(false);
-      }
+      const next = await fetchListenerProfileStats(userId, episodesRef.current, likedMixIdsRef.current, {
+        isSelf: isOwn,
+      });
+      if (cancelled) return;
+      loadedForUserRef.current = userId;
+      setStats(next);
+      setLoading(false);
     })();
+
     return () => {
       cancelled = true;
     };
-  }, [user?.id, episodes, likedMixIds]);
+  }, [user?.id, isOwn]);
 
-  if (loading) {
+  if (loading && !stats) {
     return (
-      <p style={{ color: "var(--text3)", fontSize: compact ? 13 : 14, margin: "8px 0 0" }}>Loading your listening stats…</p>
+      <p style={{ color: "var(--text3)", fontSize: compact ? 13 : 14, margin: "8px 0 0" }}>
+        {isOwn ? "Loading your listening stats…" : "Loading listening stats…"}
+      </p>
     );
   }
 
@@ -76,6 +103,10 @@ export default function ProfileListeningStats({ user, episodes, likedMixIds, com
   const listenedGenre = stats?.mostListenedGenre || "—";
   const mixesStarted = stats?.mixesStarted || 0;
   const likes = stats?.likesCount || 0;
+  const heading = isOwn ? "Your listening" : "Listening";
+  const intro = isOwn
+    ? "How you listen on Music Vault — come back for more of what you love."
+    : `How ${user?.username || "this member"} listens on Music Vault — hours, sessions, and taste.`;
 
   return (
     <div>
@@ -89,7 +120,7 @@ export default function ProfileListeningStats({ user, episodes, likedMixIds, com
           flexWrap: "wrap",
         }}
       >
-        <h2 style={{ fontWeight: 700, margin: 0, fontSize: compact ? 15 : 17 }}>Your listening</h2>
+        <h2 style={{ fontWeight: 700, margin: 0, fontSize: compact ? 15 : 17 }}>{heading}</h2>
         <span style={{ fontSize: compact ? 11 : 12, color: "var(--text3)" }}>
           {fmt(user?.following || 0)} following
         </span>
@@ -104,7 +135,7 @@ export default function ProfileListeningStats({ user, episodes, likedMixIds, com
           maxWidth: 520,
         }}
       >
-        How you listen on Music Vault — come back for more of what you love.
+        {intro}
       </p>
 
       <div
@@ -168,17 +199,19 @@ export default function ProfileListeningStats({ user, episodes, likedMixIds, com
           </div>
           <div style={{ fontWeight: 700, fontSize: compact ? 14 : 16, marginTop: 4 }}>{preference}</div>
           <div style={{ fontSize: compact ? 12 : 13, color: "var(--text2)", marginTop: 4 }}>
-            Your primary genre on profile
+            {isOwn ? "Your primary genre on profile" : "Primary genre on profile"}
           </div>
         </div>
-        <Link
-          to="/foryou"
-          className="btn btn-primary"
-          style={{ textDecoration: "none", justifyContent: "center", flexShrink: 0 }}
-        >
-          <Icon name="zap" size={14} />
-          Keep listening
-        </Link>
+        {isOwn ? (
+          <Link
+            to="/foryou"
+            className="btn btn-primary"
+            style={{ textDecoration: "none", justifyContent: "center", flexShrink: 0 }}
+          >
+            <Icon name="zap" size={14} />
+            Keep listening
+          </Link>
+        ) : null}
       </div>
     </div>
   );

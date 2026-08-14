@@ -207,6 +207,7 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
         ) : null}
         {currentUser ? <NavBtn compact={isDrawer} to="/mixes" icon="music" label="Mixes" onClose={onClose} /> : null}
         {currentUser ? <NavBtn compact={isDrawer} to="/library" icon="library" label="Library" onClose={onClose} /> : null}
+        {currentUser ? <NavBtn compact={isDrawer} to="/submit-mix" icon="send" label="Submit Mix" onClose={onClose} /> : null}
         {FEATURE_LIVE ? <LiveNavBtn compact={isDrawer} onClose={onClose} /> : null}
         {FEATURE_TOP10 ? <NavBtn compact={isDrawer} to="/top10" icon="trending" label="Top 10" onClose={onClose} /> : null}
         {currentUser?.isAdmin ? <NavBtn compact={isDrawer} to="/upload" icon="upload" label="Upload" onClose={onClose} /> : null}
