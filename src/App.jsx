@@ -7,6 +7,7 @@ import ForYouPage from "./pages/ForYouPage.jsx";
 import LiveRoute from "./pages/LiveRoute.jsx";
 import Top10Page from "./pages/Top10Page.jsx";
 import UploadPage from "./pages/UploadPage.jsx";
+import SubmitMixPage from "./pages/SubmitMixPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import ConnectionsPage from "./pages/ConnectionsPage.jsx";
 import CommunityPage from "./pages/CommunityPage.jsx";
@@ -80,6 +81,19 @@ function UploadRoute() {
   return <UploadPage />;
 }
 
+function SubmitMixRoute() {
+  const { auth } = useApp();
+  if (auth.authLoading) {
+    return (
+      <div style={{ padding: 48, textAlign: "center", color: "var(--text2)", fontSize: 14 }}>
+        Loading…
+      </div>
+    );
+  }
+  if (!auth.session?.user?.id) return <Navigate to="/" replace />;
+  return <SubmitMixPage />;
+}
+
 export default function App() {
   return (
     <Routes>
@@ -102,6 +116,7 @@ export default function App() {
           element={FEATURE_TOP10 ? <Top10Page /> : <Navigate to={signedInHomePath()} replace />}
         />
         <Route path="/upload" element={<UploadRoute />} />
+        <Route path="/submit-mix" element={<SubmitMixRoute />} />
         <Route path="/dj" element={FEATURE_LETS_DJ ? <LetsDJPage /> : <Navigate to="/" replace />} />
         <Route path="/mix/:id" element={<MixDetailPage />} />
         <Route path="/profile" element={<ProfilePage />} />

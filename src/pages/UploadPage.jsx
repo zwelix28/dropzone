@@ -3,11 +3,13 @@ import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
 import PageHeader from "../components/PageHeader.jsx";
 import { GENRES } from "../constants/genres.js";
+import { MIX_TITLE_PREFIX, mixTitleBody, withMixTitlePrefix } from "../constants/mixTitle.js";
 import { isProPlan } from "../constants/plans.js";
 import { useApp } from "../context/AppContext.jsx";
 import { signedInHomePath } from "../featureFlags.js";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { getAudioFileDurationSec } from "../lib/audioDuration.js";
+import { MIX_STATUS_APPROVED, MIX_STATUS_PENDING } from "../lib/mixStatus.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 import { readMaxAudioMb, uploadMixAudio } from "../lib/uploadMixAudio.js";
 
@@ -22,22 +24,63 @@ function formatStorageError(err) {
   return msg;
 }
 
+/** Columns added by later migrations; dropped one by one if the project has not run them yet. */
+const OPTIONAL_MIX_COLUMNS = ["submitted_at", "status", "is_for_sale", "price_zar", "content_type"];
+
+/**
+ * Insert a mix, retrying without columns the database does not know about so a
+ * large upload is never lost. A submission is never retried without `status`,
+ * because that would publish it without review.
+ */
+async function insertMixRow(row, { isSubmission }) {
+  let payload = { ...row };
+
+  for (let attempt = 0; attempt <= OPTIONAL_MIX_COLUMNS.length; attempt += 1) {
+    const { data, error } = await supabase.from("mixes").insert(payload).select("id").single();
+    if (!error) return data;
+
+    const message = error.message || "";
+    const missing = OPTIONAL_MIX_COLUMNS.filter(
+      (column) => column in payload && new RegExp(`\\b${column}\\b`, "i").test(message),
+    );
+    if (!missing.length) throw error;
+    if (isSubmission && missing.includes("status")) {
+      throw new Error(
+        "Mix review is not set up on this project yet. Run supabase/mix-submissions.sql in the Supabase SQL Editor, then submit again.",
+      );
+    }
+
+    payload = { ...payload };
+    for (const column of missing) delete payload[column];
+    console.warn(`Saved without ${missing.join(", ")}. Apply the matching migration in supabase/.`);
+  }
+
+  throw new Error("Could not save the mix details.");
+}
+
 function defaultMixDescription(title) {
-  const t = (title || "").trim();
+  const t = mixTitleBody(title);
   if (!t) return "";
   return `Listen to ${t} on Deep House Lab - Music Vault.`;
 }
 
-export default function UploadPage() {
+/**
+ * The upload wizard. In "submission" mode any approved member can use it, but the
+ * mix is saved as pending and stays off the site until an admin approves it.
+ *
+ * @param {{ mode?: 'admin' | 'submission', onSubmitted?: () => void }} props
+ */
+export default function UploadPage({ mode = "admin", onSubmitted } = {}) {
   const navigate = useNavigate();
   const { auth, refreshMixes } = useApp();
   const currentUser = auth.currentUser;
   const uid = auth.session?.user?.id;
   const isCompact = useMediaQuery("(max-width: 720px)");
+  const isSubmission = mode === "submission";
 
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
-    title: "",
+    title: MIX_TITLE_PREFIX,
     description: "",
     tracklist: "",
     genre: "Tech House",
@@ -110,8 +153,16 @@ export default function UploadPage() {
       setPublishError("Choose whether you are uploading a Single or a Mix.");
       return;
     }
-    if (!currentUser?.isAdmin) {
+    if (!mixTitleBody(form.title)) {
+      setPublishError(`Add a mix name after “${MIX_TITLE_PREFIX.trim()}”.`);
+      return;
+    }
+    if (!isSubmission && !currentUser?.isAdmin) {
       setPublishError("Only administrators can upload mixes.");
+      return;
+    }
+    if (isSubmission && currentUser?.isApproved === false) {
+      setPublishError("Your account is still awaiting approval, so you cannot submit a mix yet.");
       return;
     }
     setPublishError(null);
@@ -179,7 +230,7 @@ export default function UploadPage() {
 
       const row = {
         user_id: uid,
-        title: (form.title || "").trim() || "Untitled Mix",
+        title: withMixTitlePrefix(form.title).trim(),
         description: form.description || "",
         genre: form.genre || "Tech House",
         tags,
@@ -190,38 +241,22 @@ export default function UploadPage() {
         audio_preview_path: "",
         duration_secs: durationSecs > 0 ? durationSecs : 0,
         content_type: form.contentType === "single" ? "single" : "mix",
+        status: isSubmission ? MIX_STATUS_PENDING : MIX_STATUS_APPROVED,
       };
+
+      if (isSubmission) row.submitted_at = new Date().toISOString();
 
       if (isForSale) {
         row.is_for_sale = true;
         row.price_zar = priceZar;
       }
 
-      let { data: inserted, error: insertErr } = await supabase.from("mixes").insert(row).select("id").single();
-
-      if (insertErr && /content_type/i.test(insertErr.message || "")) {
-        // Migration not applied yet — still save the mix so a large upload is not lost
-        const fallback = { ...row };
-        delete fallback.content_type;
-        ({ data: inserted, error: insertErr } = await supabase.from("mixes").insert(fallback).select("id").single());
-        if (!insertErr) {
-          console.warn(
-            "Saved without content_type. Run supabase/content-type.sql in the Supabase SQL Editor so Singles/Mixes routing works.",
-          );
-        }
-      }
-      if (insertErr && /is_for_sale|price_zar/i.test(insertErr.message || "")) {
-        const fallback = { ...row };
-        delete fallback.is_for_sale;
-        delete fallback.price_zar;
-        ({ data: inserted, error: insertErr } = await supabase.from("mixes").insert(fallback).select("id").single());
-      }
-
-      if (insertErr) throw insertErr;
+      const inserted = await insertMixRow(row, { isSubmission });
       setPublishedMixId(inserted.id);
       setProgress(100);
       setProgressLabel("Done");
       await refreshMixes();
+      onSubmitted?.();
       setDone(true);
     } catch (e) {
       console.error(e);
@@ -248,9 +283,11 @@ export default function UploadPage() {
         }}
       >
         <Icon name="upload" size={isCompact ? 36 : 48} color="var(--text3)" />
-        <h2 style={{ marginTop: 16, marginBottom: 8, fontSize: isCompact ? 20 : 24 }}>Sign in to Upload</h2>
+        <h2 style={{ marginTop: 16, marginBottom: 8, fontSize: isCompact ? 20 : 24 }}>
+          {isSubmission ? "Sign in to submit a mix" : "Sign in to Upload"}
+        </h2>
         <p style={{ color: "var(--text2)", marginBottom: 24, fontSize: isCompact ? 14 : 15, maxWidth: 320 }}>
-          You need an account to upload mixes to Music Vault by DHLab
+          You need an account to {isSubmission ? "submit" : "upload"} mixes to Music Vault by DHLab
         </p>
         <button className="btn btn-primary" onClick={() => auth.setShowAuth(true)}>
           Sign In / Register
@@ -258,7 +295,7 @@ export default function UploadPage() {
       </div>
     );
 
-  if (!currentUser.isAdmin)
+  if (!isSubmission && !currentUser.isAdmin)
     return (
       <div
         className="fade-in"
@@ -293,7 +330,7 @@ export default function UploadPage() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          minHeight: "70vh",
+          minHeight: isSubmission ? "42vh" : "70vh",
         }}
       >
         <div
@@ -301,18 +338,22 @@ export default function UploadPage() {
             width: isCompact ? 64 : 80,
             height: isCompact ? 64 : 80,
             borderRadius: "50%",
-            background: "rgba(52,211,153,0.15)",
-            border: "2px solid var(--green)",
+            background: isSubmission ? "rgba(251,146,60,0.15)" : "rgba(52,211,153,0.15)",
+            border: `2px solid ${isSubmission ? "var(--orange)" : "var(--green)"}`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             marginBottom: 16,
           }}
         >
-          <Icon name="check" size={isCompact ? 28 : 36} color="var(--green)" />
+          <Icon
+            name={isSubmission ? "send" : "check"}
+            size={isCompact ? 28 : 36}
+            color={isSubmission ? "var(--orange)" : "var(--green)"}
+          />
         </div>
         <h2 style={{ fontSize: isCompact ? 22 : 28, fontWeight: 700, marginBottom: 8, textAlign: "center" }}>
-          Upload Successful!
+          {isSubmission ? "Sent for review" : "Upload Successful!"}
         </h2>
         <p
           style={{
@@ -324,8 +365,17 @@ export default function UploadPage() {
             padding: isCompact ? "0 8px" : 0,
           }}
         >
-          Your {form.contentType === "single" ? "single" : "mix"} "<strong>{form.title || "Untitled"}</strong>" is now processing
-          and will appear on {form.contentType === "single" ? "Discover" : "Mixes"} shortly.
+          {isSubmission ? (
+            <>
+              "<strong>{form.title || "Untitled"}</strong>" is with our team. It stays private until an administrator
+              approves it, and you will get a notification either way.
+            </>
+          ) : (
+            <>
+              Your {form.contentType === "single" ? "single" : "mix"} "<strong>{form.title || "Untitled"}</strong>" is now
+              processing and will appear on {form.contentType === "single" ? "Discover" : "Mixes"} shortly.
+            </>
+          )}
         </p>
         <div style={{ display: "flex", gap: isCompact ? 8 : 12, flexWrap: "wrap", justifyContent: "center", width: "100%", maxWidth: 360 }}>
           <button
@@ -338,7 +388,7 @@ export default function UploadPage() {
               setAudioFileError(null);
               descriptionManuallyEditedRef.current = false;
               setForm({
-                title: "",
+                title: MIX_TITLE_PREFIX,
                 description: "",
                 tracklist: "",
                 genre: "Tech House",
@@ -354,25 +404,27 @@ export default function UploadPage() {
               setProgress(0);
             }}
           >
-            Upload Another
+            {isSubmission ? "Submit Another" : "Upload Another"}
           </button>
-          <button
-            className="btn btn-primary"
-            disabled={!publishedMixId}
-            onClick={() => {
-              if (publishedMixId) navigate(`/mix/${publishedMixId}`, { state: { from: "/upload" } });
-            }}
-          >
-            View Mix
-          </button>
+          {isSubmission ? null : (
+            <button
+              className="btn btn-primary"
+              disabled={!publishedMixId}
+              onClick={() => {
+                if (publishedMixId) navigate(`/mix/${publishedMixId}`, { state: { from: "/upload" } });
+              }}
+            >
+              View Mix
+            </button>
+          )}
           <button
             className="btn btn-ghost"
             onClick={() => {
               setDone(false);
-              navigate("/profile");
+              if (!isSubmission) navigate("/profile");
             }}
           >
-            View My Uploads
+            {isSubmission ? "View My Submissions" : "View My Uploads"}
           </button>
         </div>
       </div>
@@ -386,12 +438,32 @@ export default function UploadPage() {
       className="fade-in"
       style={{
         padding: isCompact ? "16px 12px" : "32px 36px",
-        paddingBottom: 100,
+        paddingBottom: isSubmission ? 28 : 100,
         maxWidth: isCompact ? "100%" : 760,
         margin: isCompact ? 0 : undefined,
       }}
     >
-      <PageHeader title="UPLOAD MIX" large marginBottom={32} />
+      <PageHeader title={isSubmission ? "SUBMIT MIX" : "UPLOAD MIX"} large marginBottom={isSubmission ? 18 : 32} />
+
+      {isSubmission ? (
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            alignItems: "flex-start",
+            padding: isCompact ? "10px 12px" : "12px 14px",
+            borderRadius: 10,
+            background: "rgba(251,146,60,0.1)",
+            border: "1px solid rgba(251,146,60,0.25)",
+            marginBottom: isCompact ? 20 : 30,
+          }}
+        >
+          <Icon name="shield" size={16} color="var(--orange)" />
+          <p style={{ margin: 0, fontSize: isCompact ? 12 : 13, color: "var(--text2)", lineHeight: 1.5 }}>
+            Submit mix for review
+          </p>
+        </div>
+      ) : null}
 
       <div style={{ display: "flex", gap: 0, marginBottom: isCompact ? 20 : 36, width: "100%" }}>
         {stepLabels.map((s, i) => (
@@ -698,10 +770,10 @@ export default function UploadPage() {
               </label>
               <input
                 className="inp"
-                placeholder="e.g. Summer Deep House Session Vol. 5"
+                placeholder={`${MIX_TITLE_PREFIX}Summer Deep House Session Vol. 5`}
                 value={form.title}
                 onChange={(e) => {
-                  const title = e.target.value;
+                  const title = withMixTitlePrefix(e.target.value);
                   setForm((f) => ({
                     ...f,
                     title,
@@ -711,6 +783,9 @@ export default function UploadPage() {
                   }));
                 }}
               />
+              <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>
+                “{MIX_TITLE_PREFIX.trim()}” is added automatically — type your mix name after it.
+              </div>
             </div>
             <div>
               <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}>
@@ -863,7 +938,7 @@ export default function UploadPage() {
             <button
               className="btn btn-primary"
               onClick={() => setStep(3)}
-              disabled={!form.title}
+              disabled={!mixTitleBody(form.title)}
               style={{ width: isCompact ? "100%" : "auto" }}
             >
               Review <Icon name="skip" size={15} />
@@ -925,7 +1000,11 @@ export default function UploadPage() {
                 <h3 style={{ fontSize: isCompact ? 16 : 18, fontWeight: 700, marginBottom: 4 }}>{form.title || "Untitled"}</h3>
                 <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap", justifyContent: isCompact ? "center" : "flex-start" }}>
                   <span className="tag" style={{ fontSize: isCompact ? 10 : 12 }}>
-                    {form.contentType === "single" ? "Single → Discover" : "Mix → Mixes"}
+                    {isSubmission
+                      ? "Goes to review"
+                      : form.contentType === "single"
+                        ? "Single → Discover"
+                        : "Mix → Mixes"}
                   </span>
                   <span className="tag tag-blue" style={{ fontSize: isCompact ? 10 : 12 }}>
                     {form.genre}
@@ -1005,8 +1084,8 @@ export default function UploadPage() {
             >
               {submitting ? "Uploading..." : (
                 <>
-                  <Icon name="upload" size={15} />
-                  Publish Mix
+                  <Icon name={isSubmission ? "send" : "upload"} size={15} />
+                  {isSubmission ? "Submit for Review" : "Publish Mix"}
                 </>
               )}
             </button>

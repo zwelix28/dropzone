@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
+import FollowButton from "../components/FollowButton.jsx";
+import ProfileListeningStats from "../components/ProfileListeningStats.jsx";
 import TrackCard from "../components/TrackCard.jsx";
 import UserAvatar from "../components/UserAvatar.jsx";
 import VerifiedBadge from "../components/VerifiedBadge.jsx";
-import FollowButton from "../components/FollowButton.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 import { profileRowToUser } from "../lib/maps.js";
 import { fmt } from "../lib/format.js";
-import { isProPlan } from "../constants/plans.js";
 
 export default function UserProfilePage() {
   const { userId } = useParams();
@@ -19,13 +19,13 @@ export default function UserProfilePage() {
   const [remoteUser, setRemoteUser] = useState(null);
   const [loadError, setLoadError] = useState(null);
   const [fetchDone, setFetchDone] = useState(false);
-  const [mutualFollow, setMutualFollow] = useState(false);
 
   const fromList = useMemo(() => (userId ? users.find((u) => u.id === userId) : null), [users, userId]);
+  const fromListId = fromList?.id || null;
 
   useEffect(() => {
     if (!userId) return;
-    if (fromList) {
+    if (fromListId) {
       setRemoteUser(null);
       setLoadError(null);
       setFetchDone(true);
@@ -54,7 +54,7 @@ export default function UserProfilePage() {
     return () => {
       cancelled = true;
     };
-  }, [userId, fromList]);
+  }, [userId, fromListId]);
 
   useEffect(() => {
     if (!userId || !isSupabaseConfigured()) return;
@@ -63,33 +63,20 @@ export default function UserProfilePage() {
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${userId}` },
-        () => void refreshProfiles(),
+        async (payload) => {
+          const row = payload?.new;
+          if (row && !fromListId) {
+            setRemoteUser(profileRowToUser(row));
+          } else {
+            void refreshProfiles();
+          }
+        },
       )
       .subscribe();
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [userId, refreshProfiles]);
-
-  useEffect(() => {
-    const uid = auth.session?.user?.id;
-    const pid = fromList?.id || remoteUser?.id;
-    if (!uid || !pid || uid === pid || !isSupabaseConfigured()) {
-      setMutualFollow(false);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const [{ data: iFollow }, { data: theyFollow }] = await Promise.all([
-        supabase.from("follows").select("follower_id").eq("follower_id", uid).eq("following_id", pid).maybeSingle(),
-        supabase.from("follows").select("follower_id").eq("follower_id", pid).eq("following_id", uid).maybeSingle(),
-      ]);
-      if (!cancelled) setMutualFollow(Boolean(iFollow && theyFollow));
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [auth.session?.user?.id, fromList?.id, remoteUser?.id]);
+  }, [userId, fromListId, refreshProfiles]);
 
   const profileUser = fromList || remoteUser;
 
@@ -142,25 +129,15 @@ export default function UserProfilePage() {
   }
 
   const userEps = episodes.filter((e) => e.userId === profileUser.id);
-  const totalDownloads = userEps.reduce((s, e) => s + e.downloads, 0);
-  const totalPlays = userEps.reduce((s, e) => s + e.plays, 0);
   const avatarSize = isCompact ? 80 : 108;
-
-  const statTiles = [
-    { label: "Mixes", value: userEps.length, icon: "music" },
-    { label: "Total Plays", value: fmt(totalPlays), icon: "headphones" },
-    ...(isProPlan(auth.currentUser)
-      ? [{ label: "Downloads", value: fmt(totalDownloads), icon: "download" }]
-      : []),
-    { label: "Followers", value: fmt(profileUser.followers), icon: "people" },
-  ];
+  const pagePad = isCompact ? "16px 12px" : "32px 36px";
 
   return (
-    <div className="fade-in" style={{ paddingBottom: 100 }}>
-      <div style={{ padding: isCompact ? "16px 12px 0" : "32px 36px 0" }}>
+    <div className="fade-in" style={{ padding: pagePad, paddingBottom: 120 }}>
+      <div style={{ maxWidth: 900, margin: "0 auto" }}>
         <div style={{ marginBottom: isCompact ? 12 : 16 }}>
-          <Link to="/discover" style={{ color: "var(--text2)", fontSize: isCompact ? 12 : 13 }}>
-            ← Back
+          <Link to="/community" style={{ color: "var(--text2)", fontSize: isCompact ? 12 : 13, textDecoration: "none" }}>
+            ← Community
           </Link>
         </div>
 
@@ -235,30 +212,34 @@ export default function UserProfilePage() {
           </div>
         )}
 
-        <p
-          style={{
-            color: "var(--text2)",
-            maxWidth: 600,
-            marginBottom: isCompact ? 16 : 24,
-            lineHeight: 1.65,
-            fontSize: isCompact ? 13 : 15,
-          }}
-        >
-          {profileUser.bio}
-        </p>
+        {profileUser.bio ? (
+          <p
+            style={{
+              color: "var(--text2)",
+              maxWidth: 600,
+              marginBottom: isCompact ? 16 : 20,
+              lineHeight: 1.65,
+              fontSize: isCompact ? 13 : 15,
+            }}
+          >
+            {profileUser.bio}
+          </p>
+        ) : null}
 
         <div
           style={{
             display: "flex",
             gap: isCompact ? 6 : 8,
-            marginBottom: isCompact ? 18 : 28,
+            marginBottom: isCompact ? 18 : 22,
             flexWrap: "wrap",
             alignItems: "center",
           }}
         >
-          <span className="tag tag-blue" style={{ fontSize: isCompact ? 11 : 12 }}>
-            {profileUser.genre}
-          </span>
+          {profileUser.genre ? (
+            <span className="tag tag-blue" style={{ fontSize: isCompact ? 11 : 12 }}>
+              {profileUser.genre}
+            </span>
+          ) : null}
           <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: isCompact ? 12 : 13, color: "var(--text3)" }}>
             <Icon name="people" size={isCompact ? 12 : 14} color="var(--text3)" />
             {fmt(profileUser.followers)} followers
@@ -266,60 +247,43 @@ export default function UserProfilePage() {
           <span style={{ fontSize: isCompact ? 12 : 13, color: "var(--text3)" }}>· {fmt(profileUser.following)} following</span>
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: isCompact ? "repeat(2, minmax(0, 1fr))" : "repeat(4, 1fr)",
-            gap: isCompact ? 6 : 8,
-            marginBottom: isCompact ? 16 : 24,
-          }}
-        >
-          {statTiles.map((s) => (
-            <div
-              key={s.label}
-              className="stat-card"
+        <ProfileListeningStats user={profileUser} episodes={episodes} compact={isCompact} />
+
+        {userEps.length > 0 ? (
+          <>
+            <h2
               style={{
-                textAlign: "center",
-                padding: isCompact ? "6px 8px" : "10px 12px",
-                borderRadius: isCompact ? 8 : 10,
+                fontWeight: 700,
+                margin: isCompact ? "22px 0 12px" : "28px 0 16px",
+                fontSize: isCompact ? 15 : 17,
               }}
             >
-              <Icon name={s.icon} size={isCompact ? 10 : 12} color="var(--accent)" />
-              <div
-                style={{
-                  fontSize: isCompact ? 11 : 12,
-                  fontWeight: 800,
-                  marginTop: isCompact ? 3 : 4,
-                  fontFamily: "var(--ff-mono)",
-                  lineHeight: 1.1,
-                }}
-              >
-                {s.value}
-              </div>
-              <div style={{ fontSize: 9, color: "var(--text3)", marginTop: 1, lineHeight: 1.2 }}>{s.label}</div>
+              Mixes
+              <span style={{ color: "var(--text3)", fontWeight: 500, marginLeft: 8, fontSize: isCompact ? 12 : 14 }}>
+                {userEps.length}
+              </span>
+            </h2>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: isCompact ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fill, minmax(220px, 1fr))",
+                gap: isCompact ? 10 : 16,
+              }}
+            >
+              {userEps.map((ep) => (
+                <TrackCard
+                  key={ep.id}
+                  episode={ep}
+                  users={usersForCards}
+                  compact={isCompact}
+                  isActive={player.currentTrack?.id === ep.id}
+                  isPlaying={player.isPlaying && player.currentTrack?.id === ep.id}
+                  onPlay={player.playTrack}
+                />
+              ))}
             </div>
-          ))}
-        </div>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: isCompact ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fill, minmax(220px, 1fr))",
-            gap: isCompact ? 10 : 16,
-          }}
-        >
-          {userEps.map((ep) => (
-            <TrackCard
-              key={ep.id}
-              episode={ep}
-              users={usersForCards}
-              compact={isCompact}
-              isActive={player.currentTrack?.id === ep.id}
-              isPlaying={player.isPlaying && player.currentTrack?.id === ep.id}
-              onPlay={player.playTrack}
-            />
-          ))}
-        </div>
+          </>
+        ) : null}
       </div>
     </div>
   );

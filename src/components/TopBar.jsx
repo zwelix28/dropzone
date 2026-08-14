@@ -29,6 +29,7 @@ export default function TopBar({
       "/live": "Live Streams",
       "/top10": "Top 10",
       "/upload": "Upload",
+      "/submit-mix": "Submit Mix",
       "/profile": "My Profile",
       "/connections": "Connections",
       "/community": "Community",

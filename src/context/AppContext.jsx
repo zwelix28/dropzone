@@ -5,6 +5,7 @@ import usePlayer from "../hooks/usePlayer.js";
 import { backfillMissingMixDurations } from "../lib/backfillMixDurations.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 import { mixRowToEpisode, notificationRowToApp, profileRowToUser } from "../lib/maps.js";
+import { isMixApproved } from "../lib/mixStatus.js";
 
 const AppContext = createContext(null);
 
@@ -74,7 +75,8 @@ export function AppProvider({ children }) {
       return [];
     }
     setDataError(null);
-    const list = (data || []).map(mixRowToEpisode);
+    // Submissions awaiting (or refused) admin review never enter the public catalog.
+    const list = (data || []).map(mixRowToEpisode).filter(isMixApproved);
     setEpisodes(list);
 
     const gen = ++durationBackfillGenRef.current;

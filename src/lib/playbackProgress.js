@@ -220,13 +220,41 @@ export async function clearPlaybackProgress(userId, mixId) {
   );
 }
 
+function emptyListenerStats() {
+  return {
+    mixesStarted: 0,
+    likesCount: 0,
+    hoursListened: 0,
+    mostLikedGenre: null,
+    mostListenedGenre: null,
+    totalListenedSec: 0,
+  };
+}
+
+function statsFromRpc(payload) {
+  const row = typeof payload === "string" ? JSON.parse(payload) : payload;
+  if (!row || typeof row !== "object") return null;
+  return {
+    mixesStarted: Number(row.mixes_started) || 0,
+    likesCount: Number(row.likes_count) || 0,
+    hoursListened: Number(row.hours_listened) || 0,
+    mostLikedGenre: row.most_liked_genre || null,
+    mostListenedGenre: row.most_listened_genre || null,
+    totalListenedSec: Number(row.total_listened_sec) || 0,
+  };
+}
+
 /**
- * Aggregate listening behaviour for the signed-in user's profile.
+ * Aggregate listening behaviour for a profile.
+ * Uses a security-definer RPC so other members can see hours / taste
+ * without reading another user's resume positions.
+ * Own-profile fallback: local cache + likedMixIds when RPC is unavailable.
  * @param {string} userId
  * @param {{ id: string, genre?: string }[]} episodes
  * @param {string[]} likedMixIds
+ * @param {{ isSelf?: boolean }} [opts]
  */
-export async function fetchListenerProfileStats(userId, episodes = [], likedMixIds = []) {
+export async function fetchListenerProfileStats(userId, episodes = [], likedMixIds = [], opts = {}) {
   const byId = new Map(episodes.map((ep) => [ep.id, ep]));
   const genreCounts = (ids) => {
     const map = new Map();
@@ -245,6 +273,26 @@ export async function fetchListenerProfileStats(userId, episodes = [], likedMixI
     }
     return best;
   };
+
+  if (userId && isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.rpc("get_listener_profile_stats", { p_user_id: userId });
+      if (!error && data) {
+        const fromRpc = statsFromRpc(data);
+        if (fromRpc) {
+          if (opts.isSelf && likedMixIds.length && !fromRpc.mostLikedGenre) {
+            fromRpc.mostLikedGenre = genreCounts(likedMixIds);
+            fromRpc.likesCount = likedMixIds.length;
+          }
+          return fromRpc;
+        }
+      }
+    } catch {
+      // fall through
+    }
+  }
+
+  if (!opts.isSelf) return emptyListenerStats();
 
   const mostLikedGenre = genreCounts(likedMixIds);
 

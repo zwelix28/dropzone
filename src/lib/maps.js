@@ -1,5 +1,6 @@
 import { normalizePlan } from "../constants/plans.js";
 import { extractMixAudioPathFromLegacyPublicUrl } from "./audioUrls.js";
+import { normalizeMixStatus } from "./mixStatus.js";
 
 export function mixRowToEpisode(row) {
   if (!row) return null;
@@ -30,6 +31,10 @@ export function mixRowToEpisode(row) {
     priceZar: row.price_zar != null ? Number(row.price_zar) : null,
     salesCount: row.sales_count ?? 0,
     contentType: row.content_type === "single" ? "single" : "mix",
+    status: normalizeMixStatus(row.status),
+    reviewNote: row.review_note ?? "",
+    reviewedAt: row.reviewed_at ?? null,
+    submittedAt: row.submitted_at ?? null,
   };
 }
 
