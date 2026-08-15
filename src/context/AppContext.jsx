@@ -15,6 +15,7 @@ export function AppProvider({ children }) {
   const forYouRouteRef = useRef(false);
   forYouRouteRef.current = location.pathname === "/foryou";
   const episodesRef = useRef([]);
+  const usersRef = useRef([]);
   const getPlaylist = useCallback(() => episodesRef.current, []);
   const durationBackfillGenRef = useRef(0);
 
@@ -45,6 +46,11 @@ export function AppProvider({ children }) {
     getPlaylist,
     getSuspendPlayback: () => forYouRouteRef.current,
     onDurationKnown: applyKnownMixDuration,
+    getArtistName: (track) => {
+      if (!track?.userId) return "Music Vault";
+      const artist = usersRef.current.find((u) => u.id === track.userId);
+      return artist?.username || "Music Vault";
+    },
   });
 
   useEffect(() => {
@@ -56,6 +62,7 @@ export function AppProvider({ children }) {
   const [episodes, setEpisodes] = useState([]);
   episodesRef.current = episodes;
   const [users, setUsers] = useState([]);
+  usersRef.current = users;
   const [liveStreams] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const notificationsRef = useRef([]);

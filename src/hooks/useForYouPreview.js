@@ -9,13 +9,19 @@ import {
   FOR_YOU_PREVIEW_SEC,
   getGuestPreviewSegment,
 } from "../lib/forYouPreview.js";
+import {
+  bindMediaSessionActions,
+  syncMediaSessionMetadata,
+  syncMediaSessionPlaybackState,
+  syncMediaSessionPositionState,
+} from "../lib/mediaSession.js";
 
 function getPreviewSegment(ep) {
   const { start, end } = getGuestPreviewSegment(ep.durationSecs);
   return { start, end };
 }
 
-export default function useForYouPreview({ isAuthenticated }) {
+export default function useForYouPreview({ isAuthenticated, getArtistName = null }) {
   const [track, setTrack] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -26,6 +32,10 @@ export default function useForYouPreview({ isAuthenticated }) {
   const generationRef = useRef(0);
   const urlCacheRef = useRef(new Map());
   const warmAudioRef = useRef(new Map());
+  const getArtistNameRef = useRef(getArtistName);
+  getArtistNameRef.current = getArtistName;
+  const trackRef = useRef(null);
+  trackRef.current = track;
 
   if (!audioRef.current && typeof Audio !== "undefined") {
     audioRef.current = new Audio();
@@ -73,9 +83,71 @@ export default function useForYouPreview({ isAuthenticated }) {
     audio.load();
     setIsPlaying(false);
     setProgress(0);
+    syncMediaSessionMetadata(null);
+    syncMediaSessionPlaybackState(false);
   }, []);
 
   useEffect(() => registerExclusiveAudioOwner(AUDIO_OWNER_FOR_YOU, stop), [stop]);
+
+  useEffect(() => {
+    if (!track) {
+      syncMediaSessionMetadata(null);
+      syncMediaSessionPlaybackState(false);
+      return;
+    }
+    const artist =
+      (typeof getArtistNameRef.current === "function" && getArtistNameRef.current(track)) ||
+      "Music Vault";
+    syncMediaSessionMetadata(track, artist);
+    syncMediaSessionPlaybackState(isPlaying);
+    const { start, end } = segmentRef.current;
+    syncMediaSessionPositionState(audioRef.current, {
+      durationSec: Math.max(1, end - start),
+      guestPreviewOnly: true,
+      segment: { start, end, windowSec: Math.max(1, end - start) },
+    });
+  }, [track, isPlaying]);
+
+  useEffect(() => {
+    return bindMediaSessionActions({
+      onPlay: async () => {
+        const audio = audioRef.current;
+        if (!audio || !trackRef.current) return;
+        if (!audio.paused) return;
+        const { start, end } = segmentRef.current;
+        if (audio.currentTime >= end - 0.08 || audio.currentTime < start) {
+          audio.currentTime = start;
+          setProgress(0);
+        }
+        requestExclusivePlayback(AUDIO_OWNER_FOR_YOU);
+        try {
+          await audio.play();
+          setIsPlaying(true);
+        } catch {
+          setIsPlaying(false);
+        }
+      },
+      onPause: () => {
+        const audio = audioRef.current;
+        if (audio && !audio.paused) audio.pause();
+      },
+      getAudio: () => audioRef.current,
+      guestPreviewOnly: true,
+      getSegment: () => {
+        const { start, end } = segmentRef.current;
+        return { start, end, windowSec: Math.max(1, end - start) };
+      },
+      onSeek: (percent) => {
+        const audio = audioRef.current;
+        if (!audio) return;
+        const { start, end } = segmentRef.current;
+        const windowSec = Math.max(1, end - start);
+        const p = Math.max(0, Math.min(100, percent));
+        audio.currentTime = start + (windowSec * p) / 100;
+        setProgress(p);
+      },
+    });
+  }, []);
 
   const beginSegmentPlayback = useCallback(async (audio, start, gen) => {
     const seekAndPlay = async () => {
@@ -189,6 +261,11 @@ export default function useForYouPreview({ isAuthenticated }) {
         return;
       }
       setProgress(Math.max(0, Math.min(100, ((t - start) / windowSec) * 100)));
+      syncMediaSessionPositionState(audio, {
+        durationSec: windowSec,
+        guestPreviewOnly: true,
+        segment: { start, end, windowSec },
+      });
     };
 
     const onPlay = () => setIsPlaying(true);

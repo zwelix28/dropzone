@@ -108,7 +108,14 @@ export default function ForYouPage() {
   const [toast, setToast] = useState("");
 
   const isAuthenticated = Boolean(auth.session?.user?.id);
-  const preview = useForYouPreview({ isAuthenticated });
+  const preview = useForYouPreview({
+    isAuthenticated,
+    getArtistName: (ep) => {
+      if (!ep?.userId) return "Music Vault";
+      const artist = users.find((u) => u.id === ep.userId);
+      return artist?.username || "Music Vault";
+    },
+  });
   const playPreviewRef = useRef(preview.playPreview);
   playPreviewRef.current = preview.playPreview;
   const prefetchRef = useRef(preview.prefetch);
