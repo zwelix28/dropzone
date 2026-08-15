@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import WaveSurfer from "wavesurfer.js";
 import { DJAudioEngine } from "./djAudioEngine.js";
 import { estimateBpmFromBuffer } from "../lib/bpmDetect.js";
+import { randomUUID } from "../lib/uuid.js";
 
 function pickRecorderMime() {
   const types = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
@@ -406,7 +407,7 @@ export function useLetsDJ(opts = {}) {
     async ({ supabase, userId, title, refreshMixes }) => {
       if (!recordBlob || !userId) return { ok: false, error: "Missing blob or user" };
       const ext = recordBlob.type.includes("webm") ? "webm" : "mp3";
-      const audioPath = `${userId}/dj-${crypto.randomUUID()}.${ext}`;
+      const audioPath = `${userId}/dj-${randomUUID()}.${ext}`;
       const { error: upErr } = await supabase.storage.from("mix-audio").upload(audioPath, recordBlob, {
         cacheControl: "3600",
         upsert: false,

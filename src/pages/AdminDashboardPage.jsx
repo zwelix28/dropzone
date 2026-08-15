@@ -10,6 +10,8 @@ import { GENRES } from "../constants/genres.js";
 import { PLAN_FREE, PLAN_PAID, PLAN_PRO } from "../constants/plans.js";
 import { profileRowToUser } from "../lib/maps.js";
 import { MIX_STATUS_APPROVED, MIX_STATUS_PENDING, MIX_STATUS_REJECTED } from "../lib/mixStatus.js";
+import { uploadMixCover } from "../lib/uploadMixCover.js";
+import { handleArtworkError, resolveMixArtwork } from "../constants/artwork.js";
 
 const TABS = [
   { id: "insights", label: "Insights", icon: "trending" },
@@ -80,7 +82,7 @@ export default function AdminDashboardPage() {
     const { data, error: err } = await supabase
       .from("mixes")
       .select(
-        "id, user_id, title, genre, description, tags, tracklist, duration_secs, status, review_note, submitted_at, created_at",
+        "id, user_id, title, genre, description, tags, tracklist, cover_url, duration_secs, status, review_note, submitted_at, created_at",
       )
       .in("status", [MIX_STATUS_PENDING, MIX_STATUS_REJECTED])
       .order("created_at", { ascending: false })
@@ -231,6 +233,9 @@ export default function AdminDashboardPage() {
       description: submission.description || "",
       tags: Array.isArray(submission.tags) ? submission.tags.join(", ") : "",
       tracklist: Array.isArray(submission.tracklist) ? submission.tracklist.join("\n") : "",
+      coverUrl: submission.cover_url || "",
+      coverFile: null,
+      coverPreview: "",
     });
   };
 
@@ -257,6 +262,15 @@ export default function AdminDashboardPage() {
         .map((l) => l.trim())
         .filter(Boolean),
     };
+    if (editForm.coverFile) {
+      try {
+        patch.cover_url = await uploadMixCover(editForm.coverFile, adminId);
+      } catch (err) {
+        setBusy(false);
+        setError(err?.message || "Cover artwork upload failed.");
+        return;
+      }
+    }
     const { error: err } = await supabase.from("mixes").update(patch).eq("id", submissionId);
     setBusy(false);
     if (err) {
@@ -755,7 +769,67 @@ export default function AdminDashboardPage() {
                             <td colSpan={4} style={{ padding: isCompact ? "12px" : "16px 14px", background: "var(--surface2)" }}>
                               <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 620 }}>
                                 <div style={{ fontSize: isCompact ? 12 : 13, fontWeight: 700, color: "var(--text2)" }}>
-                                  Edit details before publishing
+                                  Edit details and cover before publishing
+                                </div>
+                                <div>
+                                  <label
+                                    style={{
+                                      display: "block",
+                                      fontSize: 12,
+                                      fontWeight: 600,
+                                      marginBottom: 5,
+                                      color: "var(--text2)",
+                                    }}
+                                  >
+                                    Cover artwork
+                                  </label>
+                                  <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                                    <img
+                                      src={
+                                        editForm.coverPreview ||
+                                        resolveMixArtwork(editForm.coverUrl)
+                                      }
+                                      alt="Cover preview"
+                                      onError={handleArtworkError}
+                                      style={{
+                                        width: 88,
+                                        height: 88,
+                                        borderRadius: 10,
+                                        objectFit: "cover",
+                                      }}
+                                    />
+                                    <label className="btn btn-ghost" style={{ cursor: "pointer", fontSize: 12 }}>
+                                      <Icon name="img" size={14} />
+                                      Choose new cover
+                                      <input
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp"
+                                        style={{ display: "none" }}
+                                        onChange={(event) => {
+                                          const file = event.target.files?.[0] || null;
+                                          if (!file) {
+                                            setEditForm((form) => ({
+                                              ...form,
+                                              coverFile: null,
+                                              coverPreview: "",
+                                            }));
+                                            return;
+                                          }
+                                          const reader = new FileReader();
+                                          reader.onload = () =>
+                                            setEditForm((form) => ({
+                                              ...form,
+                                              coverFile: file,
+                                              coverPreview: String(reader.result || ""),
+                                            }));
+                                          reader.readAsDataURL(file);
+                                        }}
+                                      />
+                                    </label>
+                                  </div>
+                                  <p style={{ margin: "6px 0 0", color: "var(--text3)", fontSize: 11 }}>
+                                    JPG, PNG or WebP, up to 10 MB.
+                                  </p>
                                 </div>
                                 <div>
                                   <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 5, color: "var(--text2)" }}>

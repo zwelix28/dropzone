@@ -82,6 +82,8 @@ begin
   end if;
   select coalesce(is_admin, false) into adm from public.profiles where id = auth.uid();
   if not coalesce(adm, false) then
+    -- Cover replacements after initial submission are administrator-only.
+    new.cover_url := old.cover_url;
     new.status := old.status;
     new.review_note := old.review_note;
     new.reviewed_at := old.reviewed_at;

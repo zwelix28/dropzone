@@ -7,6 +7,7 @@ import VerifiedBadge from "./VerifiedBadge.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import { episodeHasAudioSource } from "../lib/audioUrls.js";
 import { canDownloadMix } from "../constants/plans.js";
+import { handleArtworkError, resolveMixArtwork } from "../constants/artwork.js";
 import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
 import { fmtPlayerTime } from "../lib/format.js";
 import { getGuestPreviewSegment } from "../lib/forYouPreview.js";
@@ -111,7 +112,7 @@ export default function MobileNowPlaying({
     }
   };
 
-  const cover = track.coverUrl?.trim();
+  const cover = resolveMixArtwork(track.coverUrl);
 
   return (
     <div
@@ -270,7 +271,12 @@ export default function MobileNowPlaying({
                 }}
               >
               {cover ? (
-                <img src={cover} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                <img
+                  src={cover}
+                  alt=""
+                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                  onError={handleArtworkError}
+                />
               ) : (
                 <div
                   style={{

@@ -386,6 +386,7 @@ export function AppProvider({ children }) {
         genre: patch.genre,
         tags: patch.tags,
         tracklist: patch.tracklist,
+        cover_url: patch.coverUrl,
       };
       const clean = Object.fromEntries(Object.entries(row).filter(([, v]) => v !== undefined));
       const { error } = await supabase.from("mixes").update(clean).eq("id", mixId);

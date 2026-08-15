@@ -8,6 +8,7 @@ import LikeButton from "../components/LikeButton.jsx";
 import BuyButton from "../components/BuyButton.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
+import { handleArtworkError, resolveMixArtwork } from "../constants/artwork.js";
 import { GENRES } from "../constants/genres.js";
 import { canDownloadMix } from "../constants/plans.js";
 import { signedInHomePath } from "../featureFlags.js";
@@ -15,6 +16,7 @@ import { episodeHasAudioSource } from "../lib/audioUrls.js";
 import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
 import { fetchMixById } from "../lib/mixLookup.js";
 import { shareMix } from "../lib/shareMix.js";
+import { uploadMixCover } from "../lib/uploadMixCover.js";
 
 export default function MixDetailPage() {
   const { id } = useParams();
@@ -34,7 +36,10 @@ export default function MixDetailPage() {
   }, [episode, users, fetchedUser]);
 
   const loggedIn = Boolean(auth.session?.user?.id);
-  const canEdit = Boolean(loggedIn && auth.currentUser && episode && auth.currentUser.id === episode.userId);
+  const isAdmin = Boolean(auth.currentUser?.isAdmin);
+  const canEdit = Boolean(
+    loggedIn && auth.currentUser && episode && (auth.currentUser.id === episode.userId || isAdmin),
+  );
   const [isEditing, setIsEditing] = useState(false);
   const [edit, setEdit] = useState({
     title: "",
@@ -42,6 +47,10 @@ export default function MixDetailPage() {
     genre: "Tech House",
     tags: "",
   });
+  const [coverFile, setCoverFile] = useState(null);
+  const [coverPreview, setCoverPreview] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [purchaseUnlocked, setPurchaseUnlocked] = useState(false);
 
@@ -140,6 +149,8 @@ export default function MixDetailPage() {
 
   const handleSave = async () => {
     if (!canEdit) return;
+    setSaving(true);
+    setSaveError("");
     const next = {
       title: (edit.title || "").trim() || "Untitled Mix",
       description: edit.description || "",
@@ -151,11 +162,28 @@ export default function MixDetailPage() {
         .slice(0, 12),
     };
 
+    if (isAdmin && coverFile) {
+      try {
+        next.coverUrl = await uploadMixCover(coverFile, auth.session?.user?.id);
+      } catch (err) {
+        setSaveError(err?.message || "Cover artwork upload failed.");
+        setSaving(false);
+        return;
+      }
+    }
+
     const { ok, error } = await updateMix(episode.id, next);
     if (!ok) {
-      console.warn(error || "update failed");
+      setSaveError(error || "Mix update failed.");
+      setSaving(false);
       return;
     }
+    if (next.coverUrl) {
+      setFetchedEpisode((current) => (current ? { ...current, coverUrl: next.coverUrl } : current));
+    }
+    setCoverFile(null);
+    setCoverPreview("");
+    setSaving(false);
     setIsEditing(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
@@ -190,8 +218,9 @@ export default function MixDetailPage() {
       >
         <div style={{ width: "100%", alignSelf: "start" }}>
           <img
-            src={episode.coverUrl}
+            src={resolveMixArtwork(episode.coverUrl)}
             alt={episode.title}
+            onError={handleArtworkError}
             style={{
               width: isCompact ? 140 : "100%",
               maxWidth: isCompact ? 140 : "100%",
@@ -413,6 +442,53 @@ export default function MixDetailPage() {
             </div>
             {isEditing ? (
               <div style={{ display: "grid", gap: isCompact ? 10 : 14 }}>
+                {isAdmin ? (
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: isCompact ? 11 : 12,
+                        fontWeight: 700,
+                        color: "var(--text3)",
+                        marginBottom: 6,
+                      }}
+                    >
+                      Cover artwork (administrator only)
+                    </label>
+                    <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                      <img
+                        src={coverPreview || resolveMixArtwork(episode.coverUrl)}
+                        alt="Cover preview"
+                        onError={handleArtworkError}
+                        style={{ width: 92, height: 92, borderRadius: 10, objectFit: "cover" }}
+                      />
+                      <label className="btn btn-ghost" style={{ cursor: "pointer" }}>
+                        <Icon name="img" size={15} />
+                        Choose new cover
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          style={{ display: "none" }}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0] || null;
+                            setCoverFile(file);
+                            if (!file) {
+                              setCoverPreview("");
+                              return;
+                            }
+                            const reader = new FileReader();
+                            reader.onload = () => setCoverPreview(String(reader.result || ""));
+                            reader.readAsDataURL(file);
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <p style={{ margin: "6px 0 0", color: "var(--text3)", fontSize: 11 }}>
+                      JPG, PNG or WebP, up to 10 MB. The current cover changes only when you save.
+                    </p>
+                  </div>
+                ) : null}
+
                 <div>
                   <label
                     style={{
@@ -501,14 +577,18 @@ export default function MixDetailPage() {
                     className="btn btn-primary"
                     style={isCompact ? { width: "100%", justifyContent: "center" } : undefined}
                     onClick={handleSave}
+                    disabled={saving}
                   >
-                    {saved ? "Saved!" : "Save"}
+                    {saving ? "Saving…" : saved ? "Saved!" : "Save"}
                   </button>
                   <button
                     className="btn btn-ghost"
                     style={isCompact ? { width: "100%", justifyContent: "center" } : undefined}
                     onClick={() => {
                       setIsEditing(false);
+                      setCoverFile(null);
+                      setCoverPreview("");
+                      setSaveError("");
                       setEdit({
                         title: episode.title || "",
                         description: episode.description || "",
@@ -519,6 +599,9 @@ export default function MixDetailPage() {
                   >
                     Cancel
                   </button>
+                  {saveError ? (
+                    <span style={{ color: "var(--red)", fontSize: 12 }}>{saveError}</span>
+                  ) : null}
                 </div>
               </div>
             ) : (

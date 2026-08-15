@@ -12,6 +12,7 @@ import { getAudioFileDurationSec } from "../lib/audioDuration.js";
 import { MIX_STATUS_APPROVED, MIX_STATUS_PENDING } from "../lib/mixStatus.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 import { readMaxAudioMb, uploadMixAudio } from "../lib/uploadMixAudio.js";
+import { randomUUID } from "../lib/uuid.js";
 
 function formatStorageError(err) {
   const msg = err?.message || String(err);
@@ -175,7 +176,7 @@ export default function UploadPage({ mode = "admin", onSubmitted } = {}) {
 
     try {
       const audioExt = (form.audioFile.name.split(".").pop() || "mp3").toLowerCase();
-      const audioPath = `${uid}/${crypto.randomUUID()}.${audioExt}`;
+      const audioPath = `${uid}/${randomUUID()}.${audioExt}`;
 
       setProgressLabel(
         form.audioFile.size >= 6 * 1024 * 1024
@@ -198,7 +199,7 @@ export default function UploadPage({ mode = "admin", onSubmitted } = {}) {
       let coverUrl = "";
       if (form.coverFile) {
         const coverExt = (form.coverFile.name.split(".").pop() || "jpg").toLowerCase();
-        const coverPath = `${uid}/${crypto.randomUUID()}.${coverExt}`;
+        const coverPath = `${uid}/${randomUUID()}.${coverExt}`;
         const { error: coverErr } = await supabase.storage.from("mix-covers").upload(coverPath, form.coverFile, {
           cacheControl: "3600",
           upsert: false,

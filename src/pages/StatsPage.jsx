@@ -6,6 +6,7 @@ import ProUpgradePrompt from "../components/ProUpgradePrompt.jsx";
 import UserAvatar from "../components/UserAvatar.jsx";
 import VerifiedBadge from "../components/VerifiedBadge.jsx";
 import WaveAnim from "../components/WaveAnim.jsx";
+import { handleArtworkError, resolveMixArtwork } from "../constants/artwork.js";
 import { isProPlan } from "../constants/plans.js";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
@@ -126,15 +127,12 @@ function EarningsTab({ uid, isCompact }) {
               border: "1px solid var(--border)",
             }}
           >
-            {p.mixes?.cover_url ? (
-              <img
-                src={p.mixes.cover_url}
-                alt=""
-                style={{ width: isCompact ? 38 : 44, height: isCompact ? 38 : 44, borderRadius: 8, objectFit: "cover", flexShrink: 0, background: "var(--surface)" }}
-              />
-            ) : (
-              <div style={{ width: isCompact ? 38 : 44, height: isCompact ? 38 : 44, borderRadius: 8, background: "var(--surface)", flexShrink: 0 }} />
-            )}
+            <img
+              src={resolveMixArtwork(p.mixes?.cover_url)}
+              alt=""
+              onError={handleArtworkError}
+              style={{ width: isCompact ? 38 : 44, height: isCompact ? 38 : 44, borderRadius: 8, objectFit: "cover", flexShrink: 0, background: "var(--surface)" }}
+            />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 600, fontSize: isCompact ? 12 : 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {p.mixes?.title ?? "Unknown mix"}
@@ -531,8 +529,9 @@ export default function StatsPage() {
                       {String(i + 1).padStart(2, "0")}
                     </span>
                     <img
-                      src={ep.coverUrl}
+                      src={resolveMixArtwork(ep.coverUrl)}
                       alt=""
+                      onError={handleArtworkError}
                       style={{
                         width: isCompact ? 44 : 52,
                         height: isCompact ? 44 : 52,

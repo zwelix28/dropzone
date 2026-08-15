@@ -3,6 +3,8 @@
  * notification). Without this, mobile often shows the raw audio URL.
  */
 
+import { DEFAULT_MIX_ARTWORK, resolveMixArtwork } from "../constants/artwork.js";
+
 const ARTWORK_SIZES = [96, 128, 192, 256, 384, 512];
 
 function mediaSessionAvailable() {
@@ -10,9 +12,11 @@ function mediaSessionAvailable() {
 }
 
 function absoluteArtworkUrl(coverUrl) {
-  const raw = (coverUrl || "").trim();
+  const raw = resolveMixArtwork(coverUrl);
   const fallback =
-    typeof window !== "undefined" ? new URL("/logo.png", window.location.origin).href : "/logo.png";
+    typeof window !== "undefined"
+      ? new URL(DEFAULT_MIX_ARTWORK, window.location.origin).href
+      : DEFAULT_MIX_ARTWORK;
   if (!raw) return fallback;
   try {
     return new URL(raw, typeof window !== "undefined" ? window.location.origin : undefined).href;

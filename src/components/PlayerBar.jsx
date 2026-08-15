@@ -11,6 +11,7 @@ import {
 import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
 import { getGuestPreviewSegment } from "../lib/forYouPreview.js";
 import { shareMix } from "../lib/shareMix.js";
+import { handleArtworkError, resolveMixArtwork } from "../constants/artwork.js";
 import { canDownloadMix } from "../constants/plans.js";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
@@ -172,9 +173,10 @@ export default function PlayerBar({
               }}
             >
               <img
-                src={track.coverUrl}
+                src={resolveMixArtwork(track.coverUrl)}
                 alt=""
                 style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", display: "block" }}
+                onError={handleArtworkError}
               />
             </button>
             <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
@@ -244,16 +246,18 @@ export default function PlayerBar({
               }}
             >
               <img
-                src={track.coverUrl}
+                src={resolveMixArtwork(track.coverUrl)}
                 alt={track.title}
                 style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", display: "block" }}
+                onError={handleArtworkError}
               />
             </button>
           ) : (
             <img
-              src={track.coverUrl}
+              src={resolveMixArtwork(track.coverUrl)}
               alt={track.title}
               style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover" }}
+              onError={handleArtworkError}
             />
           )}
           <div style={{ overflow: "hidden", minWidth: 0 }}>
