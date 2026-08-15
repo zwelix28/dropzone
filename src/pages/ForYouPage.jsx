@@ -7,6 +7,7 @@ import VerifiedBadge from "../components/VerifiedBadge.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import useForYouPreview from "../hooks/useForYouPreview.js";
 import useMediaQuery from "../hooks/useMediaQuery.js";
+import { handleArtworkError, resolveMixArtwork } from "../constants/artwork.js";
 import { canDownloadMix } from "../constants/plans.js";
 import { episodeHasAudioSource } from "../lib/audioUrls.js";
 import { isForYouItem } from "../lib/contentType.js";
@@ -462,7 +463,7 @@ export default function ForYouPage() {
       <div ref={containerRef} className="for-you-feed">
         {feed.map((ep, i) => {
           const artist = users.find((u) => u.id === ep.userId);
-          const cover = ep.coverUrl?.trim();
+          const cover = resolveMixArtwork(ep.coverUrl);
           const isActive = i === index;
           const showProgress = isActive && preview.track?.id === ep.id;
 
@@ -551,7 +552,12 @@ export default function ForYouPage() {
                   }}
                 >
                   {cover ? (
-                    <img src={cover} alt={ep.title} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                    <img
+                      src={cover}
+                      alt={ep.title}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                      onError={handleArtworkError}
+                    />
                   ) : (
                     <div
                       style={{

@@ -4,6 +4,7 @@ import LikeButton from "./LikeButton.jsx";
 import UserAvatar from "./UserAvatar.jsx";
 import VerifiedBadge from "./VerifiedBadge.jsx";
 import { fmt, fmtDuration } from "../lib/format.js";
+import { handleArtworkError, resolveMixArtwork } from "../constants/artwork.js";
 import { isProPlan } from "../constants/plans.js";
 import { useApp } from "../context/AppContext.jsx";
 
@@ -63,7 +64,7 @@ export default function TrackCard({
     >
       <div style={{ position: "relative" }}>
         <img
-          src={episode.coverUrl}
+          src={resolveMixArtwork(episode.coverUrl)}
           alt={episode.title}
           style={{
             width: "100%",
@@ -71,9 +72,7 @@ export default function TrackCard({
             objectFit: "cover",
             display: "block",
           }}
-          onError={(e) => {
-            e.currentTarget.style.display = "none";
-          }}
+          onError={handleArtworkError}
         />
         <div
           style={{

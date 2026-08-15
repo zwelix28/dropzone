@@ -8,6 +8,7 @@ import WaveAnim from "../components/WaveAnim.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { fmt } from "../lib/format.js";
+import { handleArtworkError, resolveMixArtwork } from "../constants/artwork.js";
 import { isProPlan } from "../constants/plans.js";
 
 export default function Top10Page() {
@@ -181,7 +182,12 @@ export default function Top10Page() {
               }}
             >
               <div className={`rank-num ${i < 3 ? "top3" : ""}`}>{String(i + 1).padStart(2, "0")}</div>
-              <img src={ep.coverUrl} alt="" style={{ width: 52, height: 52, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
+              <img
+                src={resolveMixArtwork(ep.coverUrl)}
+                alt=""
+                style={{ width: 52, height: 52, borderRadius: 8, objectFit: "cover", flexShrink: 0 }}
+                onError={handleArtworkError}
+              />
               <div style={{ flex: 1, overflow: "hidden" }}>
                 <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {ep.title}

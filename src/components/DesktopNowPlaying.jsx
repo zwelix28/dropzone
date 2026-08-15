@@ -12,6 +12,7 @@ import {
 import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
 import { shareMix } from "../lib/shareMix.js";
 import { getGuestPreviewSegment } from "../lib/forYouPreview.js";
+import { handleArtworkError, resolveMixArtwork } from "../constants/artwork.js";
 import { canDownloadMix } from "../constants/plans.js";
 import { useApp } from "../context/AppContext.jsx";
 
@@ -53,7 +54,7 @@ export default function DesktopNowPlaying({
     durationSec > 0 ? durationSec : guest ? Math.floor(guestEffDuration) : Math.floor(Math.max(0, track.durationSecs || 0));
   const elapsedSec = totalSec > 0 ? Math.min(totalSec, Math.floor((totalSec * progress) / 100)) : 0;
   const remainingSec = Math.max(0, totalSec - elapsedSec);
-  const cover = track.coverUrl?.trim();
+  const cover = resolveMixArtwork(track.coverUrl);
   const allowDownload = canDownloadMix(auth.currentUser, {
     isOwner: Boolean(auth.currentUser?.id && track.userId === auth.currentUser.id),
   });
@@ -162,7 +163,12 @@ export default function DesktopNowPlaying({
             }}
           >
             {cover ? (
-              <img src={cover} alt={track.title} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              <img
+                src={cover}
+                alt={track.title}
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                onError={handleArtworkError}
+              />
             ) : (
               <div
                 style={{

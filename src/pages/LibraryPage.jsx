@@ -6,6 +6,7 @@ import UserAvatar from "../components/UserAvatar.jsx";
 import VerifiedBadge from "../components/VerifiedBadge.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
+import { handleArtworkError, resolveMixArtwork } from "../constants/artwork.js";
 import { fmtPlayerTime, timeSince } from "../lib/format.js";
 import {
   dismissLibrarySession,
@@ -172,25 +173,12 @@ export default function LibraryPage() {
                     background: "var(--bg2)",
                   }}
                 >
-                  {ep.coverUrl ? (
-                    <img
-                      src={ep.coverUrl}
-                      alt=""
-                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                    />
-                  ) : (
-                    <span
-                      style={{
-                        display: "flex",
-                        width: "100%",
-                        height: "100%",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Icon name="music" size={22} color="var(--text3)" />
-                    </span>
-                  )}
+                  <img
+                    src={resolveMixArtwork(ep.coverUrl)}
+                    alt=""
+                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    onError={handleArtworkError}
+                  />
                   <span
                     style={{
                       position: "absolute",
