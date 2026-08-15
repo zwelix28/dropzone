@@ -16,6 +16,12 @@ import {
   savePlaybackProgress,
   shouldResumeAt,
 } from "../lib/playbackProgress.js";
+import {
+  bindMediaSessionActions,
+  syncMediaSessionMetadata,
+  syncMediaSessionPlaybackState,
+  syncMediaSessionPositionState,
+} from "../lib/mediaSession.js";
 
 const SAVE_INTERVAL_MS = 10000;
 
@@ -96,6 +102,7 @@ export default function usePlayer({
   getPlaylist = null,
   getSuspendPlayback = null,
   onDurationKnown = null,
+  getArtistName = null,
 } = {}) {
   const [currentTrack, setCurrentTrack] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -119,8 +126,11 @@ export default function usePlayer({
   guestPreviewOnlyRef.current = guestPreviewOnly;
   const lastSaveAtRef = useRef(0);
   const seekSaveTimerRef = useRef(null);
+  const seekRef = useRef(null);
   const onDurationKnownRef = useRef(onDurationKnown);
   onDurationKnownRef.current = onDurationKnown;
+  const getArtistNameRef = useRef(getArtistName);
+  getArtistNameRef.current = getArtistName;
   const reportedDurationIdsRef = useRef(new Set());
 
   if (!audioRef.current && typeof Audio !== "undefined") {
@@ -354,11 +364,21 @@ export default function usePlayer({
           return;
         }
         setProgress(Math.max(0, Math.min(100, ((t - start) / windowSec) * 100)));
+        syncMediaSessionPositionState(audio, {
+          durationSec: windowSec,
+          guestPreviewOnly: true,
+          segment: segmentRef.current,
+        });
         return;
       }
       const eff = effectiveDurationSec(audio, currentTrack, guestPreviewOnly, segmentRef.current);
       if (!eff) return;
       setProgress((audio.currentTime / eff) * 100);
+      syncMediaSessionPositionState(audio, {
+        durationSec: eff,
+        guestPreviewOnly,
+        segment: segmentRef.current,
+      });
       if (!audio.paused && userIdRef.current) {
         void persistProgress({ force: false });
       }
@@ -508,6 +528,7 @@ export default function usePlayer({
     },
     [currentTrack, guestPreviewOnly, persistProgress],
   );
+  seekRef.current = seek;
 
   const toggle = useCallback(async () => {
     const audio = audioRef.current;
@@ -538,6 +559,48 @@ export default function usePlayer({
     restartGuestPreview,
     persistProgress,
   ]);
+
+  // Lock screen / Control Center / Android media notification: title + artwork
+  // instead of the signed audio URL.
+  useEffect(() => {
+    if (!currentTrack) {
+      syncMediaSessionMetadata(null);
+      syncMediaSessionPlaybackState(false);
+      return;
+    }
+    const artist =
+      (typeof getArtistNameRef.current === "function" && getArtistNameRef.current(currentTrack)) ||
+      "Music Vault";
+    syncMediaSessionMetadata(currentTrack, artist);
+    syncMediaSessionPlaybackState(isPlaying);
+    syncMediaSessionPositionState(audioRef.current, {
+      durationSec: durationSec,
+      guestPreviewOnly,
+      segment: segmentRef.current,
+    });
+  }, [currentTrack, isPlaying, durationSec, guestPreviewOnly]);
+
+  useEffect(() => {
+    return bindMediaSessionActions({
+      onPlay: async () => {
+        if (isSuspended()) return;
+        await startPlayback();
+      },
+      onPause: () => pause(),
+      onPrevious: async () => {
+        await playAdjacentRef.current?.("prev");
+      },
+      onNext: async () => {
+        await playAdjacentRef.current?.("next");
+      },
+      onSeek: (percent) => {
+        seekRef.current?.(percent);
+      },
+      getAudio: () => audioRef.current,
+      guestPreviewOnly,
+      getSegment: () => segmentRef.current,
+    });
+  }, [guestPreviewOnly, isSuspended, pause, startPlayback]);
 
   useEffect(() => {
     const prev = prevGuestAuthRef.current;
