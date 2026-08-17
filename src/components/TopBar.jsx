@@ -3,6 +3,7 @@ import useMediaQuery from "../hooks/useMediaQuery.js";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import Icon from "./Icon.jsx";
 import UserAvatar from "./UserAvatar.jsx";
+import InstallAppButton from "./InstallAppButton.jsx";
 import { FEATURE_DISCOVER, signedInHomePath } from "../featureFlags.js";
 
 export default function TopBar({
@@ -49,6 +50,7 @@ export default function TopBar({
   }, [location.pathname]);
 
   const hideSearch = location.pathname === "/foryou";
+  const showMobileSearch = isMobile && currentUser && !hideSearch;
 
   const searchInput = (
     <div style={{ position: "relative", width: isMobile ? "100%" : "auto" }}>
@@ -152,6 +154,8 @@ export default function TopBar({
 
         {!isMobile && currentUser && !hideSearch ? searchInput : null}
 
+        {isMobile && !showMobileSearch ? <InstallAppButton compact /> : null}
+
         {!currentUser ? (
           <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "nowrap" }}>
             <button
@@ -215,7 +219,12 @@ export default function TopBar({
         )}
       </div>
 
-      {isMobile && currentUser && !hideSearch ? searchInput : null}
+      {showMobileSearch ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", minWidth: 0 }}>
+          <InstallAppButton compact />
+          <div style={{ flex: 1, minWidth: 0 }}>{searchInput}</div>
+        </div>
+      ) : null}
     </div>
   );
 }

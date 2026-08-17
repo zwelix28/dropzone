@@ -91,6 +91,20 @@ export default function Icon({ name, size = 18, color = "currentColor" }) {
         <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
       </>
     ),
+    iosShare: (
+      <>
+        <path d="M8 11H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-2" />
+        <polyline points="8 6 12 2 16 6" />
+        <line x1="12" y1="2" x2="12" y2="15" />
+      </>
+    ),
+    addToHomeScreen: (
+      <>
+        <rect x="5" y="2" width="14" height="20" rx="2" />
+        <line x1="12" y1="8" x2="12" y2="14" />
+        <line x1="9" y1="11" x2="15" y2="11" />
+      </>
+    ),
     search: (
       <>
         <circle cx="11" cy="11" r="8" />
