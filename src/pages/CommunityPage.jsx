@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import FollowButton from "../components/FollowButton.jsx";
 import Icon from "../components/Icon.jsx";
@@ -9,12 +9,26 @@ import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { fmt } from "../lib/format.js";
 import { COMMUNITY_GENRE_FILTERS, rankCommunityUsers } from "../lib/community.js";
+import { supabase, isSupabaseConfigured } from "../lib/supabaseClient.js";
 
 export default function CommunityPage() {
   const { auth, users, episodes } = useApp();
   const isCompact = useMediaQuery("(max-width: 720px)");
   const [query, setQuery] = useState("");
   const [genre, setGenre] = useState("All");
+  const [listenHoursMap, setListenHoursMap] = useState({});
+
+  useEffect(() => {
+    if (!auth.session?.user?.id || !isSupabaseConfigured()) return;
+    let cancelled = false;
+    supabase.rpc("get_community_listen_hours").then(({ data }) => {
+      if (cancelled || !Array.isArray(data)) return;
+      const map = {};
+      for (const row of data) map[row.user_id] = Number(row.hours_listened) || 0;
+      setListenHoursMap(map);
+    });
+    return () => { cancelled = true; };
+  }, [auth.session?.user?.id]);
 
   const ranked = useMemo(
     () =>
@@ -24,8 +38,9 @@ export default function CommunityPage() {
         currentUser: auth.currentUser,
         query,
         genreFilter: genre,
+        listenHoursMap,
       }),
-    [users, episodes, auth.currentUser, query, genre],
+    [users, episodes, auth.currentUser, query, genre, listenHoursMap],
   );
 
   if (!auth.session?.user?.id) {
@@ -116,7 +131,9 @@ export default function CommunityPage() {
             gap: isCompact ? 10 : 12,
           }}
         >
-          {ranked.map(({ user, reason, mixCount, topGenre }) => (
+          {ranked.map(({ user, reason, mixCount, topGenre, hoursListened }, index) => {
+            const isMe = user.id === auth.currentUser?.id;
+            return (
             <li
               key={user.id}
               style={{
@@ -124,11 +141,22 @@ export default function CommunityPage() {
                 flexDirection: "column",
                 gap: 12,
                 padding: isCompact ? 12 : 16,
-                background: "var(--surface)",
-                border: "1px solid var(--border)",
+                background: isMe ? "rgba(56,189,248,0.06)" : "var(--surface)",
+                border: isMe ? "1px solid var(--accent2)" : "1px solid var(--border)",
                 borderRadius: 14,
+                position: "relative",
               }}
             >
+              <span style={{
+                position: "absolute",
+                top: isCompact ? 8 : 10,
+                right: isCompact ? 10 : 14,
+                fontSize: 11,
+                fontWeight: 700,
+                color: index < 3 ? "var(--accent)" : "var(--text3)",
+              }}>
+                #{index + 1}
+              </span>
               <Link
                 to={`/user/${user.id}`}
                 style={{
@@ -149,6 +177,7 @@ export default function CommunityPage() {
                   <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>
                     {fmt(user.followers || 0)} followers
                     {mixCount > 0 ? ` · ${mixCount} mix${mixCount === 1 ? "" : "es"}` : ""}
+                    {hoursListened > 0 ? ` · ${hoursListened < 1 ? "<1" : Math.round(hoursListened)}h listened` : ""}
                   </div>
                 </div>
               </Link>
@@ -174,10 +203,11 @@ export default function CommunityPage() {
                 <span className="tag tag-blue" style={{ fontSize: 10 }}>
                   {reason || topGenre || "Music Vault"}
                 </span>
-                <FollowButton targetUserId={user.id} variant="compact" />
+                {!isMe && <FollowButton targetUserId={user.id} variant="compact" />}
               </div>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </div>

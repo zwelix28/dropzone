@@ -29,7 +29,7 @@ function catalogTaste(userId, episodes = []) {
  * Rank community profiles for discovery.
  * Shared genre / catalog taste ranks first; then verified, then followers.
  */
-export function rankCommunityUsers({ users = [], episodes = [], currentUser, query = "", genreFilter = "All" } = {}) {
+export function rankCommunityUsers({ users = [], episodes = [], currentUser, query = "", genreFilter = "All", listenHoursMap = {} } = {}) {
   const me = currentUser?.id;
   const myGenre = normalizeGenre(currentUser?.genre);
   const myTaste = me ? catalogTaste(me, episodes) : { mixCount: 0, topGenre: "", genres: new Map() };
@@ -38,7 +38,7 @@ export function rankCommunityUsers({ users = [], episodes = [], currentUser, que
 
   const scored = [];
   for (const user of users) {
-    if (!user?.id || user.id === me || user.isBanned || user.isApproved === false) continue;
+    if (!user?.id || user.isBanned || user.isApproved === false) continue;
 
     const taste = catalogTaste(user.id, episodes);
     const profileGenre = String(user.genre || "").trim();
@@ -68,6 +68,9 @@ export function rankCommunityUsers({ users = [], episodes = [], currentUser, que
       }
     }
 
+    const userHours = Number(listenHoursMap[user.id]) || 0;
+    score += Math.min(50, userHours * 2);
+
     if (user.verified) score += 12;
     score += Math.min(20, Number(user.followers) || 0) * 0.15;
     score += Math.min(8, taste.mixCount);
@@ -81,10 +84,11 @@ export function rankCommunityUsers({ users = [], episodes = [], currentUser, que
       reason: reasons[0],
       mixCount: taste.mixCount,
       topGenre: effectiveGenre,
+      hoursListened: userHours,
     });
   }
 
-  scored.sort((a, b) => b.score - a.score || (b.user.followers || 0) - (a.user.followers || 0) || String(a.user.username).localeCompare(String(b.user.username)));
+  scored.sort((a, b) => b.hoursListened - a.hoursListened || b.score - a.score || String(a.user.username).localeCompare(String(b.user.username)));
   return scored;
 }
 
