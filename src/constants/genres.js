@@ -5,4 +5,7 @@ export const GENRES = [
   "Classic House",
   "Jazz House",
   "Amapiano",
+  "Afro House",
+  "Chillout House",
+  "Broken Beat",
 ];
