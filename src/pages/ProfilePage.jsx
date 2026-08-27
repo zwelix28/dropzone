@@ -75,6 +75,7 @@ export default function ProfilePage() {
             <UserAvatar
               user={user}
               size={avatarSize}
+              expandable
               style={{
                 border: "3px solid var(--bg)",
                 boxShadow: "0 0 0 2px var(--accent2)",

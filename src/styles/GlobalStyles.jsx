@@ -368,6 +368,58 @@ export const GlobalStyles = () => (
     }
     .avatar-sq { border-radius: var(--r); }
 
+    .avatar-lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 1200;
+      background: rgba(3, 5, 10, 0.88);
+      backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: max(16px, env(safe-area-inset-top, 0px)) 16px max(16px, env(safe-area-inset-bottom, 0px));
+      animation: fadeIn 0.18s ease;
+    }
+    .avatar-lightbox-close {
+      position: absolute;
+      top: max(12px, env(safe-area-inset-top, 0px));
+      right: max(12px, env(safe-area-inset-right, 0px));
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid var(--border);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .avatar-lightbox-stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      max-width: min(92vw, 520px);
+      max-height: 100%;
+    }
+    .avatar-lightbox-stage img {
+      width: min(92vw, 520px);
+      height: min(92vw, 520px);
+      max-height: min(72vh, 520px);
+      object-fit: cover;
+      border-radius: 50%;
+      border: 3px solid rgba(255,255,255,0.12);
+      box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+      background: var(--surface);
+    }
+    .avatar-lightbox-caption {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      text-align: center;
+    }
+
     /* Live badge */
     .live-badge {
       display:inline-flex; align-items:center; gap:5px;
