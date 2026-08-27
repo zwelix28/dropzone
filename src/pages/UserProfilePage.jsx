@@ -147,6 +147,7 @@ export default function UserProfilePage() {
               <UserAvatar
                 user={profileUser}
                 size={avatarSize}
+                expandable
                 style={{
                   border: "3px solid var(--bg)",
                   boxShadow: "0 0 0 2px var(--accent2)",
@@ -184,6 +185,7 @@ export default function UserProfilePage() {
             <UserAvatar
               user={profileUser}
               size={avatarSize}
+              expandable
               style={{
                 border: "4px solid var(--bg)",
                 boxShadow: "0 0 0 2px var(--accent2)",
