@@ -311,14 +311,16 @@ export default function Icon({ name, size = 18, color = "currentColor" }) {
     ),
   };
 
+  const filled = name === "heart";
+
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth="1.8"
+      fill={filled ? color : "none"}
+      stroke={filled ? "none" : color}
+      strokeWidth={filled ? 0 : 1.8}
       strokeLinecap="round"
       strokeLinejoin="round"
     >
