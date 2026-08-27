@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { GENRES } from "../constants/genres.js";
 import Icon from "../components/Icon.jsx";
+import PasswordField from "../components/PasswordField.jsx";
 import { signedInHomePath } from "../featureFlags.js";
 import { isSupabaseConfigured } from "../lib/supabaseClient.js";
 import { useApp } from "../context/AppContext.jsx";
@@ -13,10 +14,28 @@ export default function RegisterPage() {
     email: "",
     username: "",
     password: "",
+    confirmPassword: "",
     genre: "Tech House",
   });
   const [busy, setBusy] = useState(false);
   const [registerInfo, setRegisterInfo] = useState(null);
+  const [localError, setLocalError] = useState(null);
+
+  const passwordsMatch = form.password === form.confirmPassword;
+  const confirmTouched = form.confirmPassword.length > 0;
+  const passwordMismatch = confirmTouched && !passwordsMatch;
+
+  const canSubmit = useMemo(
+    () =>
+      Boolean(
+        form.email.trim() &&
+          form.password &&
+          form.confirmPassword &&
+          passwordsMatch &&
+          form.password.length >= 6,
+      ),
+    [form.email, form.password, form.confirmPassword, passwordsMatch],
+  );
 
   useEffect(() => {
     if (auth.authLoading) return;
@@ -30,6 +49,15 @@ export default function RegisterPage() {
 
   const handleSubmit = async () => {
     if (!isSupabaseConfigured()) return;
+    setLocalError(null);
+    if (form.password.length < 6) {
+      setLocalError("Password must be at least 6 characters.");
+      return;
+    }
+    if (!passwordsMatch) {
+      setLocalError("Passwords do not match.");
+      return;
+    }
     setBusy(true);
     auth.clearAuthError();
     setRegisterInfo(null);
@@ -132,8 +160,10 @@ export default function RegisterPage() {
             </p>
           ) : null}
 
-          {auth.authError ? (
-            <p style={{ color: "var(--red)", fontSize: 13, marginBottom: 14 }}>{auth.authError}</p>
+          {localError || auth.authError ? (
+            <p style={{ color: "var(--red)", fontSize: 13, marginBottom: 14 }}>
+              {localError || auth.authError}
+            </p>
           ) : null}
 
           {registerInfo ? (
@@ -182,26 +212,30 @@ export default function RegisterPage() {
               />
             </div>
 
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  marginBottom: 5,
-                  color: "var(--text2)",
-                }}
-              >
-                Password
-              </label>
-              <input
-                className="inp"
-                type="password"
-                placeholder="••••••••"
-                value={form.password}
-                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-              />
-            </div>
+            <PasswordField
+              label="Password"
+              name="password"
+              autoComplete="new-password"
+              value={form.password}
+              onChange={(e) => {
+                setLocalError(null);
+                setForm((f) => ({ ...f, password: e.target.value }));
+              }}
+              hint="At least 6 characters"
+            />
+
+            <PasswordField
+              label="Confirm password"
+              name="confirmPassword"
+              autoComplete="new-password"
+              value={form.confirmPassword}
+              onChange={(e) => {
+                setLocalError(null);
+                setForm((f) => ({ ...f, confirmPassword: e.target.value }));
+              }}
+              error={passwordMismatch ? "Passwords do not match" : undefined}
+              hint={confirmTouched && passwordsMatch ? "Passwords match" : undefined}
+            />
 
             <div>
               <label
@@ -238,7 +272,7 @@ export default function RegisterPage() {
               marginBottom: 16,
             }}
             onClick={() => void handleSubmit()}
-            disabled={busy || !isSupabaseConfigured() || !form.email || !form.password}
+            disabled={busy || !isSupabaseConfigured() || !canSubmit}
           >
             {busy ? "Please wait…" : "Create Account"}
           </button>
