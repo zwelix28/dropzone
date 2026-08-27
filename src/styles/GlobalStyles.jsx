@@ -969,22 +969,30 @@ export const GlobalStyles = () => (
       }
     }
 
-    /* Mobile nav drawer */
+    /* Mobile nav drawer — content-height panel with a rounded cut-off under Logout */
     .mobile-nav-backdrop {
       position: fixed; inset: 0; z-index: 850;
       background: rgba(0,0,0,0.55); backdrop-filter: blur(3px);
       transition: opacity 0.2s ease;
     }
     .mobile-nav-drawer {
-      position: fixed; top: 0; left: 0; bottom: 0; z-index: 860;
+      position: fixed; top: 0; left: 0; bottom: auto; z-index: 860;
       width: min(240px, 70vw);
       max-width: 100%;
-      background: var(--bg2);
-      border-right: 1px solid var(--border);
-      box-shadow: 8px 0 40px rgba(0,0,0,0.45);
+      max-height: calc(100dvh - 10px);
+      height: auto;
+      background: transparent;
+      border-right: none;
+      box-shadow: none;
       display: flex; flex-direction: column;
       transition: transform 0.22s ease;
-      padding-bottom: env(safe-area-inset-bottom, 0px);
+      padding-bottom: 0;
+      overflow: hidden;
+      border-radius: 0 0 22px 22px;
+    }
+    .sidebar-drawer {
+      width: 100%;
+      max-height: calc(100dvh - 10px);
     }
     .sidebar-drawer .nav-link {
       gap: 10px;

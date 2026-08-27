@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { GENRES } from "../constants/genres.js";
 import Icon from "./Icon.jsx";
+import PasswordField from "./PasswordField.jsx";
 import { isSupabaseConfigured } from "../lib/supabaseClient.js";
 import { useApp } from "../context/AppContext.jsx";
 
@@ -13,21 +14,49 @@ export default function AuthModal({ onClose }) {
     email: "",
     username: "",
     password: "",
+    confirmPassword: "",
     genre: "Tech House",
   });
   const [busy, setBusy] = useState(false);
   const [registerInfo, setRegisterInfo] = useState(null);
   const [forgotSent, setForgotSent] = useState(false);
+  const [localError, setLocalError] = useState(null);
+
+  const passwordsMatch = form.password === form.confirmPassword;
+  const confirmTouched = form.confirmPassword.length > 0;
+  const passwordMismatch = mode === "register" && confirmTouched && !passwordsMatch;
+
+  const canSubmit = useMemo(() => {
+    if (!form.email.trim()) return false;
+    if (mode === "forgot") return true;
+    if (!form.password) return false;
+    if (mode === "register") {
+      return Boolean(form.confirmPassword && passwordsMatch && form.password.length >= 6);
+    }
+    return true;
+  }, [form.email, form.password, form.confirmPassword, passwordsMatch, mode]);
 
   const switchMode = (next) => {
     setMode(next);
     auth.clearAuthError();
     setRegisterInfo(null);
     setForgotSent(false);
+    setLocalError(null);
   };
 
   const handleSubmit = async () => {
     if (!isSupabaseConfigured()) return;
+    setLocalError(null);
+    if (mode === "register") {
+      if (form.password.length < 6) {
+        setLocalError("Password must be at least 6 characters.");
+        return;
+      }
+      if (!passwordsMatch) {
+        setLocalError("Passwords do not match.");
+        return;
+      }
+    }
     setBusy(true);
     auth.clearAuthError();
     setRegisterInfo(null);
@@ -122,8 +151,10 @@ export default function AuthModal({ onClose }) {
           </p>
         ) : null}
 
-        {auth.authError ? (
-          <p style={{ color: "var(--red)", fontSize: 13, marginBottom: 14 }}>{auth.authError}</p>
+        {localError || auth.authError ? (
+          <p style={{ color: "var(--red)", fontSize: 13, marginBottom: 14 }}>
+            {localError || auth.authError}
+          </p>
         ) : null}
 
         {registerInfo ? (
@@ -182,26 +213,32 @@ export default function AuthModal({ onClose }) {
           </div>
 
           {mode !== "forgot" && (
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  marginBottom: 5,
-                  color: "var(--text2)",
-                }}
-              >
-                Password
-              </label>
-              <input
-                className="inp"
-                type="password"
-                placeholder="••••••••"
-                value={form.password}
-                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-              />
-            </div>
+            <PasswordField
+              label="Password"
+              name="password"
+              autoComplete={mode === "register" ? "new-password" : "current-password"}
+              value={form.password}
+              onChange={(e) => {
+                setLocalError(null);
+                setForm((f) => ({ ...f, password: e.target.value }));
+              }}
+              hint={mode === "register" ? "At least 6 characters" : undefined}
+            />
+          )}
+
+          {mode === "register" && (
+            <PasswordField
+              label="Confirm password"
+              name="confirmPassword"
+              autoComplete="new-password"
+              value={form.confirmPassword}
+              onChange={(e) => {
+                setLocalError(null);
+                setForm((f) => ({ ...f, confirmPassword: e.target.value }));
+              }}
+              error={passwordMismatch ? "Passwords do not match" : undefined}
+              hint={confirmTouched && passwordsMatch ? "Passwords match" : undefined}
+            />
           )}
 
           {mode === "register" && (
@@ -240,13 +277,8 @@ export default function AuthModal({ onClose }) {
             padding: "12px",
             marginBottom: 16,
           }}
-          onClick={handleSubmit}
-          disabled={
-            busy ||
-            !isSupabaseConfigured() ||
-            !form.email ||
-            (mode !== "forgot" && !form.password)
-          }
+          onClick={() => void handleSubmit()}
+          disabled={busy || !isSupabaseConfigured() || !canSubmit}
         >
           {busy
             ? "Please wait…"

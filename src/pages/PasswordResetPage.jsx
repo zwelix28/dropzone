@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
+import PasswordField from "../components/PasswordField.jsx";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 
 export default function PasswordResetPage() {
@@ -11,6 +12,10 @@ export default function PasswordResetPage() {
   const [error, setError] = useState(null);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const passwordsMatch = password === confirm;
+  const confirmTouched = confirm.length > 0;
+  const passwordMismatch = confirmTouched && !passwordsMatch;
 
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
@@ -126,35 +131,34 @@ export default function PasswordResetPage() {
       {error ? <p style={{ color: "var(--red)", fontSize: 13, marginBottom: 14 }}>{error}</p> : null}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <div>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 5, color: "var(--text2)" }}>
-            New password
-          </label>
-          <input
-            className="inp"
-            type="password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
-        <div>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 5, color: "var(--text2)" }}>
-            Confirm password
-          </label>
-          <input
-            className="inp"
-            type="password"
-            autoComplete="new-password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-          />
-        </div>
+        <PasswordField
+          label="New password"
+          name="new-password"
+          autoComplete="new-password"
+          value={password}
+          onChange={(e) => {
+            setError(null);
+            setPassword(e.target.value);
+          }}
+          hint="At least 6 characters"
+        />
+        <PasswordField
+          label="Confirm password"
+          name="confirm-password"
+          autoComplete="new-password"
+          value={confirm}
+          onChange={(e) => {
+            setError(null);
+            setConfirm(e.target.value);
+          }}
+          error={passwordMismatch ? "Passwords do not match" : undefined}
+          hint={confirmTouched && passwordsMatch ? "Passwords match" : undefined}
+        />
         <button
           type="button"
           className="btn btn-primary"
           style={{ marginTop: 8, padding: "12px 24px" }}
-          disabled={busy || !password}
+          disabled={busy || !password || !confirm || !passwordsMatch}
           onClick={() => void submit()}
         >
           {busy ? "Saving…" : "Update password"}
