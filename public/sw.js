@@ -6,7 +6,7 @@
  * refreshed in the background.
  */
 
-const CACHE = "dhlab-shell-v5";
+const CACHE = "dhlab-shell-v6";
 const OFFLINE_URL = "/";
 const PRECACHE = [OFFLINE_URL, "/DeepHouseLabLogo.png", "/pwa-icon-192.png"];
 
