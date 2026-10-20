@@ -8,14 +8,13 @@ import VerifiedBadge from "../components/VerifiedBadge.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { fmt } from "../lib/format.js";
-import { COMMUNITY_GENRE_FILTERS, rankCommunityUsers } from "../lib/community.js";
+import { rankCommunityUsers } from "../lib/community.js";
 import { supabase, isSupabaseConfigured } from "../lib/supabaseClient.js";
 
 export default function CommunityPage() {
   const { auth, users, episodes } = useApp();
   const isCompact = useMediaQuery("(max-width: 720px)");
   const [query, setQuery] = useState("");
-  const [genre, setGenre] = useState("All");
   const [listenHoursMap, setListenHoursMap] = useState({});
 
   useEffect(() => {
@@ -37,10 +36,9 @@ export default function CommunityPage() {
         episodes,
         currentUser: auth.currentUser,
         query,
-        genreFilter: genre,
         listenHoursMap,
       }),
-    [users, episodes, auth.currentUser, query, genre, listenHoursMap],
+    [users, episodes, auth.currentUser, query, listenHoursMap],
   );
 
   if (!auth.session?.user?.id) {
@@ -66,7 +64,7 @@ export default function CommunityPage() {
           maxWidth: 560,
         }}
       >
-        Discover DJs and listeners on Music Vault. Follow people who share your taste — they show up under Connections.
+        Discover DJs and listeners on Deep House Lab. Follow people who share your taste — they show up under Connections.
       </p>
 
       <div style={{ position: "relative", marginBottom: isCompact ? 12 : 16, maxWidth: 420 }}>
@@ -82,28 +80,6 @@ export default function CommunityPage() {
         />
       </div>
 
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: isCompact ? 16 : 22 }}>
-        {COMMUNITY_GENRE_FILTERS.map((g) => (
-          <button
-            key={g}
-            type="button"
-            onClick={() => setGenre(g)}
-            style={{
-              padding: isCompact ? "6px 10px" : "8px 14px",
-              borderRadius: 8,
-              fontSize: isCompact ? 12 : 13,
-              fontWeight: 500,
-              background: genre === g ? "var(--accent2)" : "var(--surface)",
-              color: genre === g ? "#07090F" : "var(--text2)",
-              border: genre === g ? "none" : "1px solid var(--border)",
-              cursor: "pointer",
-            }}
-          >
-            {g}
-          </button>
-        ))}
-      </div>
-
       {ranked.length === 0 ? (
         <div
           style={{
@@ -117,7 +93,7 @@ export default function CommunityPage() {
         >
           <Icon name="people" size={28} color="var(--text3)" />
           <p style={{ color: "var(--text3)", fontSize: isCompact ? 14 : 15, margin: "14px 0 0", lineHeight: 1.6 }}>
-            No accounts match that search. Try another genre or name.
+            No accounts match that search. Try another name.
           </p>
         </div>
       ) : (
@@ -201,7 +177,7 @@ export default function CommunityPage() {
 
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: "auto" }}>
                 <span className="tag tag-blue" style={{ fontSize: 10 }}>
-                  {reason || topGenre || "Music Vault"}
+                  {reason || topGenre || "Deep House Lab"}
                 </span>
                 {!isMe && <FollowButton targetUserId={user.id} variant="compact" />}
               </div>

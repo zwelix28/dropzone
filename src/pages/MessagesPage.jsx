@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
+import BackButton from "../components/BackButton.jsx";
 import Icon from "../components/Icon.jsx";
 import UserAvatar from "../components/UserAvatar.jsx";
 import VerifiedBadge from "../components/VerifiedBadge.jsx";
@@ -247,11 +248,7 @@ export default function MessagesPage() {
         ) : (
           <div className="dm-thread">
             <div className="dm-thread-head">
-              <Link to="/messages" className="btn btn-ghost" style={{ padding: "8px 10px", flexShrink: 0, borderRadius: 12 }} aria-label="Back to inbox">
-                <span style={{ display: "inline-block", transform: "rotate(90deg)" }}>
-                  <Icon name="chevronDown" size={20} color="var(--text2)" />
-                </span>
-              </Link>
+              <BackButton to="/messages" label="Inbox" style={{ flexShrink: 0 }} />
 
               <UserAvatar user={peer || { id: peerId, username: "User", handle: "", avatar: "" }} size={40} showVerified />
               <div style={{ minWidth: 0, flex: 1 }}>

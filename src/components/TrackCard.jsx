@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import Icon from "./Icon.jsx";
 import LikeButton from "./LikeButton.jsx";
+import MixLiveListeners from "./MixLiveListeners.jsx";
 import UserAvatar from "./UserAvatar.jsx";
 import VerifiedBadge from "./VerifiedBadge.jsx";
 import { fmt, fmtDuration } from "../lib/format.js";
@@ -189,7 +190,10 @@ export default function TrackCard({
             gap: 4,
           }}
         >
-          <div style={{ display: "flex", gap: compact ? 8 : 14, minWidth: 0, flexShrink: 1 }}>
+          <div style={{ display: "flex", gap: compact ? 8 : 14, minWidth: 0, flexShrink: 1, alignItems: "center" }}>
+            {isActive && isPlaying ? (
+              <MixLiveListeners mixId={episode.id} size={compact ? "sm" : "md"} />
+            ) : null}
             <span
               style={{
                 display: "flex",

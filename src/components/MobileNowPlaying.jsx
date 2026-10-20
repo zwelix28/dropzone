@@ -183,7 +183,7 @@ export default function MobileNowPlaying({
           paddingTop: "max(8px, env(safe-area-inset-top, 0px))",
           paddingLeft: "max(16px, env(safe-area-inset-left, 0px))",
           paddingRight: "max(16px, env(safe-area-inset-right, 0px))",
-          paddingBottom: 10,
+          paddingBottom: 8,
           background: `rgba(7,9,15,${opa(0.45)})`,
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
@@ -231,45 +231,9 @@ export default function MobileNowPlaying({
           onTouchStart={onSwipeTouchStart}
           onTouchEnd={onSwipeTouchEnd}
         >
-          <div
-            className="mobile-now-playing-hero"
-            style={{
-              flex: 1,
-              minHeight: 0,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 12,
-              overflow: "hidden",
-              paddingTop: 7,
-              paddingBottom: 4,
-            }}
-          >
-            <div
-              style={{
-                flex: "1 1 auto",
-                minHeight: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: "100%",
-                maxWidth: 300,
-              }}
-            >
-              <div
-                className="mobile-now-playing-art"
-                style={{
-                  position: "relative",
-                  width: "min(100%, 300px, 34dvh)",
-                  aspectRatio: "1",
-                  borderRadius: 16,
-                  overflow: "hidden",
-                  boxShadow: "0 24px 60px rgba(0,0,0,0.55)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  flexShrink: 1,
-                }}
-              >
+          <div className="mobile-now-playing-hero">
+            <div className="mobile-now-playing-art-wrap">
+              <div className="mobile-now-playing-art">
               {cover ? (
                 <img
                   src={cover}
@@ -294,32 +258,10 @@ export default function MobileNowPlaying({
               </div>
             </div>
 
-            <div
-              style={{
-                flexShrink: 0,
-                width: "100%",
-                maxWidth: 300,
-                margin: "0 auto",
-                padding: "0 2px",
-                overflow: "hidden",
-              }}
-            >
+            <div className="mobile-now-playing-meta">
               <h2
                 title={track.title}
-                style={{
-                  fontFamily: "var(--ff-display)",
-                  fontSize: 20,
-                  letterSpacing: "0.03em",
-                  lineHeight: 1.15,
-                  margin: "0 0 10px",
-                  color: "var(--text)",
-                  display: "-webkit-box",
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                  textAlign: "center",
-                  wordBreak: "break-word",
-                }}
+                className="mobile-now-playing-title"
               >
                 {track.title}
               </h2>
@@ -327,57 +269,16 @@ export default function MobileNowPlaying({
             {user ? (
               <button
                 type="button"
+                className="mobile-now-playing-artist-btn"
                 aria-label={`Open ${user.username}'s profile`}
                 onClick={() => {
                   onClose();
                   navigate(`/user/${user.id}`);
                 }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  width: "100%",
-                  margin: "0 auto",
-                  background: `rgba(7,9,15,${opa(0.4)})`,
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  backdropFilter: "blur(10px)",
-                  WebkitBackdropFilter: "blur(10px)",
-                  borderRadius: 12,
-                  padding: "8px 12px",
-                  cursor: "pointer",
-                  WebkitTapHighlightColor: "transparent",
-                }}
               >
-                <UserAvatar user={user} size={36} showVerified={false} style={{ width: 36, height: 36, flexShrink: 0 }} />
-                <div style={{ minWidth: 0, flex: 1, textAlign: "left" }}>
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      fontSize: 14,
-                      color: "var(--text)",
-                      lineHeight: 1.2,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {user.username}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: "var(--accent)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 5,
-                      marginTop: 2,
-                      minWidth: 0,
-                    }}
-                  >
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.handle}</span>
-                    {user.verified ? <VerifiedBadge size={13} /> : null}
-                  </div>
-                </div>
+                <UserAvatar user={user} size={30} showVerified={false} />
+                <span className="mobile-now-playing-artist-handle">{user.handle}</span>
+                {user.verified ? <VerifiedBadge size={12} /> : null}
               </button>
             ) : (
               <p style={{ color: "var(--text3)", fontSize: 14, margin: 0, textAlign: "center" }}>Unknown artist</p>
@@ -387,29 +288,22 @@ export default function MobileNowPlaying({
 
           <div className="mobile-now-playing-controls">
             <div className="mobile-now-playing-controls-inner">
-            <div className="mobile-np-actions" style={{ flexWrap: "wrap" }}>
-              {track.genre ? (
-                <span className="tag tag-blue mobile-np-float-chip" style={{ fontSize: 10, padding: "5px 10px" }}>
-                  {track.genre}
-                </span>
-              ) : null}
-              <LikeButton mixId={track.id} variant="inline" size="sm" className="mobile-np-float-like" />
+            <div className="mobile-np-actions">
+              <LikeButton mixId={track.id} variant="overlay" size="sm" className="mobile-np-float-like mobile-np-icon-btn" />
               {allowDownload ? (
                 <button
                   type="button"
-                  className="btn btn-ghost mobile-np-float-like"
+                  className="btn btn-ghost mobile-np-float-like mobile-np-icon-btn"
                   onClick={() => void handleDownload()}
                   disabled={!hasAudioSource}
                   aria-label={liked ? "Download full mix" : "Like to download"}
                   title={liked ? "Download full mix" : "Like this mix to unlock download"}
                   style={{
-                    fontSize: 12,
                     opacity: hasAudioSource ? 1 : 0.45,
                     cursor: hasAudioSource ? "pointer" : "not-allowed",
                   }}
                 >
                   <Icon name="download" size={15} color={liked ? "var(--accent)" : "var(--text3)"} />
-                  <span style={{ marginLeft: 6 }}>{liked ? "Download" : "Like to download"}</span>
                 </button>
               ) : null}
             </div>

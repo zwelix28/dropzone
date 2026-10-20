@@ -47,9 +47,9 @@ export function AppProvider({ children }) {
     getSuspendPlayback: () => forYouRouteRef.current,
     onDurationKnown: applyKnownMixDuration,
     getArtistName: (track) => {
-      if (!track?.userId) return "Music Vault";
+      if (!track?.userId) return "Deep House Lab";
       const artist = usersRef.current.find((u) => u.id === track.userId);
-      return artist?.username || "Music Vault";
+      return artist?.username || "Deep House Lab";
     },
   });
 

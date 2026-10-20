@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
+import BackButton from "../components/BackButton.jsx";
 import Icon from "../components/Icon.jsx";
 import FollowButton from "../components/FollowButton.jsx";
 import ProfileListeningStats from "../components/ProfileListeningStats.jsx";
@@ -99,9 +100,9 @@ export default function UserProfilePage() {
     return (
       <div className="fade-in" style={{ padding: isCompact ? "16px 12px" : "32px 36px" }}>
         <p style={{ color: "var(--red)", fontSize: isCompact ? 14 : 15 }}>{loadError}</p>
-        <Link to="/discover" className="btn btn-ghost" style={{ marginTop: 16 }}>
-          Back to Discover
-        </Link>
+        <div style={{ marginTop: 16 }}>
+          <BackButton to="/discover" label="Discover" />
+        </div>
       </div>
     );
   }
@@ -121,9 +122,7 @@ export default function UserProfilePage() {
         <p style={{ color: "var(--text2)", marginBottom: 20, fontSize: isCompact ? 14 : 15 }}>
           This account doesn’t exist or is no longer available.
         </p>
-        <Link to="/discover" className="btn btn-ghost">
-          Discover mixes
-        </Link>
+        <BackButton to="/discover" label="Discover" />
       </div>
     );
   }
@@ -136,9 +135,7 @@ export default function UserProfilePage() {
     <div className="fade-in" style={{ padding: pagePad, paddingBottom: 120 }}>
       <div style={{ maxWidth: 900, margin: "0 auto" }}>
         <div style={{ marginBottom: isCompact ? 12 : 16 }}>
-          <Link to="/community" style={{ color: "var(--text2)", fontSize: isCompact ? 12 : 13, textDecoration: "none" }}>
-            ← Community
-          </Link>
+          <BackButton to="/community" label="Community" />
         </div>
 
         {isCompact ? (

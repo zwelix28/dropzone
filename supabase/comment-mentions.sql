@@ -62,7 +62,7 @@ begin
       'mention',
       author_name || ' mentioned you',
       left(trim(new.body), 140),
-      '/foryou?mix=' || new.mix_id::text || '&comments=1&comment=' || new.id::text,
+      '/mix/' || new.mix_id::text || '?comments=1&comment=' || new.id::text,
       new.mix_id,
       jsonb_build_object(
         'comment_id', new.id::text,

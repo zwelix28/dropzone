@@ -55,6 +55,8 @@ export function profileRowToUser(row) {
     isBanned: row.is_banned ?? false,
     isApproved: row.is_approved !== false,
     plan: normalizePlan(row.plan),
+    notifyEmailNewMix: row.notify_email_new_mix !== false,
+    notifyPushNewMix: row.notify_push_new_mix !== false,
   };
 }
 

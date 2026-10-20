@@ -570,7 +570,7 @@ export default function usePlayer({
     }
     const artist =
       (typeof getArtistNameRef.current === "function" && getArtistNameRef.current(currentTrack)) ||
-      "Music Vault";
+      "Deep House Lab";
     syncMediaSessionMetadata(currentTrack, artist);
     syncMediaSessionPlaybackState(isPlaying);
     syncMediaSessionPositionState(audioRef.current, {

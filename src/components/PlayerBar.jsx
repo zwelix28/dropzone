@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import Icon from "./Icon.jsx";
 import MarqueeText from "./MarqueeText.jsx";
+import MixLiveListeners from "./MixLiveListeners.jsx";
 import VerifiedBadge from "./VerifiedBadge.jsx";
 import WaveAnim from "./WaveAnim.jsx";
 import { fmtPlayerTime } from "../lib/format.js";
@@ -204,6 +205,7 @@ export default function PlayerBar({
                 </div>
               ) : null}
             </div>
+            <MixLiveListeners mixId={track.id} size="sm" />
             <WaveAnim active={isPlaying} />
           </div>
 
@@ -261,11 +263,14 @@ export default function PlayerBar({
             />
           )}
           <div style={{ overflow: "hidden", minWidth: 0 }}>
-            <MarqueeText
-              text={track.title}
-              maxWidth={180}
-              style={{ fontWeight: 600, fontSize: 13 }}
-            />
+            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+              <MarqueeText
+                text={track.title}
+                maxWidth={180}
+                style={{ fontWeight: 600, fontSize: 13 }}
+              />
+              <MixLiveListeners mixId={track.id} size="sm" />
+            </div>
             {user && (
               <div
                 style={{

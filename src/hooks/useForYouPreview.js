@@ -97,7 +97,7 @@ export default function useForYouPreview({ isAuthenticated, getArtistName = null
     }
     const artist =
       (typeof getArtistNameRef.current === "function" && getArtistNameRef.current(track)) ||
-      "Music Vault";
+      "Deep House Lab";
     syncMediaSessionMetadata(track, artist);
     syncMediaSessionPlaybackState(isPlaying);
     const { start, end } = segmentRef.current;

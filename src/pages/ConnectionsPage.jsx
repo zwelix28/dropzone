@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
+import BackButton from "../components/BackButton.jsx";
 import FollowButton from "../components/FollowButton.jsx";
 import Icon from "../components/Icon.jsx";
 import PageHeader from "../components/PageHeader.jsx";
@@ -114,9 +115,7 @@ export default function ConnectionsPage() {
     <div className="fade-in" style={{ padding: pagePad, paddingBottom: 120 }}>
       <div style={{ maxWidth: 640, margin: "0 auto" }}>
         <div style={{ marginBottom: isCompact ? 12 : 16 }}>
-          <Link to="/profile" style={{ color: "var(--text2)", fontSize: isCompact ? 12 : 13, textDecoration: "none" }}>
-            ← Profile
-          </Link>
+          <BackButton to="/profile" label="Profile" />
         </div>
 
         <PageHeader icon="people" title="CONNECTIONS" />

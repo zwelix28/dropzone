@@ -76,7 +76,7 @@ export function rankCommunityUsers({ users = [], episodes = [], currentUser, que
     score += Math.min(8, taste.mixCount);
 
     if (!reasons.length && effectiveGenre) reasons.push(effectiveGenre);
-    if (!reasons.length) reasons.push("On Music Vault");
+    if (!reasons.length) reasons.push("On Deep House Lab");
 
     scored.push({
       user,

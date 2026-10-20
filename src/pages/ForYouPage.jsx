@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import ForYouComments from "../components/ForYouComments.jsx";
 import Icon from "../components/Icon.jsx";
 import UserAvatar from "../components/UserAvatar.jsx";
 import VerifiedBadge from "../components/VerifiedBadge.jsx";
@@ -11,6 +10,7 @@ import { handleArtworkError, resolveMixArtwork } from "../constants/artwork.js";
 import { canDownloadMix } from "../constants/plans.js";
 import { episodeHasAudioSource } from "../lib/audioUrls.js";
 import { isForYouItem } from "../lib/contentType.js";
+import { isUuid } from "../lib/dmUtils.js";
 import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
 import { shareMix } from "../lib/shareMix.js";
 
@@ -103,18 +103,15 @@ export default function ForYouPage() {
   const tapGestureRef = useRef({ x: 0, y: 0, moved: false });
 
   const [index, setIndex] = useState(0);
-  const [commentsOpen, setCommentsOpen] = useState(false);
-  const [commentsTargetMixId, setCommentsTargetMixId] = useState(null);
-  const [highlightCommentId, setHighlightCommentId] = useState(null);
   const [toast, setToast] = useState("");
 
   const isAuthenticated = Boolean(auth.session?.user?.id);
   const preview = useForYouPreview({
     isAuthenticated,
     getArtistName: (ep) => {
-      if (!ep?.userId) return "Music Vault";
+      if (!ep?.userId) return "Deep House Lab";
       const artist = users.find((u) => u.id === ep.userId);
-      return artist?.username || "Music Vault";
+      return artist?.username || "Deep House Lab";
     },
   });
   const playPreviewRef = useRef(preview.playPreview);
@@ -127,11 +124,14 @@ export default function ForYouPage() {
   const current = feed[index] || null;
   const currentUser = current ? users.find((u) => u.id === current.userId) : null;
   const liked = Boolean(current && likedMixIds.includes(current.id));
-  const commentsMix = useMemo(() => {
-    const id = commentsTargetMixId || current?.id;
-    if (!id) return current;
-    return feed.find((ep) => ep.id === id) || current;
-  }, [commentsTargetMixId, current, feed]);
+
+  const openMixComments = useCallback(
+    (mixId) => {
+      if (!mixId) return;
+      navigate(`/mix/${mixId}?comments=1`);
+    },
+    [navigate],
+  );
 
   const syncIndexFromScroll = useCallback(() => {
     const root = containerRef.current;
@@ -167,20 +167,25 @@ export default function ForYouPage() {
 
   useEffect(() => {
     const mixId = searchParams.get("mix");
-    if (!mixId || feed.length === 0) return;
+    if (!mixId || !isUuid(mixId)) return;
+
+    const commentId = searchParams.get("comment");
+    const safeCommentId = commentId && isUuid(commentId) ? commentId : null;
+    if (searchParams.get("comments") === "1" || safeCommentId) {
+      const params = new URLSearchParams({ comments: "1" });
+      if (safeCommentId) params.set("comment", safeCommentId);
+      navigate(`/mix/${mixId}?${params.toString()}`, { replace: true });
+      return;
+    }
+
+    if (feed.length === 0) return;
 
     const idx = feed.findIndex((ep) => ep.id === mixId);
     if (idx < 0) return;
 
     scrollToIndex(idx, "auto");
-    if (searchParams.get("comments") === "1") {
-      setCommentsTargetMixId(mixId);
-      setCommentsOpen(true);
-    }
-    const commentId = searchParams.get("comment");
-    if (commentId) setHighlightCommentId(commentId);
     setSearchParams({}, { replace: true });
-  }, [feed, searchParams, scrollToIndex, setSearchParams]);
+  }, [feed, navigate, searchParams, scrollToIndex, setSearchParams]);
 
   const startPreview = useCallback(
     async (track) => {
@@ -696,14 +701,7 @@ export default function ForYouPage() {
                         <ActionButton
                           compact
                           label="Comments"
-                          onClick={() => {
-                            if (!auth.session?.user?.id) {
-                              promptGuestAuth("comment");
-                              return;
-                            }
-                            setCommentsTargetMixId(ep.id);
-                            setCommentsOpen(true);
-                          }}
+                          onClick={() => openMixComments(ep.id)}
                         >
                           <Icon name="comment" size={20} color="#fff" />
                         </ActionButton>
@@ -796,17 +794,7 @@ export default function ForYouPage() {
             <Icon name="heart" size={22} color={liked ? "#f87171" : "#fff"} />
           </ActionButton>
 
-          <ActionButton
-            label="Comments"
-            onClick={() => {
-              if (!auth.session?.user?.id) {
-                promptGuestAuth("comment");
-                return;
-              }
-              setCommentsTargetMixId(current?.id);
-              setCommentsOpen(true);
-            }}
-          >
+          <ActionButton label="Comments" onClick={() => openMixComments(current?.id)}>
             <Icon name="comment" size={22} color="#fff" />
           </ActionButton>
 
@@ -844,18 +832,6 @@ export default function ForYouPage() {
           {toast}
         </div>
       ) : null}
-
-      <ForYouComments
-        mixId={commentsMix?.id}
-        mixTitle={commentsMix?.title}
-        open={commentsOpen}
-        highlightCommentId={highlightCommentId}
-        onClose={() => {
-          setCommentsOpen(false);
-          setCommentsTargetMixId(null);
-          setHighlightCommentId(null);
-        }}
-      />
     </div>
   );
 }

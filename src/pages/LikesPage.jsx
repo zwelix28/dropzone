@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Link, Navigate } from "react-router-dom";
-import Icon from "../components/Icon.jsx";
+import BackButton from "../components/BackButton.jsx";
 import PageHeader from "../components/PageHeader.jsx";
 import TrackCard from "../components/TrackCard.jsx";
 import { useApp } from "../context/AppContext.jsx";
@@ -21,6 +21,9 @@ export default function LikesPage() {
 
   return (
     <div className="fade-in" style={{ padding: isCompact ? "16px 12px" : "32px 36px", paddingBottom: 120 }}>
+      <div style={{ marginBottom: isCompact ? 12 : 16 }}>
+        <BackButton to="/mixes" label="Mixes" />
+      </div>
       <PageHeader icon="heart" title="LIKES" />
 
       {favoriteEpisodes.length === 0 ? (
@@ -37,8 +40,8 @@ export default function LikesPage() {
           <p style={{ color: "var(--text3)", fontSize: isCompact ? 14 : 15, marginBottom: 16, lineHeight: 1.6 }}>
             No likes yet. Explore Discover and tap the heart on mixes you want to replay anytime.
           </p>
-          <Link to="/discover" className="btn btn-primary" style={isCompact ? { width: "100%", justifyContent: "center" } : undefined}>
-            Go to Discover
+          <Link to="/mixes" className="btn btn-primary" style={isCompact ? { width: "100%", justifyContent: "center" } : undefined}>
+            Browse mixes
           </Link>
         </div>
       ) : (

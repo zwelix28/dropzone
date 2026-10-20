@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import BackButton from "../components/BackButton.jsx";
 import Icon from "../components/Icon.jsx";
 import PageHeader from "../components/PageHeader.jsx";
 import ProUpgradePrompt from "../components/ProUpgradePrompt.jsx";
@@ -9,6 +10,12 @@ import UserAvatar, { isLikelyImageFile } from "../components/UserAvatar.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
+import {
+  disableWebPush,
+  enableWebPush,
+  getExistingPushSubscription,
+  isWebPushSupported,
+} from "../lib/webPush.js";
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 const AVATAR_STORAGE_PATH = "avatar";
@@ -169,6 +176,11 @@ export default function SettingsPage() {
   const [bankError, setBankError] = useState(null);
   const [withdrawBusy, setWithdrawBusy] = useState(false);
   const [withdrawToast, setWithdrawToast] = useState(null);
+  const [notifyEmail, setNotifyEmail] = useState(true);
+  const [notifyPush, setNotifyPush] = useState(true);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [notifyBusy, setNotifyBusy] = useState(false);
+  const [notifyToast, setNotifyToast] = useState(null);
 
   // Show success toast when returning from Paystack
   useEffect(() => {
@@ -263,7 +275,76 @@ export default function SettingsPage() {
       location: currentUser.location || "",
       genre: currentUser.genre || "Tech House",
     });
-  }, [currentUser?.id, currentUser?.username, currentUser?.bio, currentUser?.location, currentUser?.genre]);
+    setNotifyEmail(currentUser.notifyEmailNewMix !== false);
+    setNotifyPush(currentUser.notifyPushNewMix !== false);
+  }, [currentUser?.id, currentUser?.username, currentUser?.bio, currentUser?.location, currentUser?.genre, currentUser?.notifyEmailNewMix, currentUser?.notifyPushNewMix]);
+
+  useEffect(() => {
+    if (!currentUser?.id || !isWebPushSupported()) {
+      setPushEnabled(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const sub = await getExistingPushSubscription();
+      if (!cancelled) setPushEnabled(Boolean(sub));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.id]);
+
+  const saveNotifyPref = async (patch) => {
+    if (!uid || !isSupabaseConfigured()) return;
+    setNotifyBusy(true);
+    setNotifyToast(null);
+    const { error: upErr } = await supabase.from("profiles").update(patch).eq("id", uid);
+    setNotifyBusy(false);
+    if (upErr) {
+      setNotifyToast(upErr.message);
+      return;
+    }
+    await auth.refreshProfile();
+    await refreshProfiles();
+  };
+
+  const handleToggleEmailNotify = async () => {
+    const next = !notifyEmail;
+    setNotifyEmail(next);
+    await saveNotifyPref({ notify_email_new_mix: next });
+  };
+
+  const handleTogglePushPref = async () => {
+    const next = !notifyPush;
+    setNotifyPush(next);
+    await saveNotifyPref({ notify_push_new_mix: next });
+  };
+
+  const handleEnableDevicePush = async () => {
+    setNotifyBusy(true);
+    setNotifyToast(null);
+    const result = await enableWebPush();
+    setNotifyBusy(false);
+    if (!result.ok) {
+      setNotifyToast(result.error || "Could not enable push.");
+      return;
+    }
+    setPushEnabled(true);
+    if (!notifyPush) {
+      setNotifyPush(true);
+      await saveNotifyPref({ notify_push_new_mix: true });
+    }
+    setNotifyToast("This device will receive push alerts for new mixes.");
+  };
+
+  const handleDisableDevicePush = async () => {
+    setNotifyBusy(true);
+    setNotifyToast(null);
+    await disableWebPush();
+    setPushEnabled(false);
+    setNotifyBusy(false);
+    setNotifyToast("Push alerts disabled on this device.");
+  };
 
   if (!currentUser) {
     return (
@@ -414,9 +495,7 @@ export default function SettingsPage() {
     <div className="fade-in" style={{ padding: pagePad, paddingBottom: 120 }}>
       <div style={{ maxWidth: 640, margin: "0 auto" }}>
         <div style={{ marginBottom: isCompact ? 12 : 16 }}>
-          <Link to="/profile" style={{ color: "var(--text2)", fontSize: isCompact ? 12 : 13, textDecoration: "none" }}>
-            ← Profile
-          </Link>
+          <BackButton to="/profile" label="Profile" />
         </div>
 
         <PageHeader icon="settings" title="SETTINGS" />
@@ -504,7 +583,7 @@ export default function SettingsPage() {
           ) : null}
         </SettingsSection>
 
-        <SettingsSection title="Public profile" description="How you appear to listeners across Music Vault by DHLab." compact={isCompact}>
+        <SettingsSection title="Public profile" description="How you appear to listeners across Deep House Lab." compact={isCompact}>
           <div style={{ display: "flex", flexDirection: "column", gap: fieldGap }}>
             <div>
               <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}>
@@ -666,6 +745,121 @@ export default function SettingsPage() {
             </>
           )
         ) : null}
+
+        <SettingsSection
+          title="New mix alerts"
+          description="Get an email and a phone push notification whenever a new mix goes live. In-app bell notifications stay on."
+          compact={isCompact}
+        >
+          {notifyToast ? (
+            <p style={{ color: "var(--text2)", fontSize: isCompact ? 12 : 13, margin: "0 0 10px" }}>{notifyToast}</p>
+          ) : null}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                padding: "10px 12px",
+                background: "var(--surface2)",
+                border: "1px solid var(--border)",
+                borderRadius: 10,
+                cursor: notifyBusy ? "default" : "pointer",
+              }}
+            >
+              <span>
+                <div style={{ fontWeight: 600, fontSize: isCompact ? 13 : 14 }}>Email me</div>
+                <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 2 }}>
+                  Sent to {auth.session?.user?.email || "your account email"}
+                </div>
+              </span>
+              <input
+                type="checkbox"
+                checked={notifyEmail}
+                disabled={notifyBusy}
+                onChange={() => void handleToggleEmailNotify()}
+                style={{ width: 18, height: 18 }}
+              />
+            </label>
+
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                padding: "10px 12px",
+                background: "var(--surface2)",
+                border: "1px solid var(--border)",
+                borderRadius: 10,
+                cursor: notifyBusy ? "default" : "pointer",
+              }}
+            >
+              <span>
+                <div style={{ fontWeight: 600, fontSize: isCompact ? 13 : 14 }}>Allow push alerts</div>
+                <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 2 }}>
+                  Master switch for mobile / desktop push
+                </div>
+              </span>
+              <input
+                type="checkbox"
+                checked={notifyPush}
+                disabled={notifyBusy}
+                onChange={() => void handleTogglePushPref()}
+                style={{ width: 18, height: 18 }}
+              />
+            </label>
+
+            <div
+              style={{
+                display: "flex",
+                flexDirection: isCompact ? "column" : "row",
+                alignItems: isCompact ? "stretch" : "center",
+                justifyContent: "space-between",
+                gap: 10,
+                padding: "10px 12px",
+                background: "var(--surface2)",
+                border: "1px solid var(--border)",
+                borderRadius: 10,
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 600, fontSize: isCompact ? 13 : 14 }}>This device</div>
+                <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 2 }}>
+                  {!isWebPushSupported()
+                    ? "Push needs HTTPS (installed app or production site)."
+                    : pushEnabled
+                      ? "Push is enabled on this browser / phone."
+                      : "Enable to receive alerts on this phone or browser."}
+                </div>
+              </div>
+              {isWebPushSupported() ? (
+                pushEnabled ? (
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    disabled={notifyBusy}
+                    onClick={() => void handleDisableDevicePush()}
+                    style={isCompact ? { width: "100%" } : undefined}
+                  >
+                    Disable on this device
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={notifyBusy}
+                    onClick={() => void handleEnableDevicePush()}
+                    style={isCompact ? { width: "100%" } : undefined}
+                  >
+                    Enable on this device
+                  </button>
+                )
+              ) : null}
+            </div>
+          </div>
+        </SettingsSection>
 
         <SettingsSection
           title="Password"

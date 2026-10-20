@@ -126,8 +126,8 @@ export default function RegisterPage() {
 
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
             <img
-              src="/logo.png"
-              alt="Music Vault"
+              src="/logo-transparent.png"
+              alt="Deep House Lab"
               width={90}
               height={90}
               style={{
@@ -149,7 +149,7 @@ export default function RegisterPage() {
             >
               CREATE ACCOUNT
             </div>
-            <p style={{ fontSize: 13, color: "var(--text2)", marginTop: 2 }}>Join Music Vault</p>
+            <p style={{ fontSize: 13, color: "var(--text2)", marginTop: 2 }}>Join Deep House Lab</p>
           </div>
 
           {!isSupabaseConfigured() ? (

@@ -31,23 +31,24 @@ export default function HomePage() {
 
       <div className="landing-frame">
         <header className="landing-brand-block">
-          <img
-            className="landing-logo"
-            src="/logo.png"
-            alt="Music Vault"
-            width={120}
-            height={120}
-          />
-          <h1 className="landing-product">Music Vault</h1>
+          <div className="landing-logo-wrap">
+            <img
+              className="landing-logo"
+              src="/logo-transparent.png"
+              alt="Deep House Lab"
+              width={120}
+              height={120}
+            />
+          </div>
           <p className="landing-tagline">
-            Stream exclusive deep house mixes from the vault — sign in to enter.
+            Stream exclusive deep house mixes — sign in to enter.
           </p>
         </header>
 
         <div className="landing-cta-block">
           <button type="button" className="btn btn-primary landing-cta" onClick={enterVault}>
             <Icon name="compass" size={18} color="#07090F" />
-            Enter Music Vault
+            Enter
           </button>
           <p className="landing-cta-hint">Access the site and sign in with one step</p>
         </div>
