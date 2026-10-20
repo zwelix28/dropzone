@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import AuthModal from "../components/AuthModal.jsx";
 import DesktopNowPlaying from "../components/DesktopNowPlaying.jsx";
 import MobileNowPlaying from "../components/MobileNowPlaying.jsx";
@@ -23,6 +23,7 @@ export default function AppLayout() {
   const isMobile = useMediaQuery("(max-width: 720px)");
   const location = useLocation();
   const navigate = useNavigate();
+  const mainRef = useRef(null);
   const isGuestAuthSurface =
     !auth.authLoading &&
     !auth.session?.user?.id &&
@@ -63,6 +64,14 @@ export default function AppLayout() {
 
   useEffect(() => {
     setNavOpen(false);
+  }, [location.pathname]);
+
+  useLayoutEffect(() => {
+    const main = mainRef.current;
+    if (main) main.scrollTop = 0;
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
   }, [location.pathname]);
 
   useEffect(() => {
@@ -197,6 +206,7 @@ export default function AppLayout() {
             />
           </div>
           <main
+            ref={mainRef}
             style={{
               flex: 1,
               minHeight: 0,

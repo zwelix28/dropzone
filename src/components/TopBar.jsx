@@ -46,7 +46,7 @@ export default function TopBar({
     if (location.pathname.startsWith("/mix/")) return "Mix";
     if (location.pathname === "/messages") return "Messages";
     if (location.pathname.startsWith("/messages/")) return "Conversation";
-    return map[location.pathname] || "Music Vault by DHLab";
+    return map[location.pathname] || "Deep House Lab";
   }, [location.pathname]);
 
   const hideSearch = location.pathname === "/foryou";

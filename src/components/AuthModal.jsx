@@ -91,9 +91,9 @@ export default function AuthModal({ onClose }) {
     mode === "login" ? "SIGN IN" : mode === "register" ? "CREATE ACCOUNT" : "RESET PASSWORD";
   const subtitle =
     mode === "login"
-      ? "Welcome back to Music Vault by DHLab"
+      ? "Welcome back to Deep House Lab"
       : mode === "register"
-        ? "Join Music Vault by DHLab"
+        ? "Join Deep House Lab"
         : "We’ll email you a link to set a new password";
 
   return (
@@ -106,8 +106,8 @@ export default function AuthModal({ onClose }) {
       <div className="modal">
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
           <img
-            src="/logo.png"
-            alt="Music Vault by DHLab"
+            src="/logo-transparent.png"
+            alt="Deep House Lab"
             width={90}
             height={90}
             style={{

@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
+import BackButton from "../components/BackButton.jsx";
 import Icon from "../components/Icon.jsx";
+import MixCommentsSection from "../components/MixCommentsSection.jsx";
+import MixLiveListeners from "../components/MixLiveListeners.jsx";
 import UserAvatar from "../components/UserAvatar.jsx";
 import VerifiedBadge from "../components/VerifiedBadge.jsx";
 import FollowButton from "../components/FollowButton.jsx";
@@ -21,6 +24,9 @@ import { uploadMixCover } from "../lib/uploadMixCover.js";
 export default function MixDetailPage() {
   const { id } = useParams();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const highlightCommentId = searchParams.get("comment");
+  const focusComments = searchParams.get("comments") === "1";
   const { auth, episodes, users, player, trackEvent, updateMix } = useApp();
   const isCompact = useMediaQuery("(max-width: 720px)");
 
@@ -96,6 +102,14 @@ export default function MixDetailPage() {
     });
   }, [episode?.description, episode?.genre, episode?.tags, episode?.title, episode]);
 
+  useEffect(() => {
+    if (!episode?.id || (!focusComments && !highlightCommentId)) return;
+    const t = window.setTimeout(() => {
+      document.getElementById("mix-comments")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 120);
+    return () => window.clearTimeout(t);
+  }, [episode?.id, focusComments, highlightCommentId]);
+
   const browseRoot = auth.session?.user?.id ? signedInHomePath() : "/";
   const isLoading = lookupState === "loading" || (lookupState === "idle" && !episodeFromCatalog);
 
@@ -114,9 +128,7 @@ export default function MixDetailPage() {
         <p style={{ color: "var(--text2)", marginBottom: 18, fontSize: isCompact ? 14 : 15 }}>
           This mix may have been removed, or the link is wrong.
         </p>
-        <Link className="btn btn-ghost" to={browseRoot}>
-          {auth.session?.user?.id ? "Back to Discover" : "Back to Home"}
-        </Link>
+        <BackButton to={browseRoot} label={auth.session?.user?.id ? "Discover" : "Home"} />
       </div>
     );
   }
@@ -192,9 +204,7 @@ export default function MixDetailPage() {
   return (
     <div className="fade-in" style={{ padding: isCompact ? "16px 12px" : "32px 36px", paddingBottom: 120, maxWidth: isCompact ? undefined : 1120, width: "100%", boxSizing: "border-box" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: isCompact ? 12 : 18 }}>
-        <Link to={location.state?.from || (loggedIn ? signedInHomePath() : "/")} style={{ color: "var(--text2)", fontSize: isCompact ? 12 : 13 }}>
-          ← Back
-        </Link>
+        <BackButton to={location.state?.from || (loggedIn ? signedInHomePath() : "/")} label="Back" />
       </div>
 
       {!loggedIn ? (
@@ -264,6 +274,7 @@ export default function MixDetailPage() {
                       {t}
                     </span>
                   ))}
+                <MixLiveListeners mixId={episode.id} size={isCompact ? "sm" : "md"} />
               </div>
 
               <h1
@@ -362,6 +373,22 @@ export default function MixDetailPage() {
                   style={isCompact ? { width: "100%", minWidth: 0, boxSizing: "border-box" } : undefined}
                 />
               </div>
+              <button
+                className="btn btn-ghost"
+                onClick={() => document.getElementById("mix-comments")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                title="View listener comments"
+                style={{
+                  minWidth: 0,
+                  width: isCompact ? "100%" : undefined,
+                  boxSizing: "border-box",
+                  padding: isCompact ? "8px 10px" : undefined,
+                  fontSize: isCompact ? 12 : undefined,
+                  justifyContent: "center",
+                }}
+              >
+                <Icon name="comment" size={isCompact ? 14 : 16} />
+                Comments
+              </button>
               <button
                 className="btn btn-ghost"
                 onClick={() => void handleShare()}
@@ -622,6 +649,12 @@ export default function MixDetailPage() {
           </div>
         </div>
       </div>
+
+      <MixCommentsSection
+        mixId={episode.id}
+        highlightCommentId={highlightCommentId}
+        compact={isCompact}
+      />
     </div>
   );
 }

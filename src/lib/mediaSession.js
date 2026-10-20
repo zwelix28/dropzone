@@ -47,7 +47,7 @@ function artworkEntries(coverUrl) {
  * @param {{ title?: string, coverUrl?: string } | null} track
  * @param {string} [artistName]
  */
-export function syncMediaSessionMetadata(track, artistName = "Music Vault") {
+export function syncMediaSessionMetadata(track, artistName = "Deep House Lab") {
   if (!mediaSessionAvailable() || typeof MediaMetadata === "undefined") return;
   if (!track) {
     try {
@@ -59,14 +59,14 @@ export function syncMediaSessionMetadata(track, artistName = "Music Vault") {
   }
 
   const title = (track.title || "").trim() || "Untitled Mix";
-  const artist = (artistName || "").trim() || "Music Vault";
+  const artist = (artistName || "").trim() || "Deep House Lab";
   const artwork = artworkEntries(track.coverUrl);
 
   try {
     navigator.mediaSession.metadata = new MediaMetadata({
       title,
       artist,
-      album: "Music Vault by DHLab",
+      album: "Deep House Lab",
       artwork,
     });
   } catch (err) {

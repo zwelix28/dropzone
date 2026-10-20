@@ -224,7 +224,7 @@ begin
       new.user_id,
       'mix_approved',
       'Mix approved',
-      '"' || left(coalesce(new.title, 'Untitled Mix'), 80) || '" is now live on Music Vault.',
+      '"' || left(coalesce(new.title, 'Untitled Mix'), 80) || '" is now live on Deep House Lab.',
       '/mix/' || new.id::text,
       new.id,
       jsonb_build_object('status', 'approved')

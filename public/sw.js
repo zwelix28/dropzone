@@ -6,7 +6,7 @@
  * refreshed in the background.
  */
 
-const CACHE = "dhlab-shell-v2";
+const CACHE = "dhlab-shell-v5";
 const OFFLINE_URL = "/";
 const PRECACHE = [OFFLINE_URL, "/DeepHouseLabLogo.png", "/pwa-icon-192.png"];
 
@@ -76,4 +76,53 @@ self.addEventListener("fetch", (event) => {
   if (isCacheable(event.request, url)) {
     event.respondWith(staleWhileRevalidate(event.request));
   }
+});
+
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : "New update from Deep House Lab" };
+  }
+
+  const title = data.title || "Deep House Lab";
+  const options = {
+    body: data.body || data.message || "A new mix is available.",
+    icon: data.icon || "/pwa-icon-192.png",
+    badge: data.badge || "/pwa-icon-192.png",
+    data: { href: data.href || "/" },
+    tag: data.tag || "dhlab-new-mix",
+    renotify: true,
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const href = event.notification?.data?.href || "/";
+  const targetUrl = new URL(href, self.location.origin).href;
+
+  event.waitUntil(
+    (async () => {
+      const allClients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const client of allClients) {
+        if ("focus" in client) {
+          await client.focus();
+          if ("navigate" in client) {
+            try {
+              await client.navigate(targetUrl);
+            } catch {
+              /* older browsers */
+            }
+          }
+          return;
+        }
+      }
+      if (self.clients.openWindow) {
+        await self.clients.openWindow(targetUrl);
+      }
+    })(),
+  );
 });

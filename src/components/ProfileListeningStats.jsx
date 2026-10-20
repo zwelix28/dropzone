@@ -105,8 +105,8 @@ export default function ProfileListeningStats({
   const likes = stats?.likesCount || 0;
   const heading = isOwn ? "Your listening" : "Listening";
   const intro = isOwn
-    ? "How you listen on Music Vault — come back for more of what you love."
-    : `How ${user?.username || "this member"} listens on Music Vault — hours, sessions, and taste.`;
+    ? "How you listen on Deep House Lab — come back for more of what you love."
+    : `How ${user?.username || "this member"} listens on Deep House Lab — hours, sessions, and taste.`;
 
   return (
     <div>

@@ -175,7 +175,7 @@ Deno.serve(async (req: Request) => {
     const transferCode = await paystackTransfer(
       netEarnings,
       bankAccount.paystack_recipient_code,
-      `Music Vault earnings payout — ${periodMonthStr}`,
+      `Deep House Lab earnings payout — ${periodMonthStr}`,
     );
 
     // Record the withdrawal request

@@ -22,15 +22,15 @@ export default function PendingApprovalGate({ username, onLogout }) {
 
       <div className="landing-frame">
         <header className="landing-brand-block">
-          <img className="landing-logo" src="/logo.png" alt="Music Vault" width={120} height={120} />
-          <h1 className="landing-product">Music Vault</h1>
+          <img className="landing-logo" src="/logo.png" alt="Deep House Lab" width={120} height={120} />
+          <h1 className="landing-product">Deep House Lab</h1>
           <p className="landing-tagline">Awaiting approval</p>
         </header>
 
         <div className="pending-approval-copy">
           <p>
             {username ? `Hi ${username}. ` : ""}
-            Your account is signed in, but an administrator must approve it before you can enter the vault.
+            Your account is signed in, but an administrator must approve it before you can continue.
           </p>
           <p className="pending-approval-hint">
             You’ll get access as soon as you’re approved — no need to sign up again. You can close this tab and come

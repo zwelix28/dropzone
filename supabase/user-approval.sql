@@ -144,7 +144,7 @@ begin
       new.id,
       'account_approved',
       'Account approved',
-      'Welcome to Music Vault — your account is ready. Start listening.',
+      'Welcome to Deep House Lab — your account is ready. Start listening.',
       '/mixes',
       jsonb_build_object('approved', true)
     );

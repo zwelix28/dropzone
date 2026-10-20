@@ -1,7 +1,7 @@
 import { resolveMixDownloadUrl } from "./audioUrls.js";
 import { getMixShareUrl } from "./shareMix.js";
 
-const ALBUM_NAME = "Music Vault by DHLab";
+const ALBUM_NAME = "Deep House Lab";
 
 export function mixDownloadFilename(title) {
   return `${(title || "mix").replace(/[^\w\s-]/g, "").trim() || "mix"}.mp3`;

@@ -128,7 +128,7 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
           <div style={{ display: "flex", alignItems: "center", gap: isDrawer ? 8 : 10 }}>
             <img
               src="/logo.png"
-              alt="Music Vault"
+              alt="Deep House Lab"
               width={isDrawer ? 34 : 43}
               height={isDrawer ? 34 : 43}
               style={{
@@ -142,13 +142,14 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
             <div style={{ minWidth: 0, overflow: "hidden" }}>
               <div
                 style={{
-                  fontFamily: "var(--ff-display)",
-                  fontSize: isDrawer ? 21 : 26,
-                  letterSpacing: "0.05em",
-                  lineHeight: 1,
+                  fontFamily: "var(--ff-brand)",
+                  fontSize: isDrawer ? 15 : 17,
+                  fontWeight: 700,
+                  letterSpacing: "-0.02em",
+                  lineHeight: 1.15,
                 }}
               >
-                Music Vault
+                Deep House Lab
               </div>
             </div>
           </div>

@@ -26,7 +26,7 @@ begin
       admin_id,
       'new_user',
       'New user signed up',
-      uname || ' (' || uhandle || ') joined Music Vault.',
+      uname || ' (' || uhandle || ') joined Deep House Lab.',
       '/user/' || new.id::text,
       jsonb_build_object(
         'new_user_id', new.id::text,

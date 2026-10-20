@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import BackButton from "../components/BackButton.jsx";
 import Icon from "../components/Icon.jsx";
 import PageHeader from "../components/PageHeader.jsx";
 import LivePage from "./LivePage.jsx";
@@ -67,9 +67,7 @@ export default function LiveRoute() {
           Upgrade options will appear here when billing is connected. Admins can set your plan from the admin
           dashboard for testing.
         </p>
-        <Link to="/discover" className="btn btn-ghost" style={{ textDecoration: "none" }}>
-          Back to Discover
-        </Link>
+        <BackButton to="/discover" label="Discover" />
       </LockedShell>
     );
   }

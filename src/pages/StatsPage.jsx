@@ -209,7 +209,7 @@ export default function StatsPage() {
         <Icon name="bar2" size={isCompact ? 36 : 48} color="var(--text3)" />
         <h2 style={{ marginTop: 16, marginBottom: 8, fontSize: isCompact ? 20 : 24 }}>Sign in to see your stats</h2>
         <p style={{ color: "var(--text2)", marginBottom: 24, fontSize: isCompact ? 14 : 15, maxWidth: 320 }}>
-          Track plays, downloads, and how your mixes perform across Music Vault by DHLab.
+          Track plays, downloads, and how your mixes perform across Deep House Lab.
         </p>
         <button className="btn btn-primary" type="button" onClick={() => auth.setShowAuth(true)}>
           Sign In / Register

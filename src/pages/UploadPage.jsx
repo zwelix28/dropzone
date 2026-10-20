@@ -62,7 +62,7 @@ async function insertMixRow(row, { isSubmission }) {
 function defaultMixDescription(title) {
   const t = mixTitleBody(title);
   if (!t) return "";
-  return `Listen to ${t} on Deep House Lab - Music Vault.`;
+  return `Listen to ${t} on Deep House Lab.`;
 }
 
 /**
@@ -288,7 +288,7 @@ export default function UploadPage({ mode = "admin", onSubmitted } = {}) {
           {isSubmission ? "Sign in to submit a mix" : "Sign in to Upload"}
         </h2>
         <p style={{ color: "var(--text2)", marginBottom: 24, fontSize: isCompact ? 14 : 15, maxWidth: 320 }}>
-          You need an account to {isSubmission ? "submit" : "upload"} mixes to Music Vault by DHLab
+          You need an account to {isSubmission ? "submit" : "upload"} mixes to Deep House Lab
         </p>
         <button className="btn btn-primary" onClick={() => auth.setShowAuth(true)}>
           Sign In / Register
@@ -313,7 +313,7 @@ export default function UploadPage({ mode = "admin", onSubmitted } = {}) {
         <Icon name="upload" size={isCompact ? 36 : 48} color="var(--text3)" />
         <h2 style={{ marginTop: 16, marginBottom: 8, fontSize: isCompact ? 20 : 24 }}>Uploads are admin-only</h2>
         <p style={{ color: "var(--text2)", marginBottom: 24, fontSize: isCompact ? 14 : 15, maxWidth: 360 }}>
-          Only administrators can publish mixes on Music Vault by DHLab.
+          Only administrators can publish mixes on Deep House Lab.
         </p>
         <button className="btn btn-primary" type="button" onClick={() => navigate(signedInHomePath())}>
           Back to catalog

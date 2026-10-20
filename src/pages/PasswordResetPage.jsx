@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import BackButton from "../components/BackButton.jsx";
 import Icon from "../components/Icon.jsx";
 import PasswordField from "../components/PasswordField.jsx";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
@@ -114,9 +115,9 @@ export default function PasswordResetPage() {
           In Supabase → Authentication → URL Configuration, add your site URL and{" "}
           <code style={{ color: "var(--accent)" }}>/reset-password</code> to Redirect URLs.
         </p>
-        <Link to="/" style={{ display: "inline-block", marginTop: 24, color: "var(--accent)", fontWeight: 600 }}>
-          ← Back home
-        </Link>
+        <div style={{ marginTop: 24 }}>
+          <BackButton to="/" label="Home" />
+        </div>
       </div>
     );
   }
