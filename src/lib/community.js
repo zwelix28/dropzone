@@ -25,11 +25,22 @@ function catalogTaste(userId, episodes = []) {
   return { mixCount, topGenre, genres: counts };
 }
 
+/** How many top streamers Community shows (by listen hours). */
+export const COMMUNITY_TOP_STREAMERS = 10;
+
 /**
  * Rank community profiles for discovery.
- * Shared genre / catalog taste ranks first; then verified, then followers.
+ * Ordered by listen hours (highest first); returns only the top streamers.
  */
-export function rankCommunityUsers({ users = [], episodes = [], currentUser, query = "", genreFilter = "All", listenHoursMap = {} } = {}) {
+export function rankCommunityUsers({
+  users = [],
+  episodes = [],
+  currentUser,
+  query = "",
+  genreFilter = "All",
+  listenHoursMap = {},
+  limit = COMMUNITY_TOP_STREAMERS,
+} = {}) {
   const me = currentUser?.id;
   const myGenre = normalizeGenre(currentUser?.genre);
   const myTaste = me ? catalogTaste(me, episodes) : { mixCount: 0, topGenre: "", genres: new Map() };
@@ -44,9 +55,6 @@ export function rankCommunityUsers({ users = [], episodes = [], currentUser, que
     const profileGenre = String(user.genre || "").trim();
     const effectiveGenre = taste.topGenre || profileGenre;
     if (filter && effectiveGenre !== filter && profileGenre !== filter) continue;
-
-    const haystack = `${user.username || ""} ${user.handle || ""} ${user.bio || ""} ${user.location || ""} ${effectiveGenre}`.toLowerCase();
-    if (q && !haystack.includes(q)) continue;
 
     let score = 0;
     const reasons = [];
@@ -88,8 +96,21 @@ export function rankCommunityUsers({ users = [], episodes = [], currentUser, que
     });
   }
 
-  scored.sort((a, b) => b.hoursListened - a.hoursListened || b.score - a.score || String(a.user.username).localeCompare(String(b.user.username)));
-  return scored;
+  scored.sort(
+    (a, b) =>
+      b.hoursListened - a.hoursListened ||
+      b.score - a.score ||
+      String(a.user.username).localeCompare(String(b.user.username)),
+  );
+  const cap = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : COMMUNITY_TOP_STREAMERS;
+  const top = scored.slice(0, cap);
+
+  if (!q) return top;
+
+  return top.filter(({ user, topGenre }) => {
+    const haystack = `${user.username || ""} ${user.handle || ""} ${user.bio || ""} ${user.location || ""} ${topGenre || ""}`.toLowerCase();
+    return haystack.includes(q);
+  });
 }
 
 export const COMMUNITY_GENRE_FILTERS = ["All", ...GENRES];

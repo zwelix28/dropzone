@@ -13,6 +13,8 @@ export default function HomeRoute() {
       </div>
     );
   }
-  if (auth.session?.user?.id) return <Navigate to={signedInHomePath()} replace />;
+  if (auth.session?.user?.id) {
+    return <Navigate to={auth.localMode ? "/home" : signedInHomePath()} replace />;
+  }
   return <HomePage />;
 }

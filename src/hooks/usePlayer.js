@@ -4,9 +4,12 @@ import {
   registerExclusiveAudioOwner,
   requestExclusivePlayback,
 } from "../lib/audioExclusive.js";
+import { releaseWarmPlayback } from "../lib/audioPrefetch.js";
 import {
   episodeHasAudioSource,
   episodeHasGuestPlayback,
+  invalidateMixPlaybackUrlCache,
+  prefetchMixPlayback,
   resolveMixPlaybackUrl,
 } from "../lib/audioUrls.js";
 import { getGuestPreviewSegment } from "../lib/forYouPreview.js";
@@ -16,6 +19,7 @@ import {
   savePlaybackProgress,
   shouldResumeAt,
 } from "../lib/playbackProgress.js";
+import { moveQueueIds, orderedQueue } from "../lib/playbackQueue.js";
 import {
   bindMediaSessionActions,
   syncMediaSessionMetadata,
@@ -109,6 +113,9 @@ export default function usePlayer({
   const [progress, setProgress] = useState(0);
   const [volume, setVolume] = useState(75);
   const [shuffleOn, setShuffleOn] = useState(false);
+  /** Null follows catalog order. An array is the listener's queue for this session. */
+  const [queueOrder, setQueueOrderState] = useState(null);
+  const queueOrderRef = useRef(null);
   /** Whole seconds for UI (metadata + track row); updates when audio metadata loads. */
   const [durationSec, setDurationSec] = useState(0);
   const audioRef = useRef(null);
@@ -135,8 +142,12 @@ export default function usePlayer({
 
   if (!audioRef.current && typeof Audio !== "undefined") {
     audioRef.current = new Audio();
-    audioRef.current.preload = "metadata";
+    // Buffer ahead while playing / after src is set — cuts mid-track stalls.
+    audioRef.current.preload = "auto";
   }
+
+  const resolveOptsRef = useRef({ guestPreviewOnly, isAuthenticated });
+  resolveOptsRef.current = { guestPreviewOnly, isAuthenticated };
 
   const isSuspended = useCallback(() => Boolean(suspendRef.current?.()), []);
 
@@ -206,6 +217,15 @@ export default function usePlayer({
         return;
       }
 
+      const rememberInQueue = (mixId) => {
+        const order = queueOrderRef.current;
+        if (!order || !mixId || order.includes(mixId)) return;
+        const next = [mixId, ...order];
+        queueOrderRef.current = next;
+        setQueueOrderState(next);
+      };
+      rememberInQueue(ep.id);
+
       if (currentTrack?.id === ep.id) {
         if (audio.paused) {
           if (guestPreviewOnly && isGuestPreviewEnded(audio)) {
@@ -244,6 +264,7 @@ export default function usePlayer({
       audio.removeAttribute("src");
       audio.load();
       audio.volume = Math.max(0, Math.min(1, volume / 100));
+      audio.preload = "auto";
 
       const url = await resolveMixPlaybackUrl(ep, {
         guestPreviewOnly,
@@ -261,7 +282,9 @@ export default function usePlayer({
         return;
       }
 
+      // Same URL as a standby warmer → browser HTTP cache usually has the first chunks ready.
       audio.src = url;
+      releaseWarmPlayback(ep.id);
 
       if (guestPreviewOnly) {
         const ok = await beginGuestSegmentPlayback(audio, segment.start);
@@ -433,10 +456,31 @@ export default function usePlayer({
     return list.filter((ep) => canPlay(ep));
   }, [getPlaylist, guestPreviewOnly]);
 
+  const queueTracks = orderedQueue(getPlaylistTracks(), queueOrder);
+
+  const commitQueueOrder = useCallback((ids) => {
+    queueOrderRef.current = ids;
+    setQueueOrderState(ids);
+  }, []);
+
+  const moveQueueItem = useCallback(
+    (fromIndex, toIndex) => {
+      const ids = queueTracks.map((episode) => episode.id);
+      commitQueueOrder(moveQueueIds(ids, fromIndex, toIndex));
+    },
+    [commitQueueOrder, queueTracks],
+  );
+
+  const clearQueue = useCallback(() => {
+    const id = currentTrackRef.current?.id;
+    const stillPlaying = id && queueTracks.some((episode) => episode.id === id);
+    commitQueueOrder(stillPlaying ? [id] : []);
+  }, [commitQueueOrder, queueTracks]);
+
   const playAdjacent = useCallback(
     async (direction) => {
       const audio = audioRef.current;
-      const safeList = getPlaylistTracks();
+      const safeList = orderedQueue(getPlaylistTracks(), queueOrderRef.current);
       if (!currentTrack || safeList.length === 0) return;
 
       if (safeList.length === 1 && safeList[0].id === currentTrack.id) {
@@ -490,6 +534,30 @@ export default function usePlayer({
   useEffect(() => {
     playAdjacentRef.current = playAdjacent;
   }, [playAdjacent]);
+
+  // Prefetch the likely next mix so skip / auto-advance starts warmer.
+  useEffect(() => {
+    if (!currentTrack?.id) return;
+    const safeList = orderedQueue(getPlaylistTracks(), queueOrderRef.current);
+    if (safeList.length < 2) return;
+
+    let target = null;
+    if (shuffleOn) {
+      const pool = safeList.filter((e) => e.id !== currentTrack.id);
+      target = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+    } else {
+      const idx = safeList.findIndex((e) => e.id === currentTrack.id);
+      if (idx >= 0) target = safeList[(idx + 1) % safeList.length] || null;
+    }
+    if (!target || target.id === currentTrack.id) return;
+
+    const { guestPreviewOnly: guest, isAuthenticated: authed } = resolveOptsRef.current;
+    void prefetchMixPlayback(target, {
+      guestPreviewOnly: guest,
+      isAuthenticated: authed,
+      preferFullMix: guest,
+    });
+  }, [currentTrack, shuffleOn, queueOrder, getPlaylistTracks]);
 
   const playNext = useCallback(async () => {
     await playAdjacent("next");
@@ -607,7 +675,9 @@ export default function usePlayer({
     const authChanged =
       prev.guestPreviewOnly !== guestPreviewOnly || prev.isAuthenticated !== isAuthenticated;
     prevGuestAuthRef.current = { guestPreviewOnly, isAuthenticated };
-    if (!authChanged || !currentTrack || isSuspended()) return;
+    if (!authChanged) return;
+    invalidateMixPlaybackUrlCache();
+    if (!currentTrack || isSuspended()) return;
     void playTrack(currentTrack);
   }, [guestPreviewOnly, isAuthenticated, currentTrack, playTrack, isSuspended]);
 
@@ -627,6 +697,11 @@ export default function usePlayer({
       seek,
       shuffleOn,
       toggleShuffle,
+      queueOrder,
+      queueTracks,
+      moveQueueItem,
+      clearQueue,
+      replaceQueue: commitQueueOrder,
       guestPreviewOnly,
       isAuthenticated,
     }),
@@ -644,6 +719,11 @@ export default function usePlayer({
       seek,
       shuffleOn,
       toggleShuffle,
+      queueOrder,
+      queueTracks,
+      moveQueueItem,
+      clearQueue,
+      commitQueueOrder,
       guestPreviewOnly,
       isAuthenticated,
     ],

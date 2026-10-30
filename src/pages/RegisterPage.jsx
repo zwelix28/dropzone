@@ -7,6 +7,8 @@ import { signedInHomePath } from "../featureFlags.js";
 import { isSupabaseConfigured } from "../lib/supabaseClient.js";
 import { useApp } from "../context/AppContext.jsx";
 
+const ART = "/DeepHouseLabLogo.png";
+
 export default function RegisterPage() {
   const navigate = useNavigate();
   const { auth } = useApp();
@@ -82,108 +84,53 @@ export default function RegisterPage() {
 
   if (auth.authLoading) {
     return (
-      <div className="landing-page" style={{ color: "var(--text2)" }}>
+      <div className="landing-site auth-loading" style={{ color: "#A9B0BD" }}>
         Loading…
       </div>
     );
   }
 
   return (
-    <div className="landing-page is-ready register-page">
-      <div className="landing-atmosphere" aria-hidden>
-        <div className="landing-atmosphere-image" />
-        <div className="landing-atmosphere-wash" />
-        <div className="landing-atmosphere-grid" />
-        <div className="landing-atmosphere-orb landing-atmosphere-orb-a" />
-        <div className="landing-atmosphere-orb landing-atmosphere-orb-b" />
-      </div>
+    <div className="landing-site register-page">
+      <div className="landing-site-glow" aria-hidden="true" />
 
-      <div className="modal-overlay register-modal-overlay" role="dialog" aria-label="Create account">
-        <div
-          className="modal"
-          style={{
-            width: "100%",
-            maxWidth: 420,
-            position: "relative",
-            margin: 0,
-          }}
-        >
-          <Link
-            to="/"
-            style={{
-              position: "absolute",
-              top: 18,
-              right: 18,
-              background: "none",
-              color: "var(--text3)",
-              padding: 4,
-              lineHeight: 0,
-            }}
-            aria-label="Close"
-          >
+      <div className="modal-overlay register-modal-overlay auth-overlay" role="dialog" aria-label="Create account">
+        <div className="modal auth-card">
+          <Link to="/" className="auth-close auth-close-abs" aria-label="Close">
             <Icon name="x" size={20} />
           </Link>
 
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
-            <img
-              src="/logo-transparent.png"
-              alt="Deep House Lab"
-              width={90}
-              height={90}
-              style={{
-                width: 90,
-                height: 90,
-                borderRadius: 10,
-                objectFit: "contain",
-              }}
-            />
+          <div className="auth-brand">
+            <img src={ART} alt="Deep House Lab" width={72} height={72} />
           </div>
 
-          <div style={{ marginBottom: 28, paddingRight: 28 }}>
-            <div
-              style={{
-                fontFamily: "var(--ff-display)",
-                fontSize: 28,
-                letterSpacing: "0.04em",
-              }}
-            >
-              CREATE ACCOUNT
+          <div className="auth-head auth-head-solo">
+            <div>
+              <h2 className="auth-title">Create account</h2>
+              <p className="auth-sub">Join the Lab — same Home, crates, and player waiting inside.</p>
             </div>
-            <p style={{ fontSize: 13, color: "var(--text2)", marginTop: 2 }}>Join Deep House Lab</p>
           </div>
 
           {!isSupabaseConfigured() ? (
-            <p style={{ color: "var(--orange)", fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>
-              Add <code style={{ color: "var(--accent)" }}>VITE_SUPABASE_URL</code> and{" "}
-              <code style={{ color: "var(--accent)" }}>VITE_SUPABASE_ANON_KEY</code> to{" "}
-              <code style={{ color: "var(--accent)" }}>.env.local</code> and restart the dev server.
+            <p className="auth-notice is-warn">
+              Add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> to{" "}
+              <code>.env.local</code> and restart the dev server.
             </p>
           ) : null}
 
           {localError || auth.authError ? (
-            <p style={{ color: "var(--red)", fontSize: 13, marginBottom: 14 }}>
-              {localError || auth.authError}
-            </p>
+            <p className="auth-notice is-error">{localError || auth.authError}</p>
           ) : null}
 
-          {registerInfo ? (
-            <p style={{ color: "var(--text2)", fontSize: 13, marginBottom: 14, lineHeight: 1.55 }}>{registerInfo}</p>
-          ) : null}
+          {registerInfo ? <p className="auth-notice">{registerInfo}</p> : null}
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 20 }}>
+          <div className="auth-fields">
             <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  marginBottom: 5,
-                  color: "var(--text2)",
-                }}
-              >
+              <label className="auth-label" htmlFor="register-username">
                 Display name
               </label>
               <input
+                id="register-username"
                 className="inp"
                 placeholder="Your DJ name"
                 value={form.username}
@@ -192,18 +139,11 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  marginBottom: 5,
-                  color: "var(--text2)",
-                }}
-              >
+              <label className="auth-label" htmlFor="register-email">
                 Email
               </label>
               <input
+                id="register-email"
                 className="inp"
                 type="email"
                 placeholder="dj@yourlabel.com"
@@ -237,21 +177,29 @@ export default function RegisterPage() {
               hint={confirmTouched && passwordsMatch ? "Passwords match" : undefined}
             />
 
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  marginBottom: 5,
-                  color: "var(--text2)",
-                }}
-              >
-                Primary genre
-              </label>
+            <fieldset className="auth-genre">
+              <legend className="auth-label">Primary genre</legend>
+              <div className="auth-genre-slider" role="radiogroup" aria-label="Primary genre">
+                {GENRES.map((g) => {
+                  const selected = form.genre === g;
+                  return (
+                    <label key={g} className={`auth-genre-chip${selected ? " is-on" : ""}`}>
+                      <input
+                        type="radio"
+                        name="primary-genre"
+                        value={g}
+                        checked={selected}
+                        onChange={() => setForm((f) => ({ ...f, genre: g }))}
+                      />
+                      <span>{g}</span>
+                    </label>
+                  );
+                })}
+              </div>
               <select
-                className="inp"
+                className="inp auth-genre-select"
                 value={form.genre}
+                aria-label="Primary genre"
                 onChange={(e) => setForm((f) => ({ ...f, genre: e.target.value }))}
               >
                 {GENRES.map((g) => (
@@ -260,32 +208,25 @@ export default function RegisterPage() {
                   </option>
                 ))}
               </select>
-            </div>
+            </fieldset>
           </div>
 
           <button
-            className="btn btn-primary"
-            style={{
-              width: "100%",
-              justifyContent: "center",
-              padding: "12px",
-              marginBottom: 16,
-            }}
+            type="button"
+            className="auth-submit"
             onClick={() => void handleSubmit()}
             disabled={busy || !isSupabaseConfigured() || !canSubmit}
           >
-            {busy ? "Please wait…" : "Create Account"}
+            {busy ? "Please wait…" : "Create account"}
           </button>
 
-          <div style={{ textAlign: "center", fontSize: 13, color: "var(--text3)" }}>
-            Already have an account?{" "}
-            <button
-              type="button"
-              style={{ background: "none", color: "var(--accent)", fontWeight: 600 }}
-              onClick={goSignIn}
-            >
-              Sign In
-            </button>
+          <div className="auth-foot">
+            <p>
+              Already have an account?{" "}
+              <button type="button" className="auth-link" onClick={goSignIn}>
+                Sign in
+              </button>
+            </p>
           </div>
         </div>
       </div>

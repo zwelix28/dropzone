@@ -2,6 +2,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import AuthModal from "../components/AuthModal.jsx";
 import DesktopNowPlaying from "../components/DesktopNowPlaying.jsx";
+import MobileBottomNav from "../components/MobileBottomNav.jsx";
 import MobileNowPlaying from "../components/MobileNowPlaying.jsx";
 import PlayerBar from "../components/PlayerBar.jsx";
 import Sidebar, { DESKTOP_SIDEBAR_WIDTH } from "../components/Sidebar.jsx";
@@ -13,9 +14,11 @@ import PendingApprovalGate from "../components/PendingApprovalGate.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import usePresenceHeartbeat from "../hooks/usePresenceHeartbeat.js";
 import { isAccountApproved } from "../lib/accountAccess.js";
+import { isLocalMode } from "../lib/localMode.js";
 
 export default function AppLayout() {
   const { auth, player, users, notificationsByUser, markAllRead, markRead, refreshNotifications, dmUnreadCount } = useApp();
+  const localMode = isLocalMode();
   const [showNotifications, setShowNotifications] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [mobileFullPlayerOpen, setMobileFullPlayerOpen] = useState(false);
@@ -36,6 +39,8 @@ export default function AppLayout() {
   const registeredMobile = Boolean(isMobile && auth.session?.user?.id);
   const showMobileFullPlayer =
     registeredMobile && mobileFullPlayerOpen && Boolean(player.currentTrack);
+  const showMobileTabNav =
+    isMobile && Boolean(auth.session?.user?.id) && !mobileFullPlayerOpen;
   const showMobileBottomBar =
     isMobile && auth.session?.user?.id && player.currentTrack && !mobileFullPlayerOpen;
   const showDesktopExpandedPlayer =
@@ -109,11 +114,11 @@ export default function AppLayout() {
   }, [showMobileFullPlayer]);
 
   const mainBottomPad = isForYou
-    ? 0
+    ? showMobileTabNav
+      ? 64
+      : 0
     : isMobile
-      ? showMobileBottomBar
-        ? 118
-        : 24
+      ? (showMobileTabNav ? 64 : 0) + (showMobileBottomBar ? 96 : showMobileTabNav ? 12 : 24)
       : player.currentTrack
         ? 96
         : 0;
@@ -149,6 +154,29 @@ export default function AppLayout() {
       <FontLoader />
       <GlobalStyles />
 
+      {localMode && !isMobile ? (
+        <div
+          role="status"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 200,
+            padding: "8px 16px",
+            background: "#3D2A12",
+            color: "#F4E6A8",
+            fontSize: 12,
+            fontWeight: 600,
+            letterSpacing: "0.02em",
+            textAlign: "center",
+            borderBottom: "1px solid #5C4020",
+          }}
+        >
+          Local testing mode — Supabase cloud login is off. Set VITE_LOCAL_MODE=false to resume public testing.
+        </div>
+      ) : null}
+
       <div
         style={{
           display: "flex",
@@ -156,6 +184,8 @@ export default function AppLayout() {
           height: isMobile ? (isForYou ? "100dvh" : "auto") : "100vh",
           overflow: isMobile && isForYou ? "hidden" : isMobile ? "visible" : "hidden",
           flexDirection: isMobile ? "column" : "row",
+          paddingTop: localMode && !isMobile ? 36 : 0,
+          boxSizing: "border-box",
         }}
       >
         {!isMobile ? (
@@ -196,6 +226,7 @@ export default function AppLayout() {
               showMenuButton={isMobile}
               onMenuClick={() => setNavOpen(true)}
               pinHeader={isMobile && isForYou}
+              showNotificationsButton={!showMobileTabNav}
               onToggleNotifications={() => {
                 setShowNotifications((v) => {
                   const next = !v;
@@ -279,6 +310,10 @@ export default function AppLayout() {
           onNext={() => void player.playNext()}
           shuffleOn={player.shuffleOn}
           onToggleShuffle={player.toggleShuffle}
+          queueTracks={player.queueTracks}
+          onReplaceQueue={player.replaceQueue}
+          onClearQueue={player.clearQueue}
+          onPlayTrack={(episode) => void player.playTrack(episode)}
         />
       ) : null}
 
@@ -297,6 +332,7 @@ export default function AppLayout() {
           onNext={() => void player.playNext()}
           shuffleOn={player.shuffleOn}
           onToggleShuffle={player.toggleShuffle}
+          elevatedForTabNav={showMobileTabNav}
           onExpandFullPlayer={
             player.currentTrack
               ? () => {
@@ -305,6 +341,20 @@ export default function AppLayout() {
                 }
               : undefined
           }
+        />
+      ) : null}
+
+      {showMobileTabNav ? (
+        <MobileBottomNav
+          unreadCount={unreadCount}
+          notificationsOpen={showNotifications}
+          onNotifications={() => {
+            setShowNotifications((v) => {
+              const next = !v;
+              if (next && auth.currentUser) void refreshNotifications();
+              return next;
+            });
+          }}
         />
       ) : null}
 

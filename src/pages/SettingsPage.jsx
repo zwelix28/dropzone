@@ -102,24 +102,21 @@ function WithdrawPanel({ uid, onWithdraw, busy, compact }) {
   );
 }
 
-function SettingsSection({ title, description, children, compact }) {
+function SettingsSection({ title, description, children, compact, icon }) {
   return (
-    <section
-      style={{
-        background: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: compact ? 12 : 14,
-        padding: compact ? "14px" : "18px 20px",
-        marginBottom: compact ? 14 : 16,
-      }}
-    >
-      <h2 style={{ fontWeight: 700, fontSize: compact ? 14 : 16, margin: "0 0 4px" }}>{title}</h2>
-      {description ? (
-        <p style={{ fontSize: compact ? 11 : 12, color: "var(--text3)", margin: "0 0 14px", lineHeight: 1.5 }}>
-          {description}
-        </p>
-      ) : null}
-      {children}
+    <section className={`settings-section${compact ? " is-compact" : ""}`}>
+      <div className="settings-section-head">
+        {icon ? (
+          <span className="settings-section-icon" aria-hidden="true">
+            <Icon name={icon} size={compact ? 14 : 16} color="var(--accent)" />
+          </span>
+        ) : null}
+        <div className="settings-section-titles">
+          <h2>{title}</h2>
+          {description ? <p>{description}</p> : null}
+        </div>
+      </div>
+      <div className="settings-section-body">{children}</div>
     </section>
   );
 }
@@ -492,53 +489,40 @@ export default function SettingsPage() {
   const fieldGap = isCompact ? 12 : 14;
 
   return (
-    <div className="fade-in" style={{ padding: pagePad, paddingBottom: 120 }}>
-      <div style={{ maxWidth: 640, margin: "0 auto" }}>
+    <div className="fade-in settings-page" style={{ padding: pagePad, paddingBottom: 120 }}>
+      <div className="settings-shell">
         <div style={{ marginBottom: isCompact ? 12 : 16 }}>
           <BackButton to="/profile" label="Profile" />
         </div>
 
-        <PageHeader icon="settings" title="SETTINGS" />
+        <PageHeader icon="settings" title="SETTINGS" large marginBottom={isCompact ? 10 : 14} />
+        <p className="settings-lede">
+          Manage your photo, public profile, plan, notifications, and password for Deep House Lab.
+        </p>
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            borderRadius: isCompact ? 10 : 12,
-            padding: isCompact ? "10px 12px" : "12px 16px",
-            marginBottom: isCompact ? 14 : 16,
-          }}
-        >
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text3)", letterSpacing: "0.08em" }}>PLAN</div>
-            <div style={{ fontSize: isCompact ? 14 : 16, fontWeight: 700, marginTop: 2 }}>{planLabel(currentUser?.plan)}</div>
+        <div className={`settings-plan-card${isProPlan(currentUser) ? " is-pro" : ""}`}>
+          <div className="settings-plan-copy">
+            <div className="settings-plan-kicker">Current plan</div>
+            <div className="settings-plan-name">{planLabel(currentUser?.plan)}</div>
+            <p className="settings-plan-note">
+              {isProPlan(currentUser)
+                ? "Pro unlocks downloads and seller tools across the lab."
+                : "Upgrade when you need downloads and creator payouts."}
+            </p>
           </div>
-          {isProPlan(currentUser) ? (
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 800,
-                letterSpacing: "0.08em",
-                color: "#fff",
-                background: "rgb(22, 163, 74)",
-                padding: "4px 8px",
-                borderRadius: 6,
-              }}
-            >
-              PRO
-            </span>
-          ) : null}
+          {isProPlan(currentUser) ? <span className="settings-plan-badge">PRO</span> : null}
         </div>
 
         {error ? (
           <p style={{ color: "var(--red)", marginBottom: 14, fontSize: isCompact ? 12 : 13 }}>{error}</p>
         ) : null}
 
-        <SettingsSection title="Profile photo" description="Shown on your profile, mixes, and in the header." compact={isCompact}>
+        <SettingsSection
+          title="Profile photo"
+          description="Shown on your profile, mixes, and in the header."
+          compact={isCompact}
+          icon="user"
+        >
           <div
             style={{
               display: "flex",
@@ -583,7 +567,12 @@ export default function SettingsPage() {
           ) : null}
         </SettingsSection>
 
-        <SettingsSection title="Public profile" description="How you appear to listeners across Deep House Lab." compact={isCompact}>
+        <SettingsSection
+          title="Public profile"
+          description="How you appear to listeners across Deep House Lab."
+          compact={isCompact}
+          icon="edit"
+        >
           <div style={{ display: "flex", flexDirection: "column", gap: fieldGap }}>
             <div>
               <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}>
@@ -659,6 +648,7 @@ export default function SettingsPage() {
                 title="Pro & Payments"
                 description="Manage your bank account for earnings withdrawals. Funds are available after each calendar month ends."
                 compact={isCompact}
+                icon="award"
               >
                 {subToast ? (
                   <p style={{ color: "var(--green)", fontSize: 12, marginBottom: 10 }}>{subToast}</p>
@@ -729,6 +719,7 @@ export default function SettingsPage() {
                 title="Withdraw earnings"
                 description="Earnings are held per calendar month. Once a month ends you can request a payout. Minimum payout is R50."
                 compact={isCompact}
+                icon="download"
               >
                 {withdrawToast ? (
                   <p style={{ fontSize: 12, marginBottom: 10, color: withdrawToast.startsWith("Withdrawal") ? "var(--green)" : "var(--red)" }}>
@@ -750,6 +741,7 @@ export default function SettingsPage() {
           title="New mix alerts"
           description="Get an email and a phone push notification whenever a new mix goes live. In-app bell notifications stay on."
           compact={isCompact}
+          icon="bell"
         >
           {notifyToast ? (
             <p style={{ color: "var(--text2)", fontSize: isCompact ? 12 : 13, margin: "0 0 10px" }}>{notifyToast}</p>
@@ -877,6 +869,7 @@ export default function SettingsPage() {
             </>
           }
           compact={isCompact}
+          icon="shield"
         >
           {passwordError ? (
             <p style={{ color: "var(--red)", fontSize: isCompact ? 12 : 13, margin: "0 0 10px" }}>{passwordError}</p>

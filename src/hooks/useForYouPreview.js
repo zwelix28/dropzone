@@ -4,7 +4,8 @@ import {
   registerExclusiveAudioOwner,
   requestExclusivePlayback,
 } from "../lib/audioExclusive.js";
-import { resolveMixPlaybackUrl } from "../lib/audioUrls.js";
+import { warmPlaybackUrl } from "../lib/audioPrefetch.js";
+import { prefetchMixPlayback, resolveMixPlaybackUrl } from "../lib/audioUrls.js";
 import {
   FOR_YOU_PREVIEW_SEC,
   getGuestPreviewSegment,
@@ -30,8 +31,6 @@ export default function useForYouPreview({ isAuthenticated, getArtistName = null
   const audioRef = useRef(null);
   const segmentRef = useRef({ start: 0, end: FOR_YOU_PREVIEW_SEC });
   const generationRef = useRef(0);
-  const urlCacheRef = useRef(new Map());
-  const warmAudioRef = useRef(new Map());
   const getArtistNameRef = useRef(getArtistName);
   getArtistNameRef.current = getArtistName;
   const trackRef = useRef(null);
@@ -42,36 +41,29 @@ export default function useForYouPreview({ isAuthenticated, getArtistName = null
     audioRef.current.preload = "auto";
   }
 
-  const resolveUrl = useCallback(
-    async (ep) => {
-      if (!ep?.id) return null;
-      const cached = urlCacheRef.current.get(ep.id);
-      if (cached) return cached;
-      const url = await resolveMixPlaybackUrl(ep, {
-        guestPreviewOnly: !isAuthenticated,
-        isAuthenticated,
-        preferFullMix: true,
-      });
-      if (url) urlCacheRef.current.set(ep.id, url);
-      return url;
-    },
+  const resolveOpts = useCallback(
+    () => ({
+      guestPreviewOnly: !isAuthenticated,
+      isAuthenticated,
+      preferFullMix: true,
+    }),
     [isAuthenticated],
   );
 
-  const warmUrl = useCallback((ep, url) => {
-    if (!ep?.id || !url || warmAudioRef.current.has(ep.id)) return;
-    const warm = new Audio();
-    warm.preload = "auto";
-    warm.src = url;
-    warmAudioRef.current.set(ep.id, warm);
-  }, []);
+  const resolveUrl = useCallback(
+    async (ep) => {
+      if (!ep?.id) return null;
+      return resolveMixPlaybackUrl(ep, resolveOpts());
+    },
+    [resolveOpts],
+  );
 
   const prefetch = useCallback(
     (ep) => {
       if (!ep) return;
-      void resolveUrl(ep).then((url) => warmUrl(ep, url));
+      void prefetchMixPlayback(ep, resolveOpts());
     },
-    [resolveUrl, warmUrl],
+    [resolveOpts],
   );
 
   const stop = useCallback(() => {
@@ -236,7 +228,8 @@ export default function useForYouPreview({ isAuthenticated, getArtistName = null
         return false;
       }
 
-      warmUrl(ep, url);
+      if (url && ep.id) warmPlaybackUrl(ep.id, url);
+      audio.preload = "auto";
       if (audio.src !== url) {
         audio.src = url;
       }

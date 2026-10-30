@@ -11,7 +11,7 @@ const IOS_STEPS = [
   { icon: "check", text: "Tap Add, then open Deep House Lab from your home screen." },
 ];
 
-function IosInstructions({ onClose }) {
+export function IosInstructions({ onClose }) {
   return createPortal(
     <div
       role="dialog"

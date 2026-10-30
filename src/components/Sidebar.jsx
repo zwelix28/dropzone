@@ -3,47 +3,36 @@ import { FEATURE_DISCOVER, FEATURE_LETS_DJ, FEATURE_LIVE, FEATURE_STATS, FEATURE
 import Icon from "./Icon.jsx";
 import UserAvatar from "./UserAvatar.jsx";
 
-function NavBtn({ to, icon, label, onClose, compact = false }) {
-  const iconSize = compact ? 16 : 20;
+function NavBtn({ to, icon, label, onClose, compact = false, state }) {
+  const iconSize = compact ? 16 : 18;
   return (
     <NavLink
       to={to}
-      className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+      state={state}
+      className={({ isActive }) => `nav-link${isActive ? " active" : ""}${compact ? " is-compact" : ""}`}
       onClick={() => onClose?.()}
     >
-      <Icon name={icon} size={iconSize} />
-      {label}
+      <span className="nav-link-icon" aria-hidden="true">
+        <Icon name={icon} size={iconSize} />
+      </span>
+      <span className="nav-link-label">{label}</span>
     </NavLink>
   );
 }
 
 function LiveNavBtn({ onClose, compact = false }) {
-  const iconSize = compact ? 16 : 20;
+  const iconSize = compact ? 16 : 18;
   return (
     <NavLink
       to="/live"
-      className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: compact ? 6 : 8 }}
+      className={({ isActive }) => `nav-link nav-link-live${isActive ? " active" : ""}${compact ? " is-compact" : ""}`}
       onClick={() => onClose?.()}
     >
-      <span style={{ display: "inline-flex", alignItems: "center", gap: compact ? 6 : 8 }}>
+      <span className="nav-link-icon" aria-hidden="true">
         <Icon name="radio" size={iconSize} />
-        Live
       </span>
-      <span
-        title="Pro plan"
-        style={{
-          fontSize: compact ? 9 : 11,
-          fontWeight: 800,
-          letterSpacing: "0.08em",
-          color: "#fff",
-          background: "rgb(22, 163, 74)",
-          padding: "2px 6px",
-          borderRadius: 4,
-          lineHeight: 1.2,
-          flexShrink: 0,
-        }}
-      >
+      <span className="nav-link-label">Live</span>
+      <span className="nav-link-pro" title="Pro plan">
         PRO
       </span>
     </NavLink>
@@ -59,118 +48,49 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
   const isDrawer = variant === "drawer";
 
   return (
-    <aside
-      className={isDrawer ? "sidebar-drawer" : "sidebar-desktop"}
-      style={{
-        width: isDrawer ? "100%" : DESKTOP_SIDEBAR_WIDTH,
-        height: "auto",
-        maxHeight: isDrawer ? "100%" : "calc(100dvh - 16px)",
-        background: "var(--bg2)",
-        borderRight: isDrawer ? "none" : "1px solid var(--border)",
-        borderBottom: "1px solid var(--border)",
-        borderRadius: isDrawer ? "0 0 22px 22px" : "0 0 22px 0",
-        padding: isDrawer ? "0 11px 14px" : "0 14px 16px",
-        position: isDrawer ? "relative" : "fixed",
-        top: isDrawer ? "auto" : 0,
-        left: isDrawer ? "auto" : 0,
-        zIndex: isDrawer ? "auto" : 250,
-        flexShrink: 0,
-        display: "flex",
-        flexDirection: "column",
-        overflowY: "auto",
-        WebkitOverflowScrolling: "touch",
-        boxShadow: isDrawer
-          ? "0 18px 40px rgba(0,0,0,0.35)"
-          : "8px 16px 36px rgba(0,0,0,0.28)",
-      }}
-    >
+    <aside className={isDrawer ? "sidebar-shell sidebar-drawer" : "sidebar-shell sidebar-desktop"} data-unread={dmUnreadCount || undefined}>
+      <div className="sidebar-shell-glow" aria-hidden="true" />
+
       {isDrawer ? (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 10,
-            padding: "11px 3px 10px",
-            borderBottom: "1px solid var(--border)",
-            marginBottom: 10,
-            flexShrink: 0,
-          }}
-        >
-          <span style={{ fontWeight: 800, fontSize: 14, color: "var(--text2)", letterSpacing: "0.06em" }}>
-            Menu
-          </span>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            aria-label="Close menu"
-            onClick={() => onClose?.()}
-            style={{ padding: "6px 8px", minWidth: 32, justifyContent: "center" }}
-          >
-            <Icon name="x" size={19} color="var(--text2)" />
+        <div className="sidebar-drawer-bar">
+          <span className="sidebar-drawer-title">Menu</span>
+          <button type="button" className="sidebar-drawer-close" aria-label="Close menu" onClick={() => onClose?.()}>
+            <Icon name="x" size={18} />
           </button>
         </div>
       ) : null}
 
-      <div
-        style={{
-          padding: isDrawer ? "0 6px 13px" : "22px 8px 20px",
-          borderBottom: isDrawer ? "none" : "1px solid var(--border)",
-          marginBottom: isDrawer ? 6 : 16,
-          flexShrink: 0,
-        }}
-      >
+      <div className={`sidebar-brand${isDrawer ? " is-drawer" : ""}`}>
         <Link
           to={currentUser ? signedInHomePath() : "/"}
-          style={{ textDecoration: "none", color: "inherit" }}
+          className="sidebar-brand-link"
           onClick={() => onClose?.()}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: isDrawer ? 8 : 10 }}>
-            <img
-              src="/logo.png"
-              alt="Deep House Lab"
-              width={isDrawer ? 34 : 43}
-              height={isDrawer ? 34 : 43}
-              style={{
-                width: isDrawer ? 34 : 43,
-                height: isDrawer ? 34 : 43,
-                borderRadius: isDrawer ? 8 : 10,
-                objectFit: "contain",
-                flexShrink: 0,
-              }}
-            />
-            <div style={{ minWidth: 0, overflow: "hidden" }}>
-              <div
-                style={{
-                  fontFamily: "var(--ff-brand)",
-                  fontSize: isDrawer ? 15 : 17,
-                  fontWeight: 700,
-                  letterSpacing: "-0.02em",
-                  lineHeight: 1.15,
-                }}
-              >
-                Deep House Lab
-              </div>
-            </div>
-          </div>
+          <img
+            src="/logo.png"
+            alt="Deep House Lab"
+            width={isDrawer ? 34 : 42}
+            height={isDrawer ? 34 : 42}
+            className="sidebar-brand-mark"
+          />
+          <span className="sidebar-brand-name">Deep House Lab</span>
         </Link>
       </div>
 
       <div className="sidebar-nav-body">
-        <div style={{ marginBottom: 8 }}>
-          <div
-            style={{
-              fontSize: isDrawer ? 10 : 12,
-              fontWeight: 700,
-              color: "var(--text3)",
-              letterSpacing: "0.12em",
-              padding: "0 8px",
-              marginBottom: isDrawer ? 5 : 6,
-            }}
-          >
-            MAIN
-          </div>
+        <div className="sidebar-nav-group">
+          <div className="sidebar-nav-heading">Main</div>
           {!currentUser ? <NavBtn compact={isDrawer} to="/" icon="home" label="Home" onClose={onClose} /> : null}
+          {currentUser ? (
+            <NavBtn
+              compact={isDrawer}
+              to="/home"
+              icon="home"
+              label="Home"
+              onClose={onClose}
+              state={{ resetHomeGenre: true }}
+            />
+          ) : null}
           <NavBtn compact={isDrawer} to="/foryou" icon="zap" label="For You" onClose={onClose} />
           {currentUser && FEATURE_VAULT_FEED ? (
             <NavBtn compact={isDrawer} to="/vault-feed" icon="list" label="Vault Feed" onClose={onClose} />
@@ -187,20 +107,9 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
           {FEATURE_LETS_DJ ? <NavBtn compact={isDrawer} to="/dj" icon="disc" label={"Let's DJ"} onClose={onClose} /> : null}
         </div>
 
-        {currentUser && (
-          <div style={{ marginTop: isDrawer ? 13 : 16 }}>
-            <div
-              style={{
-                fontSize: isDrawer ? 10 : 12,
-                fontWeight: 700,
-                color: "var(--text3)",
-                letterSpacing: "0.12em",
-                padding: "0 8px",
-                marginBottom: isDrawer ? 5 : 6,
-              }}
-            >
-              ACCOUNT
-            </div>
+        {currentUser ? (
+          <div className="sidebar-nav-group">
+            <div className="sidebar-nav-heading">Account</div>
             {FEATURE_STATS ? <NavBtn compact={isDrawer} to="/stats" icon="bar2" label="My Stats" onClose={onClose} /> : null}
             <NavBtn compact={isDrawer} to="/likes" icon="heart" label="Likes" onClose={onClose} />
             <NavBtn compact={isDrawer} to="/community" icon="community" label="Community" onClose={onClose} />
@@ -209,66 +118,42 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
             <NavBtn compact={isDrawer} to="/settings" icon="settings" label="Settings" onClose={onClose} />
             {currentUser?.isAdmin ? <NavBtn compact={isDrawer} to="/admin" icon="shield" label="Admin Panel" onClose={onClose} /> : null}
           </div>
-        )}
+        ) : null}
 
-        <div className="sidebar-account-footer" style={{ marginTop: isDrawer ? 14 : 18 }}>
+        <div className="sidebar-account-footer">
           {currentUser ? (
-            <div
-              style={{
-                background: "var(--surface)",
-                border: "1px solid var(--border)",
-                borderRadius: isDrawer ? 12 : 14,
-                padding: isDrawer ? "10px 11px" : "12px 14px",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: isDrawer ? 8 : 10, marginBottom: isDrawer ? 8 : 10 }}>
-                <UserAvatar user={currentUser} size={isDrawer ? 33 : 41} showVerified />
-                <div style={{ overflow: "hidden" }}>
-                  <div
-                    style={{
-                      fontWeight: 600,
-                      fontSize: isDrawer ? 13 : 16,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {currentUser.username}
-                  </div>
-                  <div style={{ fontSize: isDrawer ? 10 : 13, color: "var(--accent)" }}>{currentUser.handle}</div>
+            <div className="sidebar-user-card">
+              <div className="sidebar-user-row">
+                <UserAvatar user={currentUser} size={isDrawer ? 28 : 40} showVerified />
+                <div className="sidebar-user-meta">
+                  <div className="sidebar-user-name">{currentUser.username}</div>
+                  <div className="sidebar-user-handle">{currentUser.handle}</div>
                 </div>
               </div>
               <button
-                className="btn btn-ghost"
-                style={{
-                  width: "100%",
-                  padding: isDrawer ? "6px" : "7px",
-                  justifyContent: "center",
-                  fontSize: isDrawer ? 13 : 16,
-                }}
+                type="button"
+                className="sidebar-logout"
                 onClick={() => {
                   onClose?.();
                   onLogout();
                 }}
               >
-                <Icon name="logout" size={isDrawer ? 14 : 17} />
+                <Icon name="logout" size={isDrawer ? 14 : 16} />
                 Logout
               </button>
             </div>
           ) : (
-            <div style={{ padding: "0 4px" }}>
-              <button
-                className="btn btn-primary"
-                style={{ width: "100%", justifyContent: "center", marginBottom: 4 }}
-                onClick={() => {
-                  onClose?.();
-                  onLogin();
-                }}
-              >
-                <Icon name="user" size={isDrawer ? 14 : 18} />
-                Sign In
-              </button>
-            </div>
+            <button
+              type="button"
+              className="sidebar-signin"
+              onClick={() => {
+                onClose?.();
+                onLogin();
+              }}
+            >
+              <Icon name="user" size={isDrawer ? 14 : 17} />
+              Sign In
+            </button>
           )}
         </div>
       </div>

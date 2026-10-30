@@ -1,7 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { normalizePlan } from "../constants/plans.js";
 import { ensureFollowDhlab } from "../lib/followDhlab.js";
+import {
+  getLocalDemoProfile,
+  getLocalDemoSession,
+  hasLocalAuthSession,
+  isLocalMode,
+  LOCAL_TEST_EMAIL,
+  LOCAL_TEST_PASSWORD,
+  setLocalAuthSession,
+} from "../lib/localMode.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
+
+const LOCAL_SIGNUP_PAUSED =
+  "Local testing uses the account local@deephouselab.test. Sign in with that account.";
 
 /** User-facing copy for common GoTrue / Supabase Auth responses */
 function formatAuthError(error) {
@@ -67,7 +79,27 @@ export default function useAuth() {
     setProfile(mapProfile(data));
   }, []);
 
+  const enterLocalSession = useCallback(() => {
+    setAuthError(null);
+    setShowAuth(false);
+    setLocalAuthSession(true);
+    setSession(getLocalDemoSession());
+    setProfile(getLocalDemoProfile());
+    setLoading(false);
+    return { ok: true };
+  }, []);
+
   useEffect(() => {
+    if (isLocalMode()) {
+      if (hasLocalAuthSession()) enterLocalSession();
+      else {
+        setSession(null);
+        setProfile(null);
+        setLoading(false);
+      }
+      return;
+    }
+
     if (!isSupabaseConfigured()) {
       setLoading(false);
       return;
@@ -89,9 +121,20 @@ export default function useAuth() {
     });
 
     return () => subscription.unsubscribe();
-  }, [loadProfile]);
+  }, [loadProfile, enterLocalSession]);
 
   const signInWithEmailPassword = useCallback(async (email, password) => {
+    if (isLocalMode()) {
+      const emailOk = email.trim().toLowerCase() === LOCAL_TEST_EMAIL;
+      const passwordOk = password === LOCAL_TEST_PASSWORD;
+      if (!emailOk || !passwordOk) {
+        const shown = "That local test login did not match. Use local@deephouselab.test and localtest.";
+        setAuthError(shown);
+        return { ok: false, error: shown };
+      }
+      enterLocalSession();
+      return { ok: true };
+    }
     if (!isSupabaseConfigured()) return { ok: false, error: "Supabase is not configured" };
     setAuthError(null);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -101,9 +144,10 @@ export default function useAuth() {
       return { ok: false, error: shown };
     }
     return { ok: true };
-  }, []);
+  }, [enterLocalSession]);
 
   const signUp = useCallback(async (email, password, { username, genre }) => {
+    if (isLocalMode()) return { ok: false, error: LOCAL_SIGNUP_PAUSED };
     if (!isSupabaseConfigured()) return { ok: false, error: "Supabase is not configured" };
     setAuthError(null);
     const uname = (username || "").trim() || email.split("@")[0];
@@ -157,6 +201,7 @@ export default function useAuth() {
   }, []);
 
   const requestPasswordReset = useCallback(async (email) => {
+    if (isLocalMode()) return { ok: false, error: LOCAL_SIGNUP_PAUSED };
     if (!isSupabaseConfigured()) return { ok: false, error: "Supabase is not configured" };
     setAuthError(null);
     const redirectTo =
@@ -173,6 +218,7 @@ export default function useAuth() {
   }, []);
 
   const updatePassword = useCallback(async (newPassword) => {
+    if (isLocalMode()) return { ok: false, error: LOCAL_SIGNUP_PAUSED };
     if (!isSupabaseConfigured()) return { ok: false, error: "Supabase is not configured" };
     setAuthError(null);
     const { error } = await supabase.auth.updateUser({ password: newPassword });
@@ -185,6 +231,13 @@ export default function useAuth() {
   }, []);
 
   const signOut = useCallback(async () => {
+    if (isLocalMode()) {
+      setLocalAuthSession(false);
+      setAuthError(null);
+      setSession(null);
+      setProfile(null);
+      return;
+    }
     if (!isSupabaseConfigured()) return;
     await supabase.auth.signOut();
     setProfile(null);
@@ -192,6 +245,10 @@ export default function useAuth() {
   }, []);
 
   const refreshProfile = useCallback(async () => {
+    if (isLocalMode()) {
+      if (session?.user?.id) setProfile(getLocalDemoProfile());
+      return;
+    }
     const uid = session?.user?.id;
     if (uid) await loadProfile(uid);
   }, [session?.user?.id, loadProfile]);
@@ -211,6 +268,8 @@ export default function useAuth() {
       updatePassword,
       signOut,
       refreshProfile,
+      enterLocalSession,
+      localMode: isLocalMode(),
       /** @deprecated use signOut */
       logout: signOut,
       /** legacy no-op — profile updates go through Supabase */
@@ -229,6 +288,7 @@ export default function useAuth() {
       updatePassword,
       signOut,
       refreshProfile,
+      enterLocalSession,
     ],
   );
 }

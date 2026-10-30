@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
 import AdminInsightsPanel from "../components/admin/AdminInsightsPanel.jsx";
+import DjOfMonthPanel from "../components/admin/DjOfMonthPanel.jsx";
 import PageHeader from "../components/PageHeader.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
@@ -19,29 +20,20 @@ const TABS = [
   { id: "users", label: "Users", icon: "people" },
   { id: "submissions", label: "Submissions", icon: "send" },
   { id: "mixes", label: "Mixes", icon: "music" },
+  { id: "dj", label: "DJ of the month", icon: "user" },
   { id: "logs", label: "Audit log", icon: "list" },
 ];
 
 function tableShell(children, compact) {
   return (
-    <div
-      style={{
-        overflowX: "auto",
-        background: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: compact ? 8 : 12,
-        WebkitOverflowScrolling: "touch",
-      }}
-    >
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: compact ? 11 : 13 }}>
-        {children}
-      </table>
+    <div className={`admin-table-shell${compact ? " is-compact" : ""}`}>
+      <table className="admin-table">{children}</table>
     </div>
   );
 }
 
 export default function AdminDashboardPage() {
-  const { auth, episodes, refreshMixes, refreshProfiles } = useApp();
+  const { auth, episodes, users, refreshMixes, refreshProfiles } = useApp();
   const adminId = auth.session?.user?.id;
   const isCompact = useMediaQuery("(max-width: 720px)");
   const [tab, setTab] = useState("insights");
@@ -346,63 +338,36 @@ export default function AdminDashboardPage() {
   const pagePad = isCompact ? "16px 12px" : "32px 36px";
 
   return (
-    <div className="fade-in" style={{ padding: pagePad, paddingBottom: 120 }}>
-      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        <PageHeader icon="shield" title="ADMIN" />
+    <div className="fade-in admin-page" style={{ padding: pagePad, paddingBottom: 120 }}>
+      <div className="admin-shell">
+        <div className="admin-hero">
+          <PageHeader icon="shield" title="ADMIN" large marginBottom={isCompact ? 8 : 10} />
+          <p className="admin-lede">
+            Site pulse, approvals, catalog control, and DJ of the month — run Deep House Lab from one console.
+          </p>
+        </div>
 
         {error ? (
-          <div
-            style={{
-              marginBottom: 16,
-              padding: isCompact ? "10px 12px" : "12px 14px",
-              borderRadius: 10,
-              background: "rgba(248,113,113,0.1)",
-              border: "1px solid rgba(248,113,113,0.25)",
-              color: "var(--red)",
-              fontSize: isCompact ? 12 : 13,
-            }}
-          >
+          <div className="admin-error" role="alert">
             {error}
           </div>
         ) : null}
 
-        <div
-          style={{
-            display: "flex",
-            gap: 4,
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            borderRadius: 10,
-            padding: 4,
-            marginBottom: isCompact ? 16 : 20,
-            width: "100%",
-            overflowX: "auto",
-            WebkitOverflowScrolling: "touch",
-          }}
-        >
+        <div className="admin-tabs" role="tablist" aria-label="Admin sections">
           {TABS.map((t) => (
             <button
               key={t.id}
               type="button"
+              role="tab"
+              aria-selected={tab === t.id}
+              className={`admin-tab${tab === t.id ? " is-on" : ""}`}
               onClick={() => setTab(t.id)}
-              style={{
-                flex: isCompact ? "0 0 auto" : 1,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-                padding: isCompact ? "8px 12px" : "8px 10px",
-                borderRadius: 8,
-                fontSize: 12,
-                fontWeight: 600,
-                whiteSpace: "nowrap",
-                background: tab === t.id ? "var(--accent2)" : "transparent",
-                color: tab === t.id ? "#07090F" : "var(--text2)",
-                transition: "all 0.2s",
-              }}
             >
               <Icon name={t.icon} size={14} />
-              {t.label}
+              <span>{t.label}</span>
+              {t.id === "submissions" && pendingSubmissions.length > 0 ? (
+                <span className="admin-tab-badge">{pendingSubmissions.length}</span>
+              ) : null}
             </button>
           ))}
         </div>
@@ -410,13 +375,7 @@ export default function AdminDashboardPage() {
         {tab === "insights" && <AdminInsightsPanel />}
 
         {tab === "overview" && (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: isCompact ? "repeat(2, minmax(0, 1fr))" : "repeat(3, minmax(0, 1fr))",
-              gap: isCompact ? 8 : 12,
-            }}
-          >
+          <div className="admin-stat-grid">
             {[
               { label: "Users", value: overview.users, icon: "people", color: "var(--accent)" },
               { label: "Pending", value: overview.pending, icon: "shield", color: "var(--orange)" },
@@ -426,52 +385,26 @@ export default function AdminDashboardPage() {
               { label: "Verified", value: overview.verifiedArtists, icon: "award", color: "var(--orange)" },
               { label: "Admins", value: overview.admins, icon: "shield", color: "var(--green)" },
             ].map((c) => (
-              <div
-                key={c.label}
-                className="stat-card"
-                style={{
-                  padding: isCompact ? "12px 10px" : "16px 14px",
-                  borderRadius: isCompact ? 12 : 14,
-                  textAlign: "center",
-                }}
-              >
+              <div key={c.label} className="admin-stat-card">
                 <div
-                  style={{
-                    width: isCompact ? 28 : 32,
-                    height: isCompact ? 28 : 32,
-                    borderRadius: 8,
-                    background: `${c.color}18`,
-                    border: `1px solid ${c.color}30`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    margin: "0 auto 8px",
-                  }}
+                  className="admin-stat-icon"
+                  style={{ background: `${c.color}18`, borderColor: `${c.color}30` }}
                 >
                   <Icon name={c.icon} size={isCompact ? 13 : 15} color={c.color} />
                 </div>
-                <div
-                  style={{
-                    fontSize: isCompact ? 18 : 22,
-                    fontWeight: 800,
-                    fontFamily: "var(--ff-mono)",
-                    lineHeight: 1.1,
-                  }}
-                >
-                  {c.value}
-                </div>
-                <div style={{ fontSize: isCompact ? 10 : 11, color: "var(--text3)", marginTop: 2 }}>{c.label}</div>
+                <div className="admin-stat-value">{c.value}</div>
+                <div className="admin-stat-label">{c.label}</div>
               </div>
             ))}
           </div>
         )}
 
         {tab === "users" && (
-          <section>
-            <h2 style={{ fontWeight: 700, margin: "0 0 12px", fontSize: isCompact ? 14 : 16 }}>
+          <section className="admin-panel">
+            <h2 className="admin-panel-title">
               User management
               {overview.pending > 0 ? (
-                <span style={{ marginLeft: 8, color: "var(--orange)", fontWeight: 600, fontSize: isCompact ? 12 : 13 }}>
+                <span className="admin-panel-note">
                   · {overview.pending} awaiting approval
                 </span>
               ) : null}
@@ -620,16 +553,16 @@ export default function AdminDashboardPage() {
         )}
 
         {tab === "submissions" && (
-          <section>
-            <h2 style={{ fontWeight: 700, margin: "0 0 12px", fontSize: isCompact ? 14 : 16 }}>
+          <section className="admin-panel">
+            <h2 className="admin-panel-title">
               Mix submissions
               {pendingSubmissions.length > 0 ? (
-                <span style={{ marginLeft: 8, color: "var(--orange)", fontWeight: 600, fontSize: isCompact ? 12 : 13 }}>
+                <span className="admin-panel-note">
                   · {pendingSubmissions.length} awaiting review
                 </span>
               ) : null}
             </h2>
-            <p style={{ fontSize: isCompact ? 12 : 13, color: "var(--text3)", margin: "0 0 12px", lineHeight: 1.5 }}>
+            <p className="admin-panel-desc">
               Submitted mixes stay off the site until you approve them. Approving publishes the mix and notifies the
               member; rejecting keeps it hidden and sends them your note.
             </p>
@@ -927,8 +860,8 @@ export default function AdminDashboardPage() {
         )}
 
         {tab === "mixes" && (
-          <section>
-            <h2 style={{ fontWeight: 700, margin: "0 0 12px", fontSize: isCompact ? 14 : 16 }}>Mix catalog</h2>
+          <section className="admin-panel">
+            <h2 className="admin-panel-title">Mix catalog</h2>
             {tableShell(
           <>
             <thead>
@@ -992,9 +925,11 @@ export default function AdminDashboardPage() {
           </section>
         )}
 
+        {tab === "dj" && <DjOfMonthPanel users={users} episodes={episodes} adminId={adminId} />}
+
         {tab === "logs" && (
-          <section>
-            <h2 style={{ fontWeight: 700, margin: "0 0 12px", fontSize: isCompact ? 14 : 16 }}>Audit log</h2>
+          <section className="admin-panel">
+            <h2 className="admin-panel-title">Audit log</h2>
             {tableShell(
           <>
             <thead>

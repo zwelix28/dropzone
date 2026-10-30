@@ -265,8 +265,10 @@ export default function UserProfilePage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: isCompact ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fill, minmax(220px, 1fr))",
-                gap: isCompact ? 10 : 16,
+                gridTemplateColumns: isCompact
+                  ? "1fr"
+                  : "repeat(auto-fill, minmax(176px, 1fr))",
+                gap: isCompact ? 8 : 14,
               }}
             >
               {userEps.map((ep) => (
@@ -275,6 +277,8 @@ export default function UserProfilePage() {
                   episode={ep}
                   users={usersForCards}
                   compact={isCompact}
+                  layout={isCompact ? "row" : "stack"}
+                  fullTitle={!isCompact}
                   isActive={player.currentTrack?.id === ep.id}
                   isPlaying={player.isPlaying && player.currentTrack?.id === ep.id}
                   onPlay={player.playTrack}

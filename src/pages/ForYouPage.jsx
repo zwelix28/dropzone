@@ -125,6 +125,14 @@ export default function ForYouPage() {
   const currentUser = current ? users.find((u) => u.id === current.userId) : null;
   const liked = Boolean(current && likedMixIds.includes(current.id));
 
+  const openMix = useCallback(
+    (mixId) => {
+      if (!mixId) return;
+      navigate(`/mix/${mixId}`, { state: { from: "/foryou" } });
+    },
+    [navigate],
+  );
+
   const openMixComments = useCallback(
     (mixId) => {
       if (!mixId) return;
@@ -705,6 +713,9 @@ export default function ForYouPage() {
                         >
                           <Icon name="comment" size={20} color="#fff" />
                         </ActionButton>
+                        <ActionButton compact label="Go to mix" onClick={() => openMix(ep.id)}>
+                          <Icon name="goTo" size={18} color="#fff" />
+                        </ActionButton>
                         <ActionButton compact label="Share" onClick={() => void handleShare()}>
                           <Icon name="share" size={18} color="#fff" />
                         </ActionButton>
@@ -796,6 +807,10 @@ export default function ForYouPage() {
 
           <ActionButton label="Comments" onClick={() => openMixComments(current?.id)}>
             <Icon name="comment" size={22} color="#fff" />
+          </ActionButton>
+
+          <ActionButton label="Go to mix" onClick={() => openMix(current?.id)}>
+            <Icon name="goTo" size={20} color="#fff" />
           </ActionButton>
 
           <ActionButton label="Share" onClick={() => void handleShare()}>

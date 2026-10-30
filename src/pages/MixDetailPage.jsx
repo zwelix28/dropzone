@@ -14,7 +14,7 @@ import useMediaQuery from "../hooks/useMediaQuery.js";
 import { handleArtworkError, resolveMixArtwork } from "../constants/artwork.js";
 import { GENRES } from "../constants/genres.js";
 import { canDownloadMix } from "../constants/plans.js";
-import { signedInHomePath } from "../featureFlags.js";
+import { FEATURE_MIX_COMMENTS, signedInHomePath } from "../featureFlags.js";
 import { episodeHasAudioSource } from "../lib/audioUrls.js";
 import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
 import { fetchMixById } from "../lib/mixLookup.js";
@@ -103,7 +103,7 @@ export default function MixDetailPage() {
   }, [episode?.description, episode?.genre, episode?.tags, episode?.title, episode]);
 
   useEffect(() => {
-    if (!episode?.id || (!focusComments && !highlightCommentId)) return;
+    if (!FEATURE_MIX_COMMENTS || !episode?.id || (!focusComments && !highlightCommentId)) return;
     const t = window.setTimeout(() => {
       document.getElementById("mix-comments")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 120);
@@ -324,143 +324,242 @@ export default function MixDetailPage() {
               ) : null}
             </div>
 
-            <div
-              style={{
-                display: isCompact ? "grid" : "flex",
-                gridTemplateColumns: isCompact ? "minmax(0, 1fr) minmax(0, 1fr)" : undefined,
-                gap: isCompact ? 10 : 10,
-                flexWrap: isCompact ? undefined : "wrap",
-                width: "100%",
-                justifyContent: isCompact ? undefined : "flex-start",
-                alignItems: isCompact ? "stretch" : "center",
-              }}
-            >
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  player.playTrack(episode);
-                  trackEvent({ kind: "play", episodeId: episode.id, actorUserId: auth.currentUser?.id });
-                }}
-                title={episodeHasAudioSource(episode) ? "Play" : "No audio source available for this mix"}
-                style={{
-                  opacity: episodeHasAudioSource(episode) ? 1 : 0.6,
-                  minWidth: 0,
-                  width: isCompact ? "100%" : undefined,
-                  boxSizing: "border-box",
-                  padding: isCompact ? "8px 10px" : undefined,
-                  fontSize: isCompact ? 12 : undefined,
-                  justifyContent: "center",
-                }}
-              >
-                <Icon
-                  name={player.currentTrack?.id === episode.id && player.isPlaying ? "pause" : "play"}
-                  size={isCompact ? 14 : 16}
-                />
-                {player.currentTrack?.id === episode.id && player.isPlaying ? "Pause" : "Play"}
-              </button>
+            {isCompact ? (
+              <div className="mix-detail-mobile-actions">
+                <div className="mix-detail-action-row" role="toolbar" aria-label="Mix actions">
+                  <button
+                    type="button"
+                    className="mix-detail-action-btn is-primary"
+                    onClick={() => {
+                      player.playTrack(episode);
+                      trackEvent({ kind: "play", episodeId: episode.id, actorUserId: auth.currentUser?.id });
+                    }}
+                    title={episodeHasAudioSource(episode) ? "Play" : "No audio source available for this mix"}
+                    style={{ opacity: episodeHasAudioSource(episode) ? 1 : 0.6 }}
+                  >
+                    <Icon
+                      name={player.currentTrack?.id === episode.id && player.isPlaying ? "pause" : "play"}
+                      size={18}
+                    />
+                    <span>{player.currentTrack?.id === episode.id && player.isPlaying ? "Pause" : "Play"}</span>
+                  </button>
+                  <LikeButton
+                    mixId={episode.id}
+                    variant="inline"
+                    size="sm"
+                    className="mix-detail-action-btn"
+                    iconSize={18}
+                  />
+                  <button
+                    type="button"
+                    className="mix-detail-action-btn"
+                    onClick={() => void handleShare()}
+                    title="Share mix"
+                  >
+                    <Icon name="share" size={18} />
+                    <span>Share</span>
+                  </button>
+                  {hasDownloadAccess ? (
+                    <button
+                      type="button"
+                      className="mix-detail-action-btn"
+                      onClick={() => void handleDownload()}
+                      disabled={!episodeHasAudioSource(episode)}
+                      title={
+                        !loggedIn
+                          ? "Sign in to download"
+                          : episodeHasAudioSource(episode)
+                            ? "Download"
+                            : "No audio available to download"
+                      }
+                      style={{
+                        opacity: episodeHasAudioSource(episode) ? 1 : 0.55,
+                        cursor: episodeHasAudioSource(episode) ? "pointer" : "not-allowed",
+                      }}
+                    >
+                      <Icon name="download" size={18} />
+                      <span>Save</span>
+                    </button>
+                  ) : null}
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      className={`mix-detail-action-btn${isEditing ? " is-on" : ""}`}
+                      onClick={() => setIsEditing((v) => !v)}
+                      title="Edit mix details"
+                    >
+                      <Icon name="edit" size={18} />
+                      <span>{isEditing ? "Close" : "Edit"}</span>
+                    </button>
+                  ) : null}
+                </div>
+
+                {episode.isForSale && episode.priceZar && episode.userId !== auth.currentUser?.id ? (
+                  <div style={{ marginTop: 4 }}>
+                    <BuyButton
+                      episode={episode}
+                      session={auth.session}
+                      onSignIn={() => auth.setShowAuth(true)}
+                      compact
+                      onUnlocked={() => setPurchaseUnlocked(true)}
+                    />
+                  </div>
+                ) : null}
+                {FEATURE_MIX_COMMENTS ? (
+                  <button
+                    type="button"
+                    className="lab-home-chip"
+                    onClick={() =>
+                      document.getElementById("mix-comments")?.scrollIntoView({ behavior: "smooth", block: "start" })
+                    }
+                    title="View listener comments"
+                    style={{
+                      width: "100%",
+                      boxSizing: "border-box",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                      marginTop: 4,
+                    }}
+                  >
+                    <Icon name="comment" size={14} />
+                    Comments
+                  </button>
+                ) : null}
+              </div>
+            ) : (
               <div
                 style={{
-                  minWidth: 0,
-                  width: isCompact ? "100%" : undefined,
                   display: "flex",
-                  justifyContent: isCompact ? "stretch" : "flex-start",
+                  gap: 10,
+                  flexWrap: "wrap",
+                  width: "100%",
+                  justifyContent: "flex-start",
+                  alignItems: "center",
                 }}
               >
-                <LikeButton
-                  mixId={episode.id}
-                  variant="inline"
-                  size={isCompact ? "sm" : "md"}
-                  style={isCompact ? { width: "100%", minWidth: 0, boxSizing: "border-box" } : undefined}
-                />
+                <button
+                  type="button"
+                  className="lab-home-chip is-on"
+                  onClick={() => {
+                    player.playTrack(episode);
+                    trackEvent({ kind: "play", episodeId: episode.id, actorUserId: auth.currentUser?.id });
+                  }}
+                  title={episodeHasAudioSource(episode) ? "Play" : "No audio source available for this mix"}
+                  style={{
+                    opacity: episodeHasAudioSource(episode) ? 1 : 0.6,
+                    minWidth: 0,
+                    boxSizing: "border-box",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                  }}
+                >
+                  <Icon
+                    name={player.currentTrack?.id === episode.id && player.isPlaying ? "pause" : "play"}
+                    size={16}
+                  />
+                  {player.currentTrack?.id === episode.id && player.isPlaying ? "Pause" : "Play"}
+                </button>
+                <LikeButton mixId={episode.id} variant="inline" size="md" />
+                {FEATURE_MIX_COMMENTS ? (
+                  <button
+                    type="button"
+                    className="lab-home-chip"
+                    onClick={() =>
+                      document.getElementById("mix-comments")?.scrollIntoView({ behavior: "smooth", block: "start" })
+                    }
+                    title="View listener comments"
+                    style={{
+                      minWidth: 0,
+                      boxSizing: "border-box",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <Icon name="comment" size={16} />
+                    Comments
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="lab-home-chip"
+                  onClick={() => void handleShare()}
+                  title="Share mix"
+                  style={{
+                    minWidth: 0,
+                    boxSizing: "border-box",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                  }}
+                >
+                  <Icon name="share" size={16} />
+                  Share
+                </button>
+                {episode.isForSale && episode.priceZar && episode.userId !== auth.currentUser?.id ? (
+                  <BuyButton
+                    episode={episode}
+                    session={auth.session}
+                    onSignIn={() => auth.setShowAuth(true)}
+                    compact={false}
+                    onUnlocked={() => setPurchaseUnlocked(true)}
+                  />
+                ) : null}
+                {hasDownloadAccess ? (
+                  <button
+                    type="button"
+                    className="lab-home-chip"
+                    onClick={() => void handleDownload()}
+                    disabled={!episodeHasAudioSource(episode)}
+                    title={
+                      !loggedIn
+                        ? "Sign in to download"
+                        : episodeHasAudioSource(episode)
+                          ? "Download"
+                          : "No audio available to download"
+                    }
+                    style={{
+                      opacity: episodeHasAudioSource(episode) ? 1 : 0.55,
+                      cursor: episodeHasAudioSource(episode) ? "pointer" : "not-allowed",
+                      minWidth: 0,
+                      boxSizing: "border-box",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <Icon name="download" size={16} />
+                    Download
+                  </button>
+                ) : null}
+                {canEdit ? (
+                  <button
+                    type="button"
+                    className={`lab-home-chip${isEditing ? " is-on" : ""}`}
+                    onClick={() => setIsEditing((v) => !v)}
+                    title="Edit mix details"
+                    style={{
+                      minWidth: 0,
+                      boxSizing: "border-box",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <Icon name="edit" size={16} />
+                    {isEditing ? "Close" : "Edit"}
+                  </button>
+                ) : null}
               </div>
-              <button
-                className="btn btn-ghost"
-                onClick={() => document.getElementById("mix-comments")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                title="View listener comments"
-                style={{
-                  minWidth: 0,
-                  width: isCompact ? "100%" : undefined,
-                  boxSizing: "border-box",
-                  padding: isCompact ? "8px 10px" : undefined,
-                  fontSize: isCompact ? 12 : undefined,
-                  justifyContent: "center",
-                }}
-              >
-                <Icon name="comment" size={isCompact ? 14 : 16} />
-                Comments
-              </button>
-              <button
-                className="btn btn-ghost"
-                onClick={() => void handleShare()}
-                title="Share mix"
-                style={{
-                  minWidth: 0,
-                  width: isCompact ? "100%" : undefined,
-                  boxSizing: "border-box",
-                  padding: isCompact ? "8px 10px" : undefined,
-                  fontSize: isCompact ? 12 : undefined,
-                  justifyContent: "center",
-                }}
-              >
-                <Icon name="share" size={isCompact ? 14 : 16} />
-                Share
-              </button>
-              {episode.isForSale && episode.priceZar && episode.userId !== auth.currentUser?.id ? (
-                <BuyButton
-                  episode={episode}
-                  session={auth.session}
-                  onSignIn={() => auth.setShowAuth(true)}
-                  compact={isCompact}
-                  onUnlocked={() => setPurchaseUnlocked(true)}
-                />
-              ) : null}
-              {hasDownloadAccess ? (
-                <button
-                  className="btn btn-ghost"
-                  onClick={() => void handleDownload()}
-                  disabled={!episodeHasAudioSource(episode)}
-                  title={
-                    !loggedIn
-                      ? "Sign in to download"
-                      : episodeHasAudioSource(episode)
-                        ? "Download"
-                        : "No audio available to download"
-                  }
-                  style={{
-                    opacity: episodeHasAudioSource(episode) ? 1 : 0.55,
-                    cursor: episodeHasAudioSource(episode) ? "pointer" : "not-allowed",
-                    minWidth: 0,
-                    width: isCompact ? "100%" : undefined,
-                    boxSizing: "border-box",
-                    gridColumn: isCompact && !canEdit ? "1 / -1" : undefined,
-                    padding: isCompact ? "8px 10px" : undefined,
-                    fontSize: isCompact ? 12 : undefined,
-                    justifyContent: "center",
-                  }}
-                >
-                  <Icon name="download" size={isCompact ? 14 : 16} />
-                  Download
-                </button>
-              ) : null}
-              {canEdit ? (
-                <button
-                  className="btn btn-ghost"
-                  onClick={() => setIsEditing((v) => !v)}
-                  title="Edit mix details"
-                  style={{
-                    minWidth: 0,
-                    width: isCompact ? "100%" : undefined,
-                    boxSizing: "border-box",
-                    padding: isCompact ? "8px 10px" : undefined,
-                    fontSize: isCompact ? 12 : undefined,
-                    justifyContent: "center",
-                  }}
-                >
-                  <Icon name="edit" size={isCompact ? 14 : 16} />
-                  {isEditing ? "Close" : "Edit"}
-                </button>
-              ) : null}
-            </div>
+            )}
           </div>
 
           <div style={{ marginTop: isCompact ? 12 : 20, width: "100%" }}>
@@ -650,11 +749,13 @@ export default function MixDetailPage() {
         </div>
       </div>
 
-      <MixCommentsSection
-        mixId={episode.id}
-        highlightCommentId={highlightCommentId}
-        compact={isCompact}
-      />
+      {FEATURE_MIX_COMMENTS ? (
+        <MixCommentsSection
+          mixId={episode.id}
+          highlightCommentId={highlightCommentId}
+          compact={isCompact}
+        />
+      ) : null}
     </div>
   );
 }

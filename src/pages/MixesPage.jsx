@@ -8,6 +8,8 @@ import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { isMixesItem } from "../lib/contentType.js";
 
+const CHIP_GENRES = ["All", ...GENRES.slice(0, 6)];
+
 /** Full-length mixes. Singles / songs live on Discover. */
 export default function MixesPage() {
   const { episodes, users, player } = useApp();
@@ -38,41 +40,21 @@ export default function MixesPage() {
         paddingBottom: 100,
       }}
     >
-      <PageHeader title="MIXES" large marginBottom={12} />
-      <p
-        style={{
-          margin: `0 0 ${isCompact ? 16 : 28}px`,
-          color: "var(--text2)",
-          fontSize: isCompact ? 13 : 14,
-          maxWidth: 520,
-          lineHeight: 1.5,
-        }}
-      >
-        Full-length mixes and sessions. Singles are on Discover.
-      </p>
+      <PageHeader title="MIXES" large marginBottom={isCompact ? 16 : 28} />
 
-      <div style={{ display: "flex", gap: 12, marginBottom: isCompact ? 16 : 28, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", gap: isCompact ? 6 : 6, flexWrap: "wrap" }}>
-          {["All", ...GENRES.slice(0, 6)].map((g) => (
-            <button
-              key={g}
-              type="button"
-              onClick={() => setGenre(g)}
-              style={{
-                padding: isCompact ? "6px 10px" : "8px 14px",
-                borderRadius: 8,
-                fontSize: isCompact ? 12 : 13,
-                fontWeight: 500,
-                background: genre === g ? "var(--accent2)" : "var(--surface)",
-                color: genre === g ? "#07090F" : "var(--text2)",
-                border: genre === g ? "none" : "1px solid var(--border)",
-                transition: "all 0.18s",
-              }}
-            >
-              {g}
-            </button>
-          ))}
-        </div>
+      <div className="lab-home-chips" role="tablist" aria-label="Genres" style={{ marginBottom: isCompact ? 16 : 28 }}>
+        {CHIP_GENRES.map((name) => (
+          <button
+            key={name}
+            type="button"
+            role="tab"
+            aria-selected={genre === name}
+            className={`lab-home-chip${genre === name ? " is-on" : ""}`}
+            onClick={() => setGenre(name)}
+          >
+            {name}
+          </button>
+        ))}
       </div>
 
       {filtered.length === 0 ? (
@@ -85,9 +67,9 @@ export default function MixesPage() {
           style={{
             display: "grid",
             gridTemplateColumns: isCompact
-              ? "repeat(2, minmax(0, 1fr))"
-              : "repeat(auto-fill, minmax(220px, 1fr))",
-            gap: isCompact ? 10 : 16,
+              ? "1fr"
+              : "repeat(auto-fill, minmax(176px, 1fr))",
+            gap: isCompact ? 8 : 14,
           }}
         >
           {filtered.map((ep) => (
@@ -99,6 +81,8 @@ export default function MixesPage() {
               isPlaying={player.isPlaying && player.currentTrack?.id === ep.id}
               onPlay={player.playTrack}
               compact={isCompact}
+              layout={isCompact ? "row" : "stack"}
+              fullTitle={!isCompact}
             />
           ))}
         </div>

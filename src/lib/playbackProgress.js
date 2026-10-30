@@ -5,8 +5,8 @@ import { mixRowToEpisode } from "./maps.js";
 export const RESUME_MIN_SEC = 5;
 /** Treat near-end as finished (start over next time). */
 export const RESUME_END_MARGIN_SEC = 15;
-/** Max in-progress sessions shown / kept in Library per user. */
-export const LIBRARY_MAX_SESSIONS = 5;
+/** Max in-progress sessions shown / kept in Library per user (Home Continue can show up to this). */
+export const LIBRARY_MAX_SESSIONS = 8;
 
 function localKey(userId, mixId) {
   return `mv-playback:${userId}:${mixId}`;
@@ -450,11 +450,84 @@ async function enforceLibrarySessionCap(userId, keepMixId) {
   await Promise.all(toDrop.map((row) => clearPlaybackProgress(userId, row.mixId)));
 }
 
-/** Load Library sessions and trim anything beyond the 5-session cap. */
+/** In-memory cache so Home/Library can paint Continue listening without a remount flash. */
+let librarySessionsCache = { userId: null, sessions: null };
+
+function hydrateLibrarySessions(sessions, catalogEpisodes = []) {
+  if (!Array.isArray(sessions) || !sessions.length) return Array.isArray(sessions) ? sessions : [];
+  const byId = new Map(catalogEpisodes.map((ep) => [ep.id, ep]));
+  return sessions
+    .map((session) => ({
+      ...session,
+      episode: byId.get(session.mixId) || session.episode || null,
+    }))
+    .filter((session) => session.episode);
+}
+
+/** Sync peek of last fetched sessions (same user). */
+export function peekLibrarySessionsCache(userId, catalogEpisodes = []) {
+  if (!userId || librarySessionsCache.userId !== userId || !Array.isArray(librarySessionsCache.sessions)) {
+    return null;
+  }
+  return hydrateLibrarySessions(librarySessionsCache.sessions, catalogEpisodes);
+}
+
+/** Instant sessions for first paint: memory cache, then local progress keys. */
+export function getLibrarySessionsQuick(userId, catalogEpisodes = []) {
+  const cached = peekLibrarySessionsCache(userId, catalogEpisodes);
+  if (cached) return cached;
+  if (!userId || typeof localStorage === "undefined") return [];
+
+  const byId = new Map(catalogEpisodes.map((ep) => [ep.id, ep]));
+  const prefix = `mv-playback:${userId}:`;
+  const localRows = [];
+  for (let i = 0; i < localStorage.length; i += 1) {
+    const key = localStorage.key(i);
+    if (!key?.startsWith(prefix)) continue;
+    const mixId = key.slice(prefix.length);
+    const local = readLocal(userId, mixId);
+    if (!local) continue;
+    const episode = byId.get(mixId) || null;
+    if (!episode) continue;
+    let updatedAt = null;
+    try {
+      const raw = JSON.parse(localStorage.getItem(key) || "{}");
+      if (raw?.updatedAt) updatedAt = new Date(raw.updatedAt).toISOString();
+    } catch {
+      // ignore
+    }
+    localRows.push({
+      mixId,
+      positionSec: local.positionSec,
+      durationSec: local.durationSec || Number(episode.durationSecs) || 0,
+      totalListenedSec: local.totalListenedSec || 0,
+      updatedAt,
+      episode,
+    });
+  }
+  localRows.sort((a, b) => {
+    const ta = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+    const tb = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+    return tb - ta;
+  });
+  return localRows
+    .filter((s) => shouldResumeAt(s.positionSec, s.durationSec || s.episode.durationSecs))
+    .slice(0, LIBRARY_MAX_SESSIONS);
+}
+
+export function invalidateLibrarySessionsCache(userId) {
+  if (!userId || librarySessionsCache.userId === userId) {
+    librarySessionsCache = { userId: null, sessions: null };
+  }
+}
+
+/** Load Library sessions and trim anything beyond the session cap. */
 export async function fetchLibrarySessions(userId, catalogEpisodes = []) {
   if (!userId) return [];
   await enforceLibrarySessionCap(userId);
-  return listLibrarySessions(userId, catalogEpisodes);
+  const sessions = await listLibrarySessions(userId, catalogEpisodes);
+  librarySessionsCache = { userId, sessions };
+  return hydrateLibrarySessions(sessions, catalogEpisodes);
 }
 
 async function listLibrarySessions(userId, catalogEpisodes = []) {
@@ -552,5 +625,6 @@ async function listLibrarySessions(userId, catalogEpisodes = []) {
 /** Remove a session from Library (resets resume cursor; keeps listen totals). */
 export async function dismissLibrarySession(userId, mixId) {
   await clearPlaybackProgress(userId, mixId);
+  invalidateLibrarySessionsCache(userId);
 }
 

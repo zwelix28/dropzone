@@ -24,7 +24,7 @@ export default function LikesPage() {
       <div style={{ marginBottom: isCompact ? 12 : 16 }}>
         <BackButton to="/mixes" label="Mixes" />
       </div>
-      <PageHeader icon="heart" title="LIKES" />
+      <PageHeader icon="heart" title="LIKES" large marginBottom={isCompact ? 16 : 28} />
 
       {favoriteEpisodes.length === 0 ? (
         <div
@@ -48,8 +48,10 @@ export default function LikesPage() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: isCompact ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fill, minmax(220px, 1fr))",
-            gap: isCompact ? 10 : 16,
+            gridTemplateColumns: isCompact
+              ? "1fr"
+              : "repeat(auto-fill, minmax(176px, 1fr))",
+            gap: isCompact ? 8 : 14,
           }}
         >
           {favoriteEpisodes.map((ep) => (
@@ -58,6 +60,8 @@ export default function LikesPage() {
               episode={ep}
               users={users}
               compact={isCompact}
+              layout={isCompact ? "row" : "stack"}
+              fullTitle={!isCompact}
               isActive={player.currentTrack?.id === ep.id}
               isPlaying={player.isPlaying && player.currentTrack?.id === ep.id}
               onPlay={player.playTrack}
