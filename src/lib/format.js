@@ -28,3 +28,14 @@ export const timeSince = (d) => {
   return `${days}d ago`;
 };
 
+/** Absolute last-streamed stamp, e.g. `28 Oct 2026, 16:12`. */
+export function fmtStreamedAt(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const day = date.getDate();
+  const month = date.toLocaleString(undefined, { month: "short" });
+  const year = date.getFullYear();
+  const pad2 = (n) => String(n).padStart(2, "0");
+  return `${day} ${month} ${year}, ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+}
+

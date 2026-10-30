@@ -4,7 +4,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import Icon from "./Icon.jsx";
 import UserAvatar from "./UserAvatar.jsx";
 import InstallAppButton from "./InstallAppButton.jsx";
-import { FEATURE_DISCOVER, signedInHomePath } from "../featureFlags.js";
+import { FEATURE_DISCOVER } from "../featureFlags.js";
 
 export default function TopBar({
   currentUser,
@@ -14,6 +14,7 @@ export default function TopBar({
   showMenuButton = false,
   onMenuClick,
   pinHeader = false,
+  showNotificationsButton = true,
 }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -49,8 +50,12 @@ export default function TopBar({
     return map[location.pathname] || "Deep House Lab";
   }, [location.pathname]);
 
-  const hideSearch = location.pathname === "/foryou";
-  const showMobileSearch = isMobile && currentUser && !hideSearch;
+  const showSearch =
+    Boolean(currentUser) &&
+    (location.pathname === "/mixes" ||
+      location.pathname === "/library" ||
+      (FEATURE_DISCOVER && location.pathname === "/discover"));
+  const showMobileSearch = isMobile && showSearch;
 
   const searchInput = (
     <div style={{ position: "relative", width: isMobile ? "100%" : "auto" }}>
@@ -64,13 +69,6 @@ export default function TopBar({
         onChange={(e) => {
           const q = e.target.value;
           if (!currentUser) return;
-          const searchPath =
-            location.pathname === "/mixes"
-              ? "/mixes"
-              : FEATURE_DISCOVER
-                ? "/discover"
-                : signedInHomePath();
-          if (location.pathname !== searchPath) navigate(searchPath);
           const next = new URLSearchParams(params);
           if (q) next.set("q", q);
           else next.delete("q");
@@ -152,7 +150,7 @@ export default function TopBar({
           {title}
         </h2>
 
-        {!isMobile && currentUser && !hideSearch ? searchInput : null}
+        {!isMobile && showSearch ? searchInput : null}
 
         {isMobile && !showMobileSearch ? <InstallAppButton compact /> : null}
 
@@ -175,38 +173,40 @@ export default function TopBar({
           </div>
         ) : (
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            <button
-              type="button"
-              onClick={onToggleNotifications}
-              style={{
-                position: "relative",
-                background: "none",
-                color: "var(--text2)",
-                padding: 10,
-                minWidth: 44,
-                minHeight: 44,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-              title="Notifications"
-            >
-              <Icon name="bell" size={20} />
-              {unreadCount > 0 ? (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: 8,
-                    right: 8,
-                    width: 8,
-                    height: 8,
-                    borderRadius: "50%",
-                    background: "var(--red)",
-                    border: "1px solid var(--bg)",
-                  }}
-                />
-              ) : null}
-            </button>
+            {showNotificationsButton ? (
+              <button
+                type="button"
+                onClick={onToggleNotifications}
+                style={{
+                  position: "relative",
+                  background: "none",
+                  color: "var(--text2)",
+                  padding: 10,
+                  minWidth: 44,
+                  minHeight: 44,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                title="Notifications"
+              >
+                <Icon name="bell" size={20} />
+                {unreadCount > 0 ? (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: 8,
+                      right: 8,
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: "var(--red)",
+                      border: "1px solid var(--bg)",
+                    }}
+                  />
+                ) : null}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => navigate("/profile")}

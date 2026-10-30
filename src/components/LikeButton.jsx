@@ -10,14 +10,19 @@ export default function LikeButton({
   size = "md",
   /** overlay = on cover art; inline = mix detail / plain row */
   variant = "overlay",
+  /** Hide the Like/Liked text on inline chips (icon-only toolbars). */
+  iconOnly = false,
+  /** Override heart icon pixel size when set. */
+  iconSize: iconSizeProp,
   className = "",
   style: styleProp,
 }) {
   const { auth, likedMixIds, toggleLike } = useApp();
   const uid = auth.session?.user?.id;
   const liked = Boolean(uid && mixId && likedMixIds.includes(mixId));
-  const iconSize = size === "sm" ? 15 : 17;
+  const iconSize = iconSizeProp ?? (size === "sm" ? 15 : 17);
   const inline = variant === "inline";
+  const useActionTile = inline && className.split(/\s+/).includes("mix-detail-action-btn");
 
   if (!mixId) return null;
 
@@ -31,32 +36,44 @@ export default function LikeButton({
     void toggleLike(mixId);
   };
 
-  const heartColor = liked ? "#f87171" : inline ? "var(--text3)" : "rgba(255,255,255,0.85)";
+  const heartColor = liked
+    ? "#f87171"
+    : inline
+      ? "currentColor"
+      : "rgba(255,255,255,0.85)";
 
   return (
     <button
       type="button"
-      className={`btn btn-ghost ${className}`.trim()}
+      className={
+        useActionTile
+          ? className
+          : inline
+            ? `lab-home-chip${className ? ` ${className}` : ""}`
+            : `btn btn-ghost${className ? ` ${className}` : ""}`
+      }
       aria-label={liked ? "Remove from likes" : "Add to likes"}
       title={liked ? "Remove from likes" : "Save to likes"}
       onClick={onClick}
       style={{
-        padding: inline ? (size === "sm" ? "8px 12px" : "8px 14px") : size === "sm" ? "6px" : "8px 10px",
-        minWidth: inline ? undefined : size === "sm" ? 36 : undefined,
-        justifyContent: "center",
-        borderRadius: 10,
-        ...(inline
-          ? { fontSize: size === "sm" ? 12 : 13 }
-          : {
-              background: "rgba(7,9,15,0.55)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              backdropFilter: "blur(4px)",
-            }),
+        ...(useActionTile
+          ? undefined
+          : inline
+            ? { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }
+            : {
+                padding: size === "sm" ? "6px" : "8px 10px",
+                minWidth: size === "sm" ? 36 : undefined,
+                justifyContent: "center",
+                borderRadius: 10,
+                background: "rgba(7,9,15,0.55)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                backdropFilter: "blur(4px)",
+              }),
         ...styleProp,
       }}
     >
       <Icon name="heart" size={iconSize} color={heartColor} />
-      {inline ? <span style={{ marginLeft: 6 }}>{liked ? "Liked" : "Like"}</span> : null}
+      {inline && !iconOnly ? <span>{liked ? "Liked" : "Like"}</span> : null}
     </button>
   );
 }

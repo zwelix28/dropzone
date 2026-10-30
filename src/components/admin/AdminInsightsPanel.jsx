@@ -7,54 +7,29 @@ import useMediaQuery from "../../hooks/useMediaQuery.js";
 
 function StatTile({ label, value, icon, color, compact }) {
   return (
-    <div
-      className="stat-card"
-      style={{
-        padding: compact ? "12px 10px" : "16px 14px",
-        borderRadius: compact ? 12 : 14,
-        textAlign: "center",
-      }}
-    >
+    <div className={`admin-stat-card${compact ? " is-compact" : ""}`}>
       <div
-        style={{
-          width: compact ? 28 : 32,
-          height: compact ? 28 : 32,
-          borderRadius: 8,
-          background: `${color}18`,
-          border: `1px solid ${color}30`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          margin: "0 auto 8px",
-        }}
+        className="admin-stat-icon"
+        style={{ background: `${color}18`, borderColor: `${color}30` }}
       >
         <Icon name={icon} size={compact ? 13 : 15} color={color} />
       </div>
-      <div style={{ fontSize: compact ? 18 : 22, fontWeight: 800, fontFamily: "var(--ff-mono)", lineHeight: 1.1 }}>
-        {value}
-      </div>
-      <div style={{ fontSize: compact ? 10 : 11, color: "var(--text3)", marginTop: 2 }}>{label}</div>
+      <div className="admin-stat-value">{value}</div>
+      <div className="admin-stat-label">{label}</div>
     </div>
   );
 }
 
 function RankList({ title, rows, compact, renderRow }) {
   return (
-    <section
-      style={{
-        background: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: compact ? 12 : 14,
-        padding: compact ? "12px" : "16px 18px",
-      }}
-    >
-      <h3 style={{ margin: "0 0 12px", fontWeight: 700, fontSize: compact ? 14 : 16 }}>{title}</h3>
+    <section className={`admin-panel admin-rank-list${compact ? " is-compact" : ""}`}>
+      <h3 className="admin-panel-title">{title}</h3>
       {rows?.length ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: compact ? 8 : 10 }}>
+        <div className="admin-rank-rows">
           {rows.map((row, i) => renderRow(row, i))}
         </div>
       ) : (
-        <p style={{ margin: 0, color: "var(--text3)", fontSize: compact ? 12 : 13 }}>No data yet.</p>
+        <p className="admin-empty">No data yet.</p>
       )}
     </section>
   );
@@ -157,9 +132,9 @@ export default function AdminInsightsPanel() {
   const totals = data?.totals || {};
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: isCompact ? 14 : 18 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-        <p style={{ margin: 0, color: "var(--text3)", fontSize: isCompact ? 11 : 12 }}>
+    <div className="admin-insights">
+      <div className="admin-insights-toolbar">
+        <p>
           Global site pulse · refreshes every 30s
           {data?.generated_at ? ` · ${formatRelativeTime(data.generated_at)}` : ""}
         </p>
@@ -168,44 +143,25 @@ export default function AdminInsightsPanel() {
         </button>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: isCompact ? "repeat(2, minmax(0, 1fr))" : "repeat(4, minmax(0, 1fr))",
-          gap: isCompact ? 8 : 12,
-        }}
-      >
+      <div className="admin-stat-grid admin-stat-grid-4">
         <StatTile label="Online now" value={live.online_now ?? 0} icon="people" color="var(--green)" compact={isCompact} />
         <StatTile label="Streaming now" value={live.streaming_now ?? 0} icon="headphones" color="var(--accent)" compact={isCompact} />
         <StatTile label="Logins (24h)" value={live.logins_24h ?? 0} icon="user" color="#A78BFA" compact={isCompact} />
         <StatTile label="Logins (7d)" value={live.logins_7d ?? 0} icon="bar2" color="var(--orange)" compact={isCompact} />
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: isCompact ? "repeat(2, minmax(0, 1fr))" : "repeat(4, minmax(0, 1fr))",
-          gap: isCompact ? 8 : 12,
-        }}
-      >
+      <div className="admin-stat-grid admin-stat-grid-4">
         <StatTile label="Total users" value={fmt(totals.users ?? 0)} icon="people" color="var(--text2)" compact={isCompact} />
         <StatTile label="Total plays" value={fmt(totals.total_plays ?? 0)} icon="play" color="var(--accent)" compact={isCompact} />
         <StatTile label="Total downloads" value={fmt(totals.total_downloads ?? 0)} icon="download" color="var(--green)" compact={isCompact} />
         <StatTile label="Total follows" value={fmt(totals.total_follows ?? 0)} icon="heart" color="#f87171" compact={isCompact} />
       </div>
 
-      <section
-        style={{
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          borderRadius: isCompact ? 12 : 14,
-          padding: isCompact ? "12px" : "16px 18px",
-        }}
-      >
-        <h3 style={{ margin: "0 0 12px", fontWeight: 700, fontSize: isCompact ? 14 : 16 }}>Live activity</h3>
+      <section className="admin-panel">
+        <h3 className="admin-panel-title">Live activity</h3>
         {(data?.active_users || []).length ? (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: isCompact ? 11 : 13 }}>
+          <div className="admin-table-shell">
+            <table className="admin-table">
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--border)", textAlign: "left" }}>
                   <th style={{ padding: "8px 10px", color: "var(--text3)" }}>User</th>

@@ -11,6 +11,8 @@ import useMediaQuery from "../hooks/useMediaQuery.js";
 import { getAudioFileDurationSec } from "../lib/audioDuration.js";
 import { MIX_STATUS_APPROVED, MIX_STATUS_PENDING } from "../lib/mixStatus.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
+import { isLocalMode } from "../lib/localMode.js";
+import { saveLocalUpload } from "../lib/localUploads.js";
 import { readMaxAudioMb, uploadMixAudio } from "../lib/uploadMixAudio.js";
 import { randomUUID } from "../lib/uuid.js";
 
@@ -146,7 +148,7 @@ export default function UploadPage({ mode = "admin", onSubmitted } = {}) {
       setPublishError(`Audio must be under ${maxAudioMb} MB (VITE_MAX_AUDIO_MB).`);
       return;
     }
-    if (!isSupabaseConfigured()) {
+    if (!isLocalMode() && !isSupabaseConfigured()) {
       setPublishError("Configure Supabase in .env.local first.");
       return;
     }
@@ -175,6 +177,52 @@ export default function UploadPage({ mode = "admin", onSubmitted } = {}) {
     uploadAbortRef.current = abort;
 
     try {
+      const tracklist = (form.tracklist || "")
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const tags = (form.tags || "")
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+
+      const isPro = isProPlan(currentUser);
+      const isForSale = isPro && form.isForSale && Number(form.priceZar) > 0;
+      const priceZar = isForSale ? Math.round(Number(form.priceZar) * 100) / 100 : null;
+
+      let durationSecs = Number(form.durationSecs) || 0;
+      if (durationSecs < 1 && form.audioFile) {
+        durationSecs = await getAudioFileDurationSec(form.audioFile);
+      }
+
+      if (isLocalMode()) {
+        setProgress(30);
+        setProgressLabel("Saving on this device…");
+        const id = randomUUID();
+        await saveLocalUpload({
+          id,
+          userId: uid,
+          title: withMixTitlePrefix(form.title).trim(),
+          description: form.description || "",
+          genre: form.genre || "Tech House",
+          tags,
+          tracklist,
+          durationSecs: durationSecs > 0 ? durationSecs : 0,
+          contentType: form.contentType === "single" ? "single" : "mix",
+          isForSale,
+          priceZar,
+          audioBlob: form.audioFile,
+          coverBlob: form.coverFile || null,
+        });
+        setPublishedMixId(id);
+        setProgress(100);
+        setProgressLabel("Done");
+        await refreshMixes();
+        onSubmitted?.();
+        setDone(true);
+        return;
+      }
+
       const audioExt = (form.audioFile.name.split(".").pop() || "mp3").toLowerCase();
       const audioPath = `${uid}/${randomUUID()}.${audioExt}`;
 
@@ -209,25 +257,6 @@ export default function UploadPage({ mode = "admin", onSubmitted } = {}) {
       }
       setProgress(85);
       setProgressLabel("Saving mix details…");
-
-      const tracklist = (form.tracklist || "")
-        .split("\n")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const tags = (form.tags || "")
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean);
-
-      const isPro = isProPlan(currentUser);
-      const isForSale = isPro && form.isForSale && Number(form.priceZar) > 0;
-      const priceZar = isForSale ? Math.round(Number(form.priceZar) * 100) / 100 : null;
-
-      setProgressLabel("Reading audio length…");
-      let durationSecs = Number(form.durationSecs) || 0;
-      if (durationSecs < 1 && form.audioFile) {
-        durationSecs = await getAudioFileDurationSec(form.audioFile);
-      }
 
       const row = {
         user_id: uid,
@@ -366,7 +395,11 @@ export default function UploadPage({ mode = "admin", onSubmitted } = {}) {
             padding: isCompact ? "0 8px" : 0,
           }}
         >
-          {isSubmission ? (
+          {isLocalMode() ? (
+            <>
+              "<strong>{form.title || "Untitled"}</strong>" is saved in this browser and ready to play. It was not sent to Supabase.
+            </>
+          ) : isSubmission ? (
             <>
               "<strong>{form.title || "Untitled"}</strong>" is with our team. It stays private until an administrator
               approves it, and you will get a notification either way.
@@ -445,6 +478,22 @@ export default function UploadPage({ mode = "admin", onSubmitted } = {}) {
       }}
     >
       <PageHeader title={isSubmission ? "SUBMIT MIX" : "UPLOAD MIX"} large marginBottom={isSubmission ? 18 : 32} />
+
+      {isLocalMode() ? (
+        <div
+          style={{
+            padding: isCompact ? "10px 12px" : "12px 14px",
+            borderRadius: 10,
+            background: "rgba(56,189,248,0.08)",
+            border: "1px solid rgba(56,189,248,0.28)",
+            marginBottom: isCompact ? 16 : 24,
+          }}
+        >
+          <p style={{ margin: 0, fontSize: isCompact ? 12 : 13, color: "var(--text2)", lineHeight: 1.5 }}>
+            Local testing saves this mix in this browser only. It will play here, and it is not sent to Supabase. Publish it again after local mode is turned off.
+          </p>
+        </div>
+      ) : null}
 
       {isSubmission ? (
         <div
@@ -1063,7 +1112,9 @@ export default function UploadPage({ mode = "admin", onSubmitted } = {}) {
                 <div className="progress-fill" style={{ width: `${progress}%`, transition: "width 0.2s linear" }} />
               </div>
               <p style={{ fontSize: 11, color: "var(--text3)", marginTop: 8, marginBottom: 0 }}>
-                Large mixes upload in 6 MB chunks. Keep this tab open until it finishes.
+                {isLocalMode()
+                  ? "The file stays on this device. Keep this tab open until it finishes."
+                  : "Large mixes upload in 6 MB chunks. Keep this tab open until it finishes."}
               </p>
             </div>
           )}
@@ -1081,7 +1132,7 @@ export default function UploadPage({ mode = "admin", onSubmitted } = {}) {
               className="btn btn-primary"
               style={{ padding: isCompact ? "10px 20px" : "12px 32px", width: isCompact ? "100%" : "auto" }}
               onClick={() => void handleSubmit()}
-              disabled={submitting || !isSupabaseConfigured()}
+              disabled={submitting || (!isLocalMode() && !isSupabaseConfigured())}
             >
               {submitting ? "Uploading..." : (
                 <>

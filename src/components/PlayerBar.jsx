@@ -32,6 +32,7 @@ export default function PlayerBar({
   onNext,
   shuffleOn = false,
   onToggleShuffle,
+  elevatedForTabNav = false,
 }) {
   const isMobile = useMediaQuery("(max-width: 720px)");
   if (!track) return null;
@@ -96,6 +97,7 @@ export default function PlayerBar({
         className="progress-wrap"
         style={{ flex: 1, touchAction: "none" }}
         onClick={(e) => {
+          e.stopPropagation();
           const rect = e.currentTarget.getBoundingClientRect();
           onSeek(((e.clientX - rect.left) / rect.width) * 100);
         }}
@@ -129,7 +131,10 @@ export default function PlayerBar({
       {!guestPlaybackOk ? "No preview for this mix. " : null}
       <button
         type="button"
-        onClick={() => auth.setShowAuth(true)}
+        onClick={(e) => {
+          e.stopPropagation();
+          auth.setShowAuth(true);
+        }}
         style={{ background: "none", color: "var(--accent)", fontWeight: 700 }}
       >
         Sign in
@@ -143,8 +148,28 @@ export default function PlayerBar({
   ) : null;
 
   if (isMobile) {
+    const canExpand = Boolean(!guest && onExpandFullPlayer);
+    const openFullPlayer = () => {
+      if (!canExpand) return;
+      onExpandFullPlayer();
+    };
+
     return (
-      <div className="player-bar">
+      <div
+        className={`player-bar${elevatedForTabNav ? " player-bar-above-tabs" : ""}`}
+        role={canExpand ? "button" : undefined}
+        tabIndex={canExpand ? 0 : undefined}
+        aria-label={canExpand ? "Open now playing" : undefined}
+        onClick={openFullPlayer}
+        onKeyDown={(e) => {
+          if (!canExpand) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            openFullPlayer();
+          }
+        }}
+        style={{ cursor: canExpand ? "pointer" : undefined }}
+      >
         <div
           style={{
             maxWidth: 1400,
@@ -155,31 +180,12 @@ export default function PlayerBar({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", minWidth: 0 }}>
-            <button
-              type="button"
-              aria-label="Open now playing"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (guest || !onExpandFullPlayer) return;
-                onExpandFullPlayer();
-              }}
-              disabled={guest || !onExpandFullPlayer}
-              style={{
-                flexShrink: 0,
-                padding: 0,
-                border: "none",
-                background: "none",
-                lineHeight: 0,
-                cursor: guest || !onExpandFullPlayer ? "default" : "pointer",
-              }}
-            >
-              <img
-                src={resolveMixArtwork(track.coverUrl)}
-                alt=""
-                style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", display: "block" }}
-                onError={handleArtworkError}
-              />
-            </button>
+            <img
+              src={resolveMixArtwork(track.coverUrl)}
+              alt=""
+              style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", display: "block", flexShrink: 0 }}
+              onError={handleArtworkError}
+            />
             <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
               <MarqueeText
                 text={track.title}

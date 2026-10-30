@@ -3,6 +3,16 @@ import { useLocation } from "react-router-dom";
 import useAuth from "../hooks/useAuth.js";
 import usePlayer from "../hooks/usePlayer.js";
 import { backfillMissingMixDurations } from "../lib/backfillMixDurations.js";
+import {
+  addLocalMixComment,
+  getLocalMixComments,
+  getLocalSeedEpisodes,
+  getLocalSeedProfiles,
+  isLocalMode,
+  readLocalLikes,
+  writeLocalLikes,
+} from "../lib/localMode.js";
+import { listLocalUploadEpisodes } from "../lib/localUploads.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 import { mixRowToEpisode, notificationRowToApp, profileRowToUser } from "../lib/maps.js";
 import { isMixApproved } from "../lib/mixStatus.js";
@@ -72,6 +82,13 @@ export function AppProvider({ children }) {
   const [dmUnreadCount, setDmUnreadCount] = useState(0);
 
   const refreshMixes = useCallback(async () => {
+    if (isLocalMode()) {
+      setDataError(null);
+      const uploaded = await listLocalUploadEpisodes();
+      const list = [...uploaded, ...getLocalSeedEpisodes()];
+      setEpisodes(list);
+      return list;
+    }
     if (!isSupabaseConfigured()) {
       setEpisodes([]);
       return [];
@@ -100,6 +117,11 @@ export function AppProvider({ children }) {
   }, [auth.session?.user?.id, applyKnownMixDuration]);
 
   const refreshProfiles = useCallback(async () => {
+    if (isLocalMode()) {
+      const list = getLocalSeedProfiles();
+      setUsers(list);
+      return list;
+    }
     if (!isSupabaseConfigured()) {
       setUsers([]);
       return [];
@@ -169,6 +191,10 @@ export function AppProvider({ children }) {
 
   const refreshLikes = useCallback(async () => {
     const uid = auth.session?.user?.id;
+    if (isLocalMode()) {
+      setLikedMixIds(readLocalLikes());
+      return;
+    }
     if (!isSupabaseConfigured() || !uid) {
       setLikedMixIds([]);
       return;
@@ -189,7 +215,24 @@ export function AppProvider({ children }) {
   const toggleLike = useCallback(
     async (mixId) => {
       const uid = auth.session?.user?.id;
-      if (!uid || !mixId || !isSupabaseConfigured()) return;
+      if (!uid || !mixId) return;
+      if (isLocalMode()) {
+        setLikedMixIds((prev) => {
+          const wasLiked = prev.includes(mixId);
+          const next = wasLiked ? prev.filter((x) => x !== mixId) : [mixId, ...prev];
+          writeLocalLikes(next);
+          setEpisodes((eps) =>
+            eps.map((ep) =>
+              ep.id === mixId
+                ? { ...ep, likesCount: Math.max(0, (ep.likesCount ?? 0) + (wasLiked ? -1 : 1)) }
+                : ep,
+            ),
+          );
+          return next;
+        });
+        return;
+      }
+      if (!isSupabaseConfigured()) return;
       setLikedMixIds((prev) => {
         const wasLiked = prev.includes(mixId);
         const next = wasLiked ? prev.filter((x) => x !== mixId) : [mixId, ...prev];
@@ -217,7 +260,9 @@ export function AppProvider({ children }) {
   );
 
   const fetchMixComments = useCallback(async (mixId) => {
-    if (!mixId || !isSupabaseConfigured()) return [];
+    if (!mixId) return [];
+    if (isLocalMode()) return getLocalMixComments(mixId);
+    if (!isSupabaseConfigured()) return [];
     const { data, error } = await supabase
       .from("mix_comments")
       .select("id, mix_id, user_id, body, created_at")
@@ -241,7 +286,14 @@ export function AppProvider({ children }) {
     async (mixId, body) => {
       const uid = auth.session?.user?.id;
       const text = (body || "").trim();
-      if (!uid || !mixId || !text || !isSupabaseConfigured()) {
+      if (!uid || !mixId || !text) {
+        return { ok: false, error: "Sign in to comment." };
+      }
+      if (isLocalMode()) {
+        addLocalMixComment(mixId, uid, text);
+        return { ok: true };
+      }
+      if (!isSupabaseConfigured()) {
         return { ok: false, error: "Sign in to comment." };
       }
       const { error } = await supabase.from("mix_comments").insert({
@@ -260,9 +312,10 @@ export function AppProvider({ children }) {
   }, [refreshLikes]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) return;
-    refreshMixes();
-    refreshProfiles();
+    if (isLocalMode() || isSupabaseConfigured()) {
+      void refreshMixes();
+      void refreshProfiles();
+    }
   }, [refreshMixes, refreshProfiles]);
 
   useEffect(() => {
@@ -415,6 +468,7 @@ export function AppProvider({ children }) {
       updateMix,
       dataError,
       supabaseReady: isSupabaseConfigured(),
+      localMode: isLocalMode(),
       likedMixIds,
       refreshLikes,
       toggleLike,

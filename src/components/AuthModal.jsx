@@ -3,15 +3,18 @@ import { useNavigate } from "react-router-dom";
 import { GENRES } from "../constants/genres.js";
 import Icon from "./Icon.jsx";
 import PasswordField from "./PasswordField.jsx";
+import { isLocalMode, LOCAL_TEST_EMAIL, LOCAL_TEST_PASSWORD } from "../lib/localMode.js";
 import { isSupabaseConfigured } from "../lib/supabaseClient.js";
 import { useApp } from "../context/AppContext.jsx";
+
+const ART = "/DeepHouseLabLogo.png";
 
 export default function AuthModal({ onClose }) {
   const navigate = useNavigate();
   const { auth } = useApp();
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState({
-    email: "",
+    email: isLocalMode() ? LOCAL_TEST_EMAIL : "",
     username: "",
     password: "",
     confirmPassword: "",
@@ -45,7 +48,7 @@ export default function AuthModal({ onClose }) {
   };
 
   const handleSubmit = async () => {
-    if (!isSupabaseConfigured()) return;
+    if (!isLocalMode() && !isSupabaseConfigured()) return;
     setLocalError(null);
     if (mode === "register") {
       if (form.password.length < 6) {
@@ -88,101 +91,70 @@ export default function AuthModal({ onClose }) {
   };
 
   const title =
-    mode === "login" ? "SIGN IN" : mode === "register" ? "CREATE ACCOUNT" : "RESET PASSWORD";
+    mode === "login" ? "Sign in" : mode === "register" ? "Create account" : "Reset password";
   const subtitle =
     mode === "login"
-      ? "Welcome back to Deep House Lab"
+      ? "Welcome back to the Lab"
       : mode === "register"
         ? "Join Deep House Lab"
         : "We’ll email you a link to set a new password";
 
   return (
     <div
-      className="modal-overlay"
+      className="modal-overlay auth-overlay"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="modal">
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
-          <img
-            src="/logo-transparent.png"
-            alt="Deep House Lab"
-            width={90}
-            height={90}
-            style={{
-              width: 90,
-              height: 90,
-              borderRadius: 10,
-              objectFit: "contain",
-            }}
-          />
+      <div className="modal auth-card" role="dialog" aria-label={title}>
+        <div className="auth-brand">
+          <img src={ART} alt="Deep House Lab" width={72} height={72} />
         </div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 28,
-          }}
-        >
+
+        <div className="auth-head">
           <div>
-            <div
-              style={{
-                fontFamily: "var(--ff-display)",
-                fontSize: 28,
-                letterSpacing: "0.04em",
-              }}
-            >
-              {title}
-            </div>
-            <p style={{ fontSize: 13, color: "var(--text2)", marginTop: 2 }}>{subtitle}</p>
+            <h2 className="auth-title">{title}</h2>
+            <p className="auth-sub">{subtitle}</p>
           </div>
-          <button onClick={onClose} style={{ background: "none", color: "var(--text3)", padding: 4 }}>
+          <button type="button" className="auth-close" onClick={onClose} aria-label="Close">
             <Icon name="x" size={20} />
           </button>
         </div>
 
-        {!isSupabaseConfigured() ? (
-          <p style={{ color: "var(--orange)", fontSize: 14, lineHeight: 1.6 }}>
-            Add <code style={{ color: "var(--accent)" }}>VITE_SUPABASE_URL</code> and{" "}
-            <code style={{ color: "var(--accent)" }}>VITE_SUPABASE_ANON_KEY</code> to{" "}
-            <code style={{ color: "var(--accent)" }}>.env.local</code> and restart the dev server.
+        {isLocalMode() ? (
+          <p className="auth-notice is-warn">
+            Local test account: <strong>{LOCAL_TEST_EMAIL}</strong>
+            <br />
+            Password: <strong>{LOCAL_TEST_PASSWORD}</strong>
+          </p>
+        ) : !isSupabaseConfigured() ? (
+          <p className="auth-notice is-warn">
+            Add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> to{" "}
+            <code>.env.local</code> and restart the dev server.
           </p>
         ) : null}
 
         {localError || auth.authError ? (
-          <p style={{ color: "var(--red)", fontSize: 13, marginBottom: 14 }}>
-            {localError || auth.authError}
-          </p>
+          <p className="auth-notice is-error">{localError || auth.authError}</p>
         ) : null}
 
-        {registerInfo ? (
-          <p style={{ color: "var(--text2)", fontSize: 13, marginBottom: 14, lineHeight: 1.55 }}>{registerInfo}</p>
-        ) : null}
+        {registerInfo ? <p className="auth-notice">{registerInfo}</p> : null}
 
         {forgotSent ? (
-          <p style={{ color: "var(--green)", fontSize: 13, marginBottom: 14, lineHeight: 1.55 }}>
+          <p className="auth-notice is-ok">
             If an account exists for that email, you’ll receive a reset link shortly. Add{" "}
-            <code style={{ color: "var(--accent)" }}>/reset-password</code> to Supabase redirect URLs.
+            <code>/reset-password</code> to Supabase redirect URLs.
           </p>
         ) : null}
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 20 }}>
+        <div className="auth-fields">
           {mode === "register" && (
             <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  marginBottom: 5,
-                  color: "var(--text2)",
-                }}
-              >
+              <label className="auth-label" htmlFor="auth-username">
                 Display name
               </label>
               <input
+                id="auth-username"
                 className="inp"
                 placeholder="Your DJ name"
                 value={form.username}
@@ -192,18 +164,11 @@ export default function AuthModal({ onClose }) {
           )}
 
           <div>
-            <label
-              style={{
-                display: "block",
-                fontSize: 12,
-                fontWeight: 600,
-                marginBottom: 5,
-                color: "var(--text2)",
-              }}
-            >
+            <label className="auth-label" htmlFor="auth-email">
               Email
             </label>
             <input
+              id="auth-email"
               className="inp"
               type="email"
               placeholder="dj@yourlabel.com"
@@ -243,18 +208,11 @@ export default function AuthModal({ onClose }) {
 
           {mode === "register" && (
             <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  marginBottom: 5,
-                  color: "var(--text2)",
-                }}
-              >
+              <label className="auth-label" htmlFor="auth-genre">
                 Primary genre
               </label>
               <select
+                id="auth-genre"
                 className="inp"
                 value={form.genre}
                 onChange={(e) => setForm((f) => ({ ...f, genre: e.target.value }))}
@@ -270,64 +228,44 @@ export default function AuthModal({ onClose }) {
         </div>
 
         <button
-          className="btn btn-primary"
-          style={{
-            width: "100%",
-            justifyContent: "center",
-            padding: "12px",
-            marginBottom: 16,
-          }}
+          type="button"
+          className="auth-submit"
           onClick={() => void handleSubmit()}
-          disabled={busy || !isSupabaseConfigured() || !canSubmit}
+          disabled={busy || (!isLocalMode() && !isSupabaseConfigured()) || !canSubmit}
         >
           {busy
             ? "Please wait…"
             : mode === "login"
-              ? "Sign In"
+              ? "Sign in"
               : mode === "forgot"
                 ? "Send reset link"
-                : "Create Account"}
+                : "Create account"}
         </button>
 
-        <div style={{ textAlign: "center", fontSize: 13, color: "var(--text3)" }}>
+        <div className="auth-foot">
           {mode === "login" ? (
             <>
-              <button
-                type="button"
-                style={{
-                  display: "block",
-                  width: "100%",
-                  background: "none",
-                  color: "var(--text2)",
-                  marginBottom: 12,
-                  fontSize: 13,
-                }}
-                onClick={() => switchMode("forgot")}
-              >
+              <button type="button" className="auth-link-muted" onClick={() => switchMode("forgot")}>
                 Forgot password?
               </button>
-              Don&apos;t have an account?{" "}
-              <button
-                type="button"
-                style={{ background: "none", color: "var(--accent)", fontWeight: 600 }}
-                onClick={() => {
-                  onClose();
-                  navigate("/register");
-                }}
-              >
-                Register
-              </button>
+              <p>
+                Don&apos;t have an account?{" "}
+                <button
+                  type="button"
+                  className="auth-link"
+                  onClick={() => {
+                    onClose();
+                    navigate("/register");
+                  }}
+                >
+                  Register
+                </button>
+              </p>
             </>
           ) : mode === "forgot" ? (
-            <>
-              <button
-                type="button"
-                style={{ background: "none", color: "var(--accent)", fontWeight: 600 }}
-                onClick={() => switchMode("login")}
-              >
-                Back to sign in
-              </button>
-            </>
+            <button type="button" className="auth-link" onClick={() => switchMode("login")}>
+              Back to sign in
+            </button>
           ) : null}
         </div>
       </div>

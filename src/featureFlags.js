@@ -16,6 +16,9 @@ export const FEATURE_VAULT_FEED = false;
 /** Toggle My Stats page in nav and `/stats` route. */
 export const FEATURE_STATS = false;
 
+/** Mix page listener comments. Off while the section is parked. */
+export const FEATURE_MIX_COMMENTS = false;
+
 /** Default landing path for signed-in users when Discover is hidden. */
 export function signedInHomePath() {
   if (FEATURE_DISCOVER) return "/discover";

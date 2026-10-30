@@ -18,6 +18,7 @@ import UserProfilePage from "./pages/UserProfilePage.jsx";
 import StatsPage from "./pages/StatsPage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
 import MixesPage from "./pages/MixesPage.jsx";
+import LabHomePage from "./pages/LabHomePage.jsx";
 import MixDetailPage from "./pages/MixDetailPage.jsx";
 import PasswordResetPage from "./pages/PasswordResetPage.jsx";
 import RegisterPage from "./pages/RegisterPage.jsx";
@@ -52,6 +53,19 @@ function DiscoverRoute() {
   }
   if (!auth.session?.user?.id) return <Navigate to="/" replace />;
   return <DiscoverPage />;
+}
+
+function LabHomeRoute() {
+  const { auth } = useApp();
+  if (auth.authLoading) {
+    return (
+      <div style={{ padding: 48, textAlign: "center", color: "var(--text2)", fontSize: 14 }}>
+        Loading…
+      </div>
+    );
+  }
+  if (!auth.session?.user?.id) return <Navigate to="/" replace />;
+  return <LabHomePage />;
 }
 
 function MixesRoute() {
@@ -104,6 +118,7 @@ export default function App() {
           path="/discover"
           element={FEATURE_DISCOVER ? <DiscoverRoute /> : <Navigate to={signedInHomePath()} replace />}
         />
+        <Route path="/home" element={<LabHomeRoute />} />
         <Route path="/mixes" element={<MixesRoute />} />
         <Route
           path="/vault-feed"

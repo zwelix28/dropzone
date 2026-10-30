@@ -64,7 +64,7 @@ export default function CommunityPage() {
           maxWidth: 560,
         }}
       >
-        Discover DJs and listeners on Deep House Lab. Follow people who share your taste — they show up under Connections.
+        Top 10 listeners by hours streamed on Deep House Lab. Follow people in this list — they show up under Connections.
       </p>
 
       <div style={{ position: "relative", marginBottom: isCompact ? 12 : 16, maxWidth: 420 }}>
@@ -75,7 +75,7 @@ export default function CommunityPage() {
           className="inp"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search accounts…"
+          placeholder="Search top streamers…"
           style={{ width: "100%", paddingLeft: 36 }}
         />
       </div>
@@ -93,7 +93,9 @@ export default function CommunityPage() {
         >
           <Icon name="people" size={28} color="var(--text3)" />
           <p style={{ color: "var(--text3)", fontSize: isCompact ? 14 : 15, margin: "14px 0 0", lineHeight: 1.6 }}>
-            No accounts match that search. Try another name.
+            {query.trim()
+              ? "No top streamers match that search. Try another name."
+              : "Listening hours will rank the top 10 streamers here."}
           </p>
         </div>
       ) : (
