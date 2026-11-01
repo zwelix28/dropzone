@@ -5,6 +5,8 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  # Public VAPID key (safe in client builds). Must match Supabase secret VAPID_PUBLIC_KEY.
+  VITE_VAPID_PUBLIC_KEY = "BFu0mOBuh2MDvC4B5m1TkrnKk16C5O5tdXMDZEWIg3Fn9VKWbJF66Q1QqUBV9by2sUip_ObG8M3LSkAAcQpLf6w"
 
 # SPA: client-side routes (e.g. /discover, /mix/:id) must serve index.html
 [[redirects]]

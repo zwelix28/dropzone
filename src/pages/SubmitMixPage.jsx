@@ -65,6 +65,7 @@ export default function SubmitMixPage() {
   const { auth } = useApp();
   const uid = auth.session?.user?.id;
   const isCompact = useMediaQuery("(max-width: 720px)");
+  const [panel, setPanel] = useState("submit");
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reviewSetupMissing, setReviewSetupMissing] = useState(false);
@@ -95,18 +96,112 @@ export default function SubmitMixPage() {
     void load();
   }, [load]);
 
+  const openHistory = useCallback(() => {
+    setPanel("history");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    void load();
+  }, [load]);
+
   return (
     <div>
-      <UploadPage mode="submission" onSubmitted={load} />
-
       {uid ? (
         <div
           style={{
-            padding: isCompact ? "0 12px 100px" : "0 36px 100px",
+            padding: isCompact ? "14px 12px 0" : "24px 36px 0",
             maxWidth: isCompact ? "100%" : 760,
           }}
         >
-          <h2 style={{ fontSize: isCompact ? 15 : 17, fontWeight: 700, margin: "0 0 12px" }}>Your submissions</h2>
+          <div
+            role="tablist"
+            aria-label="Submit mix sections"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 6,
+              padding: 4,
+              borderRadius: 14,
+              border: "1px solid rgba(56, 189, 248, 0.22)",
+              background:
+                "radial-gradient(120% 140% at 100% 0%, rgba(56, 189, 248, 0.12), transparent 55%), rgba(7, 9, 15, 0.45)",
+            }}
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={panel === "submit"}
+              onClick={() => setPanel("submit")}
+              style={{
+                minHeight: 42,
+                border: 0,
+                borderRadius: 11,
+                cursor: "pointer",
+                font: "inherit",
+                fontSize: isCompact ? 13 : 14,
+                fontWeight: 650,
+                color: panel === "submit" ? "#07090F" : "var(--text2)",
+                background: panel === "submit" ? "var(--accent2)" : "transparent",
+                boxShadow: panel === "submit" ? "0 0 16px rgba(56, 189, 248, 0.28)" : "none",
+              }}
+            >
+              New submission
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={panel === "history"}
+              onClick={openHistory}
+              style={{
+                minHeight: 42,
+                border: 0,
+                borderRadius: 11,
+                cursor: "pointer",
+                font: "inherit",
+                fontSize: isCompact ? 13 : 14,
+                fontWeight: 650,
+                color: panel === "history" ? "#07090F" : "var(--text2)",
+                background: panel === "history" ? "var(--accent2)" : "transparent",
+                boxShadow: panel === "history" ? "0 0 16px rgba(56, 189, 248, 0.28)" : "none",
+              }}
+            >
+              Your submissions
+              {!loading && submissions.length ? ` (${submissions.length})` : ""}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {panel === "submit" ? (
+        <UploadPage
+          mode="submission"
+          onSubmitted={() => {
+            void load();
+          }}
+          onViewHistory={openHistory}
+        />
+      ) : null}
+
+      {uid && panel === "history" ? (
+        <div
+          style={{
+            padding: isCompact ? "16px 12px 100px" : "20px 36px 100px",
+            maxWidth: isCompact ? "100%" : 760,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
+            <h2 style={{ fontSize: isCompact ? 15 : 17, fontWeight: 700, margin: 0 }}>Your submissions</h2>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                setPanel("submit");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              style={{ height: 40, padding: "0 16px", fontSize: 13 }}
+            >
+              <Icon name="plus" size={14} />
+              New mix
+            </button>
+          </div>
 
           {reviewSetupMissing ? (
             <p style={{ fontSize: 13, color: "var(--text3)", margin: 0 }}>
@@ -118,8 +213,9 @@ export default function SubmitMixPage() {
             <div
               style={{
                 display: "flex",
-                alignItems: "center",
-                gap: 10,
+                flexDirection: "column",
+                alignItems: isCompact ? "stretch" : "flex-start",
+                gap: 12,
                 padding: isCompact ? "14px 12px" : "16px",
                 background: "var(--surface)",
                 border: "1px solid var(--border)",
@@ -128,8 +224,18 @@ export default function SubmitMixPage() {
                 fontSize: isCompact ? 12 : 13,
               }}
             >
-              <Icon name="send" size={16} color="var(--text3)" />
-              Nothing submitted yet. Your mixes and their review status will show up here.
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <Icon name="send" size={16} color="var(--text3)" />
+                Nothing submitted yet. Your mixes and their review status will show up here.
+              </div>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setPanel("submit")}
+                style={{ width: isCompact ? "100%" : "auto" }}
+              >
+                Start a submission
+              </button>
             </div>
           ) : (
             <div
