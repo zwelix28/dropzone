@@ -87,13 +87,23 @@ self.addEventListener("push", (event) => {
   }
 
   const title = data.title || "Deep House Lab";
+  const origin = self.location.origin;
+  const toAbs = (url) => {
+    const raw = url || `${origin}/pwa-icon-192.png`;
+    try {
+      return new URL(raw, origin).href;
+    } catch {
+      return `${origin}/pwa-icon-192.png`;
+    }
+  };
   const options = {
     body: data.body || data.message || "A new mix is available.",
-    icon: data.icon || "/pwa-icon-192.png",
-    badge: data.badge || "/pwa-icon-192.png",
+    icon: toAbs(data.icon),
+    badge: toAbs(data.badge),
     data: { href: data.href || "/" },
-    tag: data.tag || "dhlab-new-mix",
+    tag: data.tag || `dhlab-${Date.now()}`,
     renotify: true,
+    vibrate: [120, 60, 120],
   };
 
   event.waitUntil(self.registration.showNotification(title, options));

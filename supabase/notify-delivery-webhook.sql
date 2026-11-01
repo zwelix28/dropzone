@@ -1,18 +1,21 @@
--- Optional: create the Database Webhook as a trigger (same effect as Dashboard → Database → Webhooks).
--- Prefer the Dashboard UI if you already created one — do not create duplicates.
+-- Database hook: notifications INSERT → notify-delivery edge function.
+-- Do NOT also create a Dashboard Database Webhook for the same table (duplicates).
 --
--- Before running:
--- 1. Replace YOUR_NOTIFY_WEBHOOK_SECRET below with the same value as edge secret NOTIFY_WEBHOOK_SECRET
--- 2. Confirm notify-delivery is deployed with --no-verify-jwt
+-- Before running: replace REPLACE_ME_NOTIFY_WEBHOOK_SECRET with the same value as
+-- edge secret NOTIFY_WEBHOOK_SECRET.
+-- Confirm: supabase functions deploy notify-delivery --no-verify-jwt
 --
--- Dashboard alternative (recommended):
+-- If you use the Dashboard Webhook UI instead:
 --   Table: notifications | Events: INSERT
 --   URL: https://puoszqxiugositqtfzlt.supabase.co/functions/v1/notify-delivery
---   Headers:
+--   HTTP Headers (not body):
 --     Content-Type: application/json
 --     x-notify-secret: <NOTIFY_WEBHOOK_SECRET>
 
 create extension if not exists pg_net with schema extensions;
+
+-- Remove common broken Dashboard webhook (secret accidentally placed in body).
+drop trigger if exists notifications on public.notifications;
 
 create or replace function public.notify_delivery_on_insert()
 returns trigger
@@ -21,13 +24,11 @@ security definer
 set search_path = public
 as $$
 begin
-  -- Only new_mix rows are delivered by the edge function; still fire for all inserts
-  -- so delivery stays centralized in notify-delivery (idempotent via meta.delivery.at).
   perform net.http_post(
     url := 'https://puoszqxiugositqtfzlt.supabase.co/functions/v1/notify-delivery',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'x-notify-secret', 'YOUR_NOTIFY_WEBHOOK_SECRET'
+      'x-notify-secret', 'REPLACE_ME_NOTIFY_WEBHOOK_SECRET'
     ),
     body := jsonb_build_object('notification_id', new.id::text)
   );
