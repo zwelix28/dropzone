@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
 import PageHeader from "../components/PageHeader.jsx";
@@ -71,9 +71,9 @@ function defaultMixDescription(title) {
  * The upload wizard. In "submission" mode any approved member can use it, but the
  * mix is saved as pending and stays off the site until an admin approves it.
  *
- * @param {{ mode?: 'admin' | 'submission', onSubmitted?: () => void }} props
+ * @param {{ mode?: 'admin' | 'submission', onSubmitted?: () => void, onViewHistory?: () => void }} props
  */
-export default function UploadPage({ mode = "admin", onSubmitted } = {}) {
+export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory } = {}) {
   const navigate = useNavigate();
   const { auth, refreshMixes } = useApp();
   const currentUser = auth.currentUser;
@@ -455,7 +455,11 @@ export default function UploadPage({ mode = "admin", onSubmitted } = {}) {
             className="btn btn-ghost"
             onClick={() => {
               setDone(false);
-              if (!isSubmission) navigate("/profile");
+              if (isSubmission) {
+                onViewHistory?.();
+                return;
+              }
+              navigate("/profile");
             }}
           >
             {isSubmission ? "View My Submissions" : "View My Uploads"}
@@ -465,7 +469,14 @@ export default function UploadPage({ mode = "admin", onSubmitted } = {}) {
     );
 
   const dzPad = isCompact ? "18px 14px" : undefined;
-  const stepLabels = isCompact ? ["Audio", "Details", "Review"] : ["Audio File", "Details", "Review"];
+  const stepLabels = isCompact
+    ? ["Audio", "Info", "Details", "Review"]
+    : ["Audio", "Cover & Title", "Details", "Review"];
+  const totalSteps = stepLabels.length;
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [step]);
 
   return (
     <div
@@ -555,14 +566,14 @@ export default function UploadPage({ mode = "admin", onSubmitted } = {}) {
                 {s}
               </span>
             </div>
-            {i < 2 && (
+            {i < totalSteps - 1 && (
               <div
                 style={{
                   flex: 1,
                   height: 1,
-                  background: "var(--border)",
-                  margin: isCompact ? "0 6px" : "0 12px",
-                  minWidth: isCompact ? 6 : 12,
+                  background: step > i + 1 ? "rgba(56,189,248,0.45)" : "var(--border)",
+                  margin: isCompact ? "0 4px" : "0 10px",
+                  minWidth: isCompact ? 4 : 10,
                 }}
               />
             )}
@@ -723,71 +734,13 @@ export default function UploadPage({ mode = "admin", onSubmitted } = {}) {
                 ) : null}
               </div>
 
-              <div style={{ marginBottom: 28 }}>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 8, color: "var(--text2)" }}>
-                  Cover Art
-                </label>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: isCompact ? 12 : 16,
-                    alignItems: "flex-start",
-                    flexDirection: isCompact ? "column" : "row",
-                  }}
-                >
-                  <div
-                    className={`drop-zone ${dragCover ? "dragging" : ""}`}
-                    style={{ flex: 1, width: isCompact ? "100%" : undefined, padding: dzPad || undefined }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setDragCover(true);
-                    }}
-                    onDragLeave={() => setDragCover(false)}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      setDragCover(false);
-                      handleCoverChange(e.dataTransfer.files[0]);
-                    }}
-                    onClick={() => document.getElementById("cover-inp").click()}
-                  >
-                    <input
-                      id="cover-inp"
-                      type="file"
-                      accept="image/*"
-                      style={{ display: "none" }}
-                      onChange={(e) => handleCoverChange(e.target.files[0])}
-                    />
-                    <Icon name="img" size={isCompact ? 24 : 30} color="var(--text3)" />
-                    <p style={{ marginTop: 10, fontSize: isCompact ? 12 : 13, color: "var(--text2)" }}>Upload cover artwork</p>
-                    <p style={{ fontSize: isCompact ? 10 : 11, color: "var(--text3)", marginTop: 3 }}>
-                      JPG, PNG — min 500×500px
-                    </p>
-                  </div>
-                  {form.coverPreview && (
-                    <img
-                      src={form.coverPreview}
-                      alt="Cover preview"
-                      style={{
-                        width: isCompact ? 88 : 120,
-                        height: isCompact ? 88 : 120,
-                        borderRadius: 12,
-                        objectFit: "cover",
-                        border: "2px solid var(--accent2)",
-                        flexShrink: 0,
-                        alignSelf: isCompact ? "center" : "flex-start",
-                      }}
-                    />
-                  )}
-                </div>
-              </div>
-
               <button
                 className="btn btn-primary"
                 style={{ padding: isCompact ? "10px 20px" : "12px 32px", width: isCompact ? "100%" : "auto" }}
                 onClick={() => setStep(2)}
                 disabled={!form.audioFile || !form.contentType}
               >
-                Continue <Icon name="skip" size={15} />
+                Next <Icon name="skip" size={15} />
               </button>
             </>
           ) : null}
@@ -814,6 +767,65 @@ export default function UploadPage({ mode = "admin", onSubmitted } = {}) {
                 {form.audioFile ? ` · ${form.audioFile.name}` : ""}
               </span>
             </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 8, color: "var(--text2)" }}>
+                Cover Art
+              </label>
+              <div
+                style={{
+                  display: "flex",
+                  gap: isCompact ? 12 : 16,
+                  alignItems: "flex-start",
+                  flexDirection: isCompact ? "column" : "row",
+                }}
+              >
+                <div
+                  className={`drop-zone ${dragCover ? "dragging" : ""}`}
+                  style={{ flex: 1, width: isCompact ? "100%" : undefined, padding: dzPad || undefined }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragCover(true);
+                  }}
+                  onDragLeave={() => setDragCover(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragCover(false);
+                    handleCoverChange(e.dataTransfer.files[0]);
+                  }}
+                  onClick={() => document.getElementById("cover-inp").click()}
+                >
+                  <input
+                    id="cover-inp"
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={(e) => handleCoverChange(e.target.files[0])}
+                  />
+                  <Icon name="img" size={isCompact ? 24 : 30} color="var(--text3)" />
+                  <p style={{ marginTop: 10, fontSize: isCompact ? 12 : 13, color: "var(--text2)" }}>Upload cover artwork</p>
+                  <p style={{ fontSize: isCompact ? 10 : 11, color: "var(--text3)", marginTop: 3 }}>
+                    JPG, PNG — min 500×500px
+                  </p>
+                </div>
+                {form.coverPreview ? (
+                  <img
+                    src={form.coverPreview}
+                    alt="Cover preview"
+                    style={{
+                      width: isCompact ? 88 : 120,
+                      height: isCompact ? 88 : 120,
+                      borderRadius: 12,
+                      objectFit: "cover",
+                      border: "2px solid var(--accent2)",
+                      flexShrink: 0,
+                      alignSelf: isCompact ? "center" : "flex-start",
+                    }}
+                  />
+                ) : null}
+              </div>
+            </div>
+
             <div>
               <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}>
                 Title *
@@ -837,42 +849,7 @@ export default function UploadPage({ mode = "admin", onSubmitted } = {}) {
                 “{MIX_TITLE_PREFIX.trim()}” is added automatically — type your mix name after it.
               </div>
             </div>
-            <div>
-              <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}>
-                Description{" "}
-                <span style={{ color: "var(--text3)", fontWeight: 400 }}>
-                  (unlimited characters — add full tracklist, notes, etc.)
-                </span>
-              </label>
-              <textarea
-                className="inp"
-                placeholder="Describe your mix, add tracklist, venues, shoutouts..."
-                value={form.description}
-                onChange={(e) => {
-                  descriptionManuallyEditedRef.current = true;
-                  setForm((f) => ({ ...f, description: e.target.value }));
-                }}
-                style={{ minHeight: isCompact ? 100 : 160 }}
-              />
-              <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>
-                {form.description.length} characters
-              </div>
-            </div>
-            <div>
-              <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}>
-                Tracklist <span style={{ color: "var(--text3)", fontWeight: 400 }}>(one per line)</span>
-              </label>
-              <textarea
-                className="inp"
-                placeholder={"01. Artist - Track\n02. Artist - Track\n03. Artist - Track"}
-                value={form.tracklist}
-                onChange={(e) => setForm((f) => ({ ...f, tracklist: e.target.value }))}
-                style={{ minHeight: isCompact ? 90 : 140 }}
-              />
-              <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>
-                {form.tracklist.split("\n").map((l) => l.trim()).filter(Boolean).length} items
-              </div>
-            </div>
+
             <div>
               <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}>
                 Genre
@@ -889,6 +866,69 @@ export default function UploadPage({ mode = "admin", onSubmitted } = {}) {
                 ))}
               </select>
             </div>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              marginTop: 24,
+              flexDirection: isCompact ? "column-reverse" : "row",
+            }}
+          >
+            <button className="btn btn-ghost" onClick={() => setStep(1)} style={{ width: isCompact ? "100%" : "auto" }}>
+              Back
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={() => setStep(3)}
+              disabled={!mixTitleBody(form.title)}
+              style={{ width: isCompact ? "100%" : "auto" }}
+            >
+              Next <Icon name="skip" size={15} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 3 && (
+        <div className="slide-in">
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}>
+                Description{" "}
+                <span style={{ color: "var(--text3)", fontWeight: 400 }}>
+                  (notes, vibe, shoutouts)
+                </span>
+              </label>
+              <textarea
+                className="inp"
+                placeholder="Describe your mix, add venues, shoutouts..."
+                value={form.description}
+                onChange={(e) => {
+                  descriptionManuallyEditedRef.current = true;
+                  setForm((f) => ({ ...f, description: e.target.value }));
+                }}
+                style={{ minHeight: isCompact ? 100 : 140 }}
+              />
+              <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>
+                {form.description.length} characters
+              </div>
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}>
+                Tracklist <span style={{ color: "var(--text3)", fontWeight: 400 }}>(one per line)</span>
+              </label>
+              <textarea
+                className="inp"
+                placeholder={"01. Artist - Track\n02. Artist - Track\n03. Artist - Track"}
+                value={form.tracklist}
+                onChange={(e) => setForm((f) => ({ ...f, tracklist: e.target.value }))}
+                style={{ minHeight: isCompact ? 90 : 130 }}
+              />
+              <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>
+                {form.tracklist.split("\n").map((l) => l.trim()).filter(Boolean).length} items
+              </div>
+            </div>
             <div>
               <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}>
                 Tags <span style={{ color: "var(--text3)", fontWeight: 400 }}>(comma separated)</span>
@@ -901,7 +941,6 @@ export default function UploadPage({ mode = "admin", onSubmitted } = {}) {
               />
             </div>
 
-            {/* Pricing — Pro users only */}
             {isProPlan(currentUser) ? (
               <div
                 style={{
@@ -982,22 +1021,21 @@ export default function UploadPage({ mode = "admin", onSubmitted } = {}) {
               flexDirection: isCompact ? "column-reverse" : "row",
             }}
           >
-            <button className="btn btn-ghost" onClick={() => setStep(1)} style={{ width: isCompact ? "100%" : "auto" }}>
+            <button className="btn btn-ghost" onClick={() => setStep(2)} style={{ width: isCompact ? "100%" : "auto" }}>
               Back
             </button>
             <button
               className="btn btn-primary"
-              onClick={() => setStep(3)}
-              disabled={!mixTitleBody(form.title)}
+              onClick={() => setStep(4)}
               style={{ width: isCompact ? "100%" : "auto" }}
             >
-              Review <Icon name="skip" size={15} />
+              Next <Icon name="skip" size={15} />
             </button>
           </div>
         </div>
       )}
 
-      {step === 3 && (
+      {step === 4 && (
         <div className="slide-in">
           <div
             style={{
@@ -1122,7 +1160,7 @@ export default function UploadPage({ mode = "admin", onSubmitted } = {}) {
           <div style={{ display: "flex", gap: 12, flexDirection: isCompact ? "column-reverse" : "row" }}>
             <button
               className="btn btn-ghost"
-              onClick={() => setStep(2)}
+              onClick={() => setStep(3)}
               disabled={submitting}
               style={{ width: isCompact ? "100%" : "auto" }}
             >

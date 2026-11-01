@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
 import AdminInsightsPanel from "../components/admin/AdminInsightsPanel.jsx";
@@ -40,6 +40,7 @@ export default function AdminDashboardPage() {
   const [profiles, setProfiles] = useState([]);
   const [logs, setLogs] = useState([]);
   const [submissions, setSubmissions] = useState([]);
+  const [submissionCursor, setSubmissionCursor] = useState(0);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -307,6 +308,8 @@ export default function AdminDashboardPage() {
       title: submission.title,
       review_note: note,
     });
+    setEditingId(null);
+    setEditForm(null);
     await loadSubmissions();
     await refreshMixes();
   };
@@ -330,6 +333,30 @@ export default function AdminDashboardPage() {
     () => submissions.filter((s) => s.status === MIX_STATUS_PENDING),
     [submissions],
   );
+
+  useEffect(() => {
+    setSubmissionCursor((index) => {
+      if (!submissions.length) return 0;
+      return Math.min(Math.max(0, index), submissions.length - 1);
+    });
+  }, [submissions]);
+
+  const activeSubmission = submissions[submissionCursor] || null;
+  const activeSubmissionOwner = activeSubmission
+    ? profiles.find((user) => user.id === activeSubmission.user_id)
+    : null;
+
+  const goPrevSubmission = () => {
+    setEditingId(null);
+    setEditForm(null);
+    setSubmissionCursor((index) => Math.max(0, index - 1));
+  };
+
+  const goNextSubmission = () => {
+    setEditingId(null);
+    setEditForm(null);
+    setSubmissionCursor((index) => Math.min(submissions.length - 1, index + 1));
+  };
 
   const tp = isCompact
     ? { thL: "8px 10px", thS: "8px 6px", tdL: "8px 10px", tdS: "8px 6px" }
@@ -566,7 +593,7 @@ export default function AdminDashboardPage() {
               Submitted mixes stay off the site until you approve them. Approving publishes the mix and notifies the
               member; rejecting keeps it hidden and sends them your note.
             </p>
-            {submissions.length === 0 ? (
+            {submissions.length === 0 || !activeSubmission ? (
               <div
                 style={{
                   padding: isCompact ? "14px 12px" : "16px",
@@ -580,281 +607,253 @@ export default function AdminDashboardPage() {
                 No submissions to review right now.
               </div>
             ) : (
-              tableShell(
-                <>
-                  <thead>
-                    <tr style={{ borderBottom: "1px solid var(--border)", textAlign: "left" }}>
-                      <th style={{ padding: tp.thL, color: "var(--text3)", fontWeight: 600 }}>Mix</th>
-                      <th style={{ padding: tp.thL, color: "var(--text3)", fontWeight: 600 }}>Submitted by</th>
-                      <th style={{ padding: tp.thS, color: "var(--text3)", fontWeight: 600 }}>Status</th>
-                      <th style={{ padding: tp.thL, color: "var(--text3)", fontWeight: 600 }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {submissions.map((row) => {
-                      const owner = profiles.find((u) => u.id === row.user_id);
-                      const pending = row.status === MIX_STATUS_PENDING;
-                      const isEditing = editingId === row.id;
-                      return (
-                        <Fragment key={row.id}>
-                        <tr style={{ borderBottom: isEditing ? "none" : "1px solid var(--border)" }}>
-                          <td style={{ padding: tp.tdL }}>
-                            <Link
-                              to={`/mix/${row.id}`}
-                              style={{ fontWeight: 600, color: "var(--accent2)", fontSize: isCompact ? 12 : 14 }}
-                            >
-                              {row.title || "Untitled Mix"}
-                            </Link>
-                            <div style={{ fontSize: isCompact ? 10 : 11, color: "var(--text3)", marginTop: 2 }}>
-                              {row.genre || "—"}
-                              {row.submitted_at || row.created_at
-                                ? ` · ${new Date(row.submitted_at || row.created_at).toLocaleDateString()}`
-                                : ""}
-                            </div>
-                            {row.review_note ? (
-                              <div style={{ fontSize: isCompact ? 10 : 11, color: "var(--text3)", marginTop: 4 }}>
-                                Note: {row.review_note}
-                              </div>
-                            ) : null}
-                          </td>
-                          <td style={{ padding: tp.tdL, fontSize: isCompact ? 11 : 12 }}>
-                            {owner ? (
-                              <>
-                                {owner.username}
-                                <div style={{ color: "var(--text3)" }}>{owner.handle}</div>
-                              </>
-                            ) : (
-                              <span style={{ fontFamily: "var(--ff-mono)", fontSize: isCompact ? 9 : 11 }}>
-                                {row.user_id}
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ padding: tp.tdS }}>
-                            <span
-                              style={{
-                                fontSize: isCompact ? 10 : 11,
-                                fontWeight: 700,
-                                color: pending ? "var(--orange)" : "var(--red)",
-                                whiteSpace: "nowrap",
+              <div className="admin-submission-browser">
+                <div className="admin-submission-nav">
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    disabled={busy || submissionCursor <= 0}
+                    onClick={goPrevSubmission}
+                  >
+                    <Icon name="chevronLeft" size={16} />
+                    Previous
+                  </button>
+                  <div className="admin-submission-count">
+                    {submissionCursor + 1} of {submissions.length}
+                    {activeSubmission.status === MIX_STATUS_PENDING ? " · awaiting review" : " · rejected"}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={busy || submissionCursor >= submissions.length - 1}
+                    onClick={goNextSubmission}
+                  >
+                    Next
+                    <Icon name="skip" size={15} />
+                  </button>
+                </div>
+
+                <article className="admin-submission-card">
+                  <div className="admin-submission-hero">
+                    <img
+                      src={resolveMixArtwork(activeSubmission.cover_url)}
+                      alt=""
+                      onError={handleArtworkError}
+                      className="admin-submission-cover"
+                    />
+                    <div className="admin-submission-meta">
+                      <Link to={`/mix/${activeSubmission.id}`} className="admin-submission-title">
+                        {activeSubmission.title || "Untitled Mix"}
+                      </Link>
+                      <div className="admin-submission-sub">
+                        {activeSubmission.genre || "—"}
+                        {activeSubmission.submitted_at || activeSubmission.created_at
+                          ? ` · ${new Date(activeSubmission.submitted_at || activeSubmission.created_at).toLocaleDateString()}`
+                          : ""}
+                      </div>
+                      <div className="admin-submission-owner">
+                        {activeSubmissionOwner ? (
+                          <>
+                            <strong>{activeSubmissionOwner.username}</strong>
+                            <span>{activeSubmissionOwner.handle}</span>
+                          </>
+                        ) : (
+                          <span style={{ fontFamily: "var(--ff-mono)", fontSize: 11 }}>{activeSubmission.user_id}</span>
+                        )}
+                      </div>
+                      {activeSubmission.review_note ? (
+                        <p className="admin-submission-note">Note: {activeSubmission.review_note}</p>
+                      ) : null}
+                      {activeSubmission.description ? (
+                        <p className="admin-submission-desc">{activeSubmission.description}</p>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="admin-submission-actions">
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ color: editingId === activeSubmission.id ? "var(--accent2)" : undefined }}
+                      disabled={busy}
+                      onClick={() =>
+                        editingId === activeSubmission.id
+                          ? cancelEditSubmission()
+                          : startEditSubmission(activeSubmission)
+                      }
+                    >
+                      {editingId === activeSubmission.id ? "Close edit" : "Edit"}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={busy}
+                      onClick={() => void reviewSubmission(activeSubmission, MIX_STATUS_APPROVED)}
+                    >
+                      {activeSubmission.status === MIX_STATUS_PENDING ? "Approve" : "Publish"}
+                    </button>
+                    {activeSubmission.status === MIX_STATUS_PENDING ? (
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ color: "var(--red)" }}
+                        disabled={busy}
+                        onClick={() => void reviewSubmission(activeSubmission, MIX_STATUS_REJECTED)}
+                      >
+                        Reject
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ color: "var(--red)" }}
+                        disabled={busy}
+                        onClick={() => void deleteMix(activeSubmission.id, activeSubmission.title || "Untitled Mix")}
+                      >
+                        Delete
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="btn btn-ghost admin-submission-next-inline"
+                      disabled={busy || submissionCursor >= submissions.length - 1}
+                      onClick={goNextSubmission}
+                    >
+                      Next submission
+                      <Icon name="skip" size={14} />
+                    </button>
+                  </div>
+
+                  {editingId === activeSubmission.id && editForm ? (
+                    <div className="admin-submission-edit">
+                      <div style={{ fontSize: isCompact ? 12 : 13, fontWeight: 700, color: "var(--text2)" }}>
+                        Edit details and cover before publishing
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 5, color: "var(--text2)" }}>
+                          Cover artwork
+                        </label>
+                        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                          <img
+                            src={editForm.coverPreview || resolveMixArtwork(editForm.coverUrl)}
+                            alt="Cover preview"
+                            onError={handleArtworkError}
+                            style={{ width: 88, height: 88, borderRadius: 10, objectFit: "cover" }}
+                          />
+                          <label className="btn btn-ghost" style={{ cursor: "pointer", fontSize: 12 }}>
+                            <Icon name="img" size={14} />
+                            Choose new cover
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              style={{ display: "none" }}
+                              onChange={(event) => {
+                                const file = event.target.files?.[0] || null;
+                                if (!file) {
+                                  setEditForm((form) => ({
+                                    ...form,
+                                    coverFile: null,
+                                    coverPreview: "",
+                                  }));
+                                  return;
+                                }
+                                const reader = new FileReader();
+                                reader.onload = () =>
+                                  setEditForm((form) => ({
+                                    ...form,
+                                    coverFile: file,
+                                    coverPreview: String(reader.result || ""),
+                                  }));
+                                reader.readAsDataURL(file);
                               }}
-                            >
-                              {pending ? "Awaiting review" : "Rejected"}
-                            </span>
-                          </td>
-                          <td style={{ padding: tp.tdL }}>
-                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                              <button
-                                type="button"
-                                className="btn btn-ghost"
-                                style={{
-                                  fontSize: isCompact ? 11 : 12,
-                                  padding: isCompact ? "4px 8px" : undefined,
-                                  color: isEditing ? "var(--accent2)" : undefined,
-                                }}
-                                disabled={busy}
-                                onClick={() => (isEditing ? cancelEditSubmission() : startEditSubmission(row))}
-                              >
-                                {isEditing ? "Close" : "Edit"}
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-primary"
-                                style={{ fontSize: isCompact ? 11 : 12, padding: isCompact ? "4px 10px" : "6px 12px" }}
-                                disabled={busy}
-                                onClick={() => reviewSubmission(row, MIX_STATUS_APPROVED)}
-                              >
-                                {pending ? "Approve" : "Publish"}
-                              </button>
-                              {pending ? (
-                                <button
-                                  type="button"
-                                  className="btn btn-ghost"
-                                  style={{
-                                    fontSize: isCompact ? 11 : 12,
-                                    color: "var(--red)",
-                                    padding: isCompact ? "4px 8px" : undefined,
-                                  }}
-                                  disabled={busy}
-                                  onClick={() => reviewSubmission(row, MIX_STATUS_REJECTED)}
-                                >
-                                  Reject
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="btn btn-ghost"
-                                  style={{
-                                    fontSize: isCompact ? 11 : 12,
-                                    color: "var(--red)",
-                                    padding: isCompact ? "4px 8px" : undefined,
-                                  }}
-                                  disabled={busy}
-                                  onClick={() => deleteMix(row.id, row.title || "Untitled Mix")}
-                                >
-                                  Delete
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                        {isEditing && editForm ? (
-                          <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                            <td colSpan={4} style={{ padding: isCompact ? "12px" : "16px 14px", background: "var(--surface2)" }}>
-                              <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 620 }}>
-                                <div style={{ fontSize: isCompact ? 12 : 13, fontWeight: 700, color: "var(--text2)" }}>
-                                  Edit details and cover before publishing
-                                </div>
-                                <div>
-                                  <label
-                                    style={{
-                                      display: "block",
-                                      fontSize: 12,
-                                      fontWeight: 600,
-                                      marginBottom: 5,
-                                      color: "var(--text2)",
-                                    }}
-                                  >
-                                    Cover artwork
-                                  </label>
-                                  <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-                                    <img
-                                      src={
-                                        editForm.coverPreview ||
-                                        resolveMixArtwork(editForm.coverUrl)
-                                      }
-                                      alt="Cover preview"
-                                      onError={handleArtworkError}
-                                      style={{
-                                        width: 88,
-                                        height: 88,
-                                        borderRadius: 10,
-                                        objectFit: "cover",
-                                      }}
-                                    />
-                                    <label className="btn btn-ghost" style={{ cursor: "pointer", fontSize: 12 }}>
-                                      <Icon name="img" size={14} />
-                                      Choose new cover
-                                      <input
-                                        type="file"
-                                        accept="image/jpeg,image/png,image/webp"
-                                        style={{ display: "none" }}
-                                        onChange={(event) => {
-                                          const file = event.target.files?.[0] || null;
-                                          if (!file) {
-                                            setEditForm((form) => ({
-                                              ...form,
-                                              coverFile: null,
-                                              coverPreview: "",
-                                            }));
-                                            return;
-                                          }
-                                          const reader = new FileReader();
-                                          reader.onload = () =>
-                                            setEditForm((form) => ({
-                                              ...form,
-                                              coverFile: file,
-                                              coverPreview: String(reader.result || ""),
-                                            }));
-                                          reader.readAsDataURL(file);
-                                        }}
-                                      />
-                                    </label>
-                                  </div>
-                                  <p style={{ margin: "6px 0 0", color: "var(--text3)", fontSize: 11 }}>
-                                    JPG, PNG or WebP, up to 10 MB.
-                                  </p>
-                                </div>
-                                <div>
-                                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 5, color: "var(--text2)" }}>
-                                    Title
-                                  </label>
-                                  <input
-                                    className="inp"
-                                    value={editForm.title}
-                                    onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
-                                  />
-                                </div>
-                                <div>
-                                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 5, color: "var(--text2)" }}>
-                                    Genre
-                                  </label>
-                                  <select
-                                    className="inp"
-                                    value={editForm.genre}
-                                    onChange={(e) => setEditForm((f) => ({ ...f, genre: e.target.value }))}
-                                  >
-                                    {GENRES.map((g) => (
-                                      <option key={g} value={g}>
-                                        {g}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div>
-                                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 5, color: "var(--text2)" }}>
-                                    Description
-                                  </label>
-                                  <textarea
-                                    className="inp"
-                                    value={editForm.description}
-                                    onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
-                                    style={{ minHeight: 90 }}
-                                  />
-                                </div>
-                                <div>
-                                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 5, color: "var(--text2)" }}>
-                                    Tags <span style={{ color: "var(--text3)", fontWeight: 400 }}>(comma separated)</span>
-                                  </label>
-                                  <input
-                                    className="inp"
-                                    value={editForm.tags}
-                                    onChange={(e) => setEditForm((f) => ({ ...f, tags: e.target.value }))}
-                                    placeholder="deephouse, ibiza, underground"
-                                  />
-                                </div>
-                                <div>
-                                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 5, color: "var(--text2)" }}>
-                                    Tracklist <span style={{ color: "var(--text3)", fontWeight: 400 }}>(one per line)</span>
-                                  </label>
-                                  <textarea
-                                    className="inp"
-                                    value={editForm.tracklist}
-                                    onChange={(e) => setEditForm((f) => ({ ...f, tracklist: e.target.value }))}
-                                    style={{ minHeight: 90 }}
-                                    placeholder={"01. Artist - Track\n02. Artist - Track"}
-                                  />
-                                </div>
-                                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                  <button
-                                    type="button"
-                                    className="btn btn-primary"
-                                    style={{ fontSize: isCompact ? 12 : 13 }}
-                                    disabled={busy}
-                                    onClick={() => saveSubmissionEdits(row.id)}
-                                  >
-                                    Save changes
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="btn btn-ghost"
-                                    style={{ fontSize: isCompact ? 12 : 13 }}
-                                    disabled={busy}
-                                    onClick={cancelEditSubmission}
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        ) : null}
-                        </Fragment>
-                      );
-                    })}
-                  </tbody>
-                </>,
-                isCompact,
-              )
+                            />
+                          </label>
+                        </div>
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 5, color: "var(--text2)" }}>
+                          Title
+                        </label>
+                        <input
+                          className="inp"
+                          value={editForm.title}
+                          onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 5, color: "var(--text2)" }}>
+                          Genre
+                        </label>
+                        <select
+                          className="inp"
+                          value={editForm.genre}
+                          onChange={(e) => setEditForm((f) => ({ ...f, genre: e.target.value }))}
+                        >
+                          {GENRES.map((g) => (
+                            <option key={g} value={g}>
+                              {g}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 5, color: "var(--text2)" }}>
+                          Description
+                        </label>
+                        <textarea
+                          className="inp"
+                          value={editForm.description}
+                          onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+                          style={{ minHeight: 90 }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 5, color: "var(--text2)" }}>
+                          Tags <span style={{ color: "var(--text3)", fontWeight: 400 }}>(comma separated)</span>
+                        </label>
+                        <input
+                          className="inp"
+                          value={editForm.tags}
+                          onChange={(e) => setEditForm((f) => ({ ...f, tags: e.target.value }))}
+                          placeholder="deephouse, ibiza, underground"
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 5, color: "var(--text2)" }}>
+                          Tracklist <span style={{ color: "var(--text3)", fontWeight: 400 }}>(one per line)</span>
+                        </label>
+                        <textarea
+                          className="inp"
+                          value={editForm.tracklist}
+                          onChange={(e) => setEditForm((f) => ({ ...f, tracklist: e.target.value }))}
+                          style={{ minHeight: 90 }}
+                          placeholder={"01. Artist - Track\n02. Artist - Track"}
+                        />
+                      </div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          style={{ fontSize: isCompact ? 12 : 13 }}
+                          disabled={busy}
+                          onClick={() => void saveSubmissionEdits(activeSubmission.id)}
+                        >
+                          Save changes
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          style={{ fontSize: isCompact ? 12 : 13 }}
+                          disabled={busy}
+                          onClick={cancelEditSubmission}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </article>
+              </div>
             )}
           </section>
         )}
