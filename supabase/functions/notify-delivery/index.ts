@@ -165,15 +165,20 @@ async function sendPush(
   }
   if (!subs?.length) return { ok: true, reason: "no_subscriptions", sent: 0 };
 
+  // Absolute icon URLs matter on Chrome Android; relative paths often fail to display.
+  const origin = SITE_URL() || "https://deephouselab.co.za";
+  const icon = `${origin}/pwa-icon-192.png`;
   const payload = JSON.stringify({
     title,
     body: message,
     href,
-    icon: "/pwa-icon-192.png",
-    badge: "/pwa-icon-192.png",
+    icon,
+    badge: icon,
+    tag: `dhlab-${Date.now()}`,
   });
 
   let sent = 0;
+  const failures: Array<{ endpoint: string; status?: number; message: string }> = [];
   for (const sub of subs) {
     try {
       await webpush.sendNotification(
@@ -182,17 +187,27 @@ async function sendPush(
           keys: { p256dh: sub.p256dh, auth: sub.auth },
         },
         payload,
+        {
+          TTL: 60 * 60 * 24,
+          urgency: "high",
+        },
       );
       sent += 1;
     } catch (err) {
-      const status = (err as { statusCode?: number })?.statusCode;
+      const status = (err as { statusCode?: number; body?: string; message?: string })?.statusCode;
+      const message = (err as { message?: string })?.message || String(err);
       console.error("web-push error", status, err);
+      failures.push({
+        endpoint: String(sub.endpoint || "").slice(0, 64),
+        status,
+        message: message.slice(0, 200),
+      });
       if (status === 404 || status === 410) {
         await supabase.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
       }
     }
   }
-  return { ok: true, sent };
+  return { ok: true, sent, failed: failures.length, failures };
 }
 
 async function deliver(notification: NotificationRow) {
