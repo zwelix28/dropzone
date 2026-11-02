@@ -329,6 +329,35 @@ export default function AdminDashboardPage() {
     await refreshMixes();
   };
 
+  const notifyMix = async (mixId, title) => {
+    if (
+      !window.confirm(
+        `Notify members about “${title}”?\n\nApproved members with email/push alerts enabled get an in-app alert; devices with push on also get a phone notification. The uploader is skipped.`,
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const { data, error: err } = await supabase.rpc("admin_notify_mix", { p_mix_id: mixId });
+    setBusy(false);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    const recipients = typeof data?.recipients === "number" ? data.recipients : null;
+    await writeLog("notify_mix", "mix", mixId, {
+      title,
+      recipients,
+      manual: true,
+    });
+    window.alert(
+      recipients != null
+        ? `Notification queued for ${recipients} member${recipients === 1 ? "" : "s"}.`
+        : "Notification queued.",
+    );
+  };
+
   const pendingSubmissions = useMemo(
     () => submissions.filter((s) => s.status === MIX_STATUS_PENDING),
     [submissions],
@@ -861,13 +890,17 @@ export default function AdminDashboardPage() {
         {tab === "mixes" && (
           <section className="admin-panel">
             <h2 className="admin-panel-title">Mix catalog</h2>
+            <p className="admin-panel-desc">
+              Use <strong>Notify</strong> to re-alert members about an existing mix (in-app + push/email for anyone who
+              left those alerts on). Helpful for older drops people missed before they installed the app.
+            </p>
             {tableShell(
           <>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)", textAlign: "left" }}>
                 <th style={{ padding: tp.thL, color: "var(--text3)", fontWeight: 600 }}>Mix</th>
                 <th style={{ padding: tp.thL, color: "var(--text3)", fontWeight: 600 }}>Owner</th>
-                <th style={{ padding: tp.thL, color: "var(--text3)", fontWeight: 600 }} />
+                <th style={{ padding: tp.thL, color: "var(--text3)", fontWeight: 600 }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -904,15 +937,27 @@ export default function AdminDashboardPage() {
                       )}
                     </td>
                     <td style={{ padding: tp.tdL }}>
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        style={{ fontSize: isCompact ? 11 : 12, color: "var(--red)", padding: isCompact ? "4px 8px" : undefined }}
-                        disabled={busy}
-                        onClick={() => deleteMix(ep.id, ep.title)}
-                      >
-                        Delete
-                      </button>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          style={{ fontSize: isCompact ? 11 : 12, padding: isCompact ? "4px 10px" : "6px 12px" }}
+                          disabled={busy}
+                          onClick={() => void notifyMix(ep.id, ep.title || "Untitled Mix")}
+                        >
+                          <Icon name="bell" size={14} />
+                          Notify
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          style={{ fontSize: isCompact ? 11 : 12, color: "var(--red)", padding: isCompact ? "4px 8px" : undefined }}
+                          disabled={busy}
+                          onClick={() => void deleteMix(ep.id, ep.title)}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
