@@ -622,8 +622,11 @@ export default function usePlayer({
       }
       const eff = effectiveDurationSec(audio, currentTrack, guestPreviewOnly, segmentRef.current);
       if (!eff) return;
-      audio.currentTime = (eff * p) / 100;
+      const nextSec = (eff * p) / 100;
+      audio.currentTime = nextSec;
       setProgress(p);
+      // Restart / scrub back before the cue must re-arm the station ID VO.
+      stationIdRef.current?.onSeekTo(nextSec, { guestPreviewOnly: false });
       if (seekSaveTimerRef.current) clearTimeout(seekSaveTimerRef.current);
       seekSaveTimerRef.current = setTimeout(() => {
         void persistProgress({ force: true });

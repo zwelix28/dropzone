@@ -78,6 +78,11 @@ export default function DesktopNowPlaying({
     });
   };
 
+  const restart = () => {
+    onSeek(0);
+    if (!isPlaying) onToggle();
+  };
+
   const iconBtn = (props) => (
     <button
       type="button"
@@ -269,47 +274,87 @@ export default function DesktopNowPlaying({
               </div>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                {iconBtn({
-                  onClick: () => onToggleShuffle?.(),
-                  "aria-label": shuffleOn ? "Shuffle on" : "Shuffle off",
-                  "aria-pressed": shuffleOn,
-                  title: shuffleOn ? "Shuffle on" : "Shuffle off",
-                  style: { color: shuffleOn ? "var(--accent)" : "var(--text2)" },
-                  children: <Icon name="shuffle" size={18} />,
-                })}
-                {iconBtn({
-                  onClick: () => void onPrev?.(),
-                  title: "Previous",
-                  children: <Icon name="prev" size={18} />,
-                })}
-                <button
-                  type="button"
-                  onClick={onToggle}
-                  aria-label={isPlaying ? "Pause" : "Play"}
-                  style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: "50%",
-                    background: "var(--accent2)",
-                    border: "none",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    boxShadow: "0 0 20px var(--glow)",
-                    margin: "0 4px",
-                  }}
-                >
-                  <Icon name={isPlaying ? "pause" : "play"} size={20} color="#07090F" />
-                </button>
-                {iconBtn({
-                  onClick: () => void onNext?.(),
-                  title: "Next",
-                  children: <Icon name="skip" size={18} />,
-                })}
-              </div>
+            <div
+              aria-label="Playback controls"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                flexWrap: "wrap",
+              }}
+            >
+              {iconBtn({
+                onClick: () => onToggleShuffle?.(),
+                "aria-label": shuffleOn ? "Shuffle on" : "Shuffle off",
+                "aria-pressed": shuffleOn,
+                title: shuffleOn ? "Shuffle on" : "Shuffle off",
+                style: { color: shuffleOn ? "var(--accent)" : "var(--text2)" },
+                children: <Icon name="shuffle" size={18} />,
+              })}
+              {iconBtn({
+                onClick: () => void onPrev?.(),
+                title: "Previous",
+                children: <Icon name="prev" size={18} />,
+              })}
+              <button
+                type="button"
+                onClick={onToggle}
+                aria-label={isPlaying ? "Pause" : "Play"}
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: "50%",
+                  background: "var(--accent2)",
+                  border: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 0 20px var(--glow)",
+                  margin: "0 6px",
+                  flexShrink: 0,
+                }}
+              >
+                <Icon name={isPlaying ? "pause" : "play"} size={20} color="#07090F" />
+              </button>
+              {iconBtn({
+                onClick: () => void onNext?.(),
+                title: "Next",
+                children: <Icon name="skip" size={18} />,
+              })}
+              {iconBtn({
+                onClick: restart,
+                "aria-label": "Restart mix",
+                title: "Restart",
+                children: (
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M3 12a9 9 0 1 0 3-6.7" />
+                    <polyline points="3 4 3 10 9 10" />
+                  </svg>
+                ),
+              })}
+            </div>
 
+            <div
+              aria-label="Mix actions"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
               <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
                 {allowDownload
                   ? iconBtn({
@@ -342,25 +387,25 @@ export default function DesktopNowPlaying({
                   children: <Icon name="eye" size={18} />,
                 })}
               </div>
-            </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <Icon name="volume" size={16} color="var(--text3)" />
-              <div
-                className="progress-wrap"
-                style={{ flex: 1, maxWidth: 160, cursor: "pointer" }}
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  onVolume(((e.clientX - rect.left) / rect.width) * 100);
-                }}
-              >
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flex: "1 1 140px", maxWidth: 220 }}>
+                <Icon name="volume" size={16} color="var(--text3)" />
                 <div
-                  className="progress-fill"
-                  style={{
-                    width: `${volume}%`,
-                    background: "linear-gradient(90deg, var(--text3), var(--text2))",
+                  className="progress-wrap"
+                  style={{ flex: 1, cursor: "pointer" }}
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    onVolume(((e.clientX - rect.left) / rect.width) * 100);
                   }}
-                />
+                >
+                  <div
+                    className="progress-fill"
+                    style={{
+                      width: `${volume}%`,
+                      background: "linear-gradient(90deg, var(--text3), var(--text2))",
+                    }}
+                  />
+                </div>
               </div>
             </div>
 

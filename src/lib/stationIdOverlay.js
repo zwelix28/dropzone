@@ -214,6 +214,28 @@ export function createStationIdOverlay({ getMainAudio }) {
       if (active) applyVoVolume();
     },
 
+    /**
+     * Call after the main mix seek position changes (scrub / Restart).
+     * Seeking back before the cue arms the VO again so Restart replays the tag.
+     */
+    onSeekTo(currentTimeSec, { guestPreviewOnly = false } = {}) {
+      if (guestPreviewOnly || !trackKey) return;
+      const t = Number(currentTimeSec) || 0;
+      if (t < CUE_SEC) {
+        stopVo({ resetPosition: true });
+        fired = false;
+        active = false;
+        void ensureVo();
+        return;
+      }
+      // Jumped past the intro cue window — don't fire mid-mix.
+      if (t > CUE_SEC + 8) {
+        stopVo({ resetPosition: true });
+        fired = true;
+        active = false;
+      }
+    },
+
     onTimeUpdate(currentTime, { durationSec = 0, guestPreviewOnly = false } = {}) {
       if (guestPreviewOnly || !trackKey || fired || active) return;
       const t = Number(currentTime) || 0;
