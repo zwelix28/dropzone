@@ -26,6 +26,7 @@ import {
   syncMediaSessionPlaybackState,
   syncMediaSessionPositionState,
 } from "../lib/mediaSession.js";
+import { createStationIdOverlay } from "../lib/stationIdOverlay.js";
 
 const SAVE_INTERVAL_MS = 10000;
 
@@ -139,6 +140,12 @@ export default function usePlayer({
   const getArtistNameRef = useRef(getArtistName);
   getArtistNameRef.current = getArtistName;
   const reportedDurationIdsRef = useRef(new Set());
+  const stationIdRef = useRef(null);
+  if (!stationIdRef.current) {
+    stationIdRef.current = createStationIdOverlay({
+      getMainAudio: () => audioRef.current,
+    });
+  }
 
   if (!audioRef.current && typeof Audio !== "undefined") {
     audioRef.current = new Audio();
@@ -177,6 +184,7 @@ export default function usePlayer({
     if (!audio) return;
     audio.pause();
     setIsPlaying(false);
+    stationIdRef.current?.onMainPause();
     void persistProgress({ force: true });
   }, [persistProgress]);
 
@@ -287,6 +295,7 @@ export default function usePlayer({
       releaseWarmPlayback(ep.id);
 
       if (guestPreviewOnly) {
+        stationIdRef.current?.onTrackChange(ep.id, { guestPreviewOnly: true });
         const ok = await beginGuestSegmentPlayback(audio, segment.start);
         if (gen !== trackGenRef.current) return;
         setIsPlaying(ok);
@@ -304,6 +313,12 @@ export default function usePlayer({
 
       await waitForMetadata(audio);
       if (gen !== trackGenRef.current) return;
+
+      stationIdRef.current?.onTrackChange(ep.id, {
+        resumeSec,
+        guestPreviewOnly: false,
+      });
+      stationIdRef.current?.setUserVolume(volume);
 
       if (resumeSec > 0) {
         const mediaDur = Number(audio.duration) || Number(ep.durationSecs) || 0;
@@ -402,17 +417,29 @@ export default function usePlayer({
         guestPreviewOnly,
         segment: segmentRef.current,
       });
+      if (!audio.paused) {
+        stationIdRef.current?.onTimeUpdate(audio.currentTime, {
+          durationSec: eff,
+          guestPreviewOnly: false,
+        });
+      }
       if (!audio.paused && userIdRef.current) {
         void persistProgress({ force: false });
       }
     };
-    const onPlay = () => setIsPlaying(true);
+    const onPlay = () => {
+      setIsPlaying(true);
+      stationIdRef.current?.onMainPlay();
+    };
     const onPause = () => {
       setIsPlaying(false);
+      stationIdRef.current?.onMainPause();
       void persistProgress({ force: true });
     };
     const onEnded = () => {
       setIsPlaying(false);
+      // Track finished — reset VO for the next mix; do not leave it hanging.
+      stationIdRef.current?.onTrackChange(null, { guestPreviewOnly: true });
       setProgress(0);
       void persistProgress({ clear: true });
       if (!guestPreviewOnly) {
@@ -570,8 +597,16 @@ export default function usePlayer({
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
+    // Mix volume stays under player control; overlay never ducks it.
     audio.volume = Math.max(0, Math.min(1, volume / 100));
+    stationIdRef.current?.setUserVolume(volume);
   }, [volume]);
+
+  useEffect(() => {
+    return () => {
+      stationIdRef.current?.dispose();
+    };
+  }, []);
 
   const seek = useCallback(
     (percent) => {
@@ -587,8 +622,11 @@ export default function usePlayer({
       }
       const eff = effectiveDurationSec(audio, currentTrack, guestPreviewOnly, segmentRef.current);
       if (!eff) return;
-      audio.currentTime = (eff * p) / 100;
+      const nextSec = (eff * p) / 100;
+      audio.currentTime = nextSec;
       setProgress(p);
+      // Restart / scrub back before the cue must re-arm the station ID VO.
+      stationIdRef.current?.onSeekTo(nextSec, { guestPreviewOnly: false });
       if (seekSaveTimerRef.current) clearTimeout(seekSaveTimerRef.current);
       seekSaveTimerRef.current = setTimeout(() => {
         void persistProgress({ force: true });
