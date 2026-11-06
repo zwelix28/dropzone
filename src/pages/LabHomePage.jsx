@@ -6,7 +6,7 @@ import { mixTitleBody } from "../constants/mixTitle.js";
 import { handleArtworkError, resolveMixArtwork } from "../constants/artwork.js";
 import { useApp } from "../context/AppContext.jsx";
 import { getDjOfMonth } from "../lib/djOfMonth.js";
-import { fmtPlayerTime } from "../lib/format.js";
+import { fmtDuration, fmtPlayerTime } from "../lib/format.js";
 import { isMixesItem } from "../lib/contentType.js";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { prefetchMixPlayback } from "../lib/audioUrls.js";
@@ -333,25 +333,66 @@ export default function LabHomePage() {
             <span>Fresh crates</span>
             <Link to="/mixes">See all</Link>
           </h2>
-          <div className="lab-home-crates lab-home-crates-pane">
-            {crates.map((episode) => (
-              <Link key={episode.id} className="lab-home-crate" to={`/mix/${episode.id}`} state={{ from: "/home" }} title={episode.title}>
-                <div className="lab-home-crate-vinyl" aria-hidden="true">
-                  <span>
-                    <img src={resolveMixArtwork(episode.coverUrl)} alt="" onError={handleArtworkError} />
+          <div
+            className={`lab-home-crates lab-home-crates-pane${isDesktopHome ? " is-desktop-rail" : ""}`}
+          >
+            {crates.map((episode) => {
+              const active = player.currentTrack?.id === episode.id;
+              const isPlaying = active && player.isPlaying;
+
+              if (isDesktopHome) {
+                return (
+                  <button
+                    key={episode.id}
+                    type="button"
+                    className={`lab-home-crate-card${active ? " is-active" : ""}`}
+                    title={episode.title}
+                    onClick={() => void player.playTrack(episode)}
+                  >
+                    <span className="lab-home-crate-art">
+                      <img
+                        src={resolveMixArtwork(episode.coverUrl)}
+                        alt=""
+                        onError={handleArtworkError}
+                      />
+                      <span className="lab-home-crate-play" aria-hidden="true">
+                        <Icon name={isPlaying ? "pause" : "play"} size={18} color="#07090F" />
+                      </span>
+                    </span>
+                    <span className="lab-home-crate-copy">
+                      <b>{shelfMixTitle(episode.title)}</b>
+                      <span className="sub">{artistName(episode, users)}</span>
+                      <span className="lab-home-crate-meta">{fmtDuration(episode.durationSecs)}</span>
+                    </span>
+                  </button>
+                );
+              }
+
+              return (
+                <Link
+                  key={episode.id}
+                  className="lab-home-crate"
+                  to={`/mix/${episode.id}`}
+                  state={{ from: "/home" }}
+                  title={episode.title}
+                >
+                  <div className="lab-home-crate-vinyl" aria-hidden="true">
+                    <span>
+                      <img src={resolveMixArtwork(episode.coverUrl)} alt="" onError={handleArtworkError} />
+                    </span>
+                  </div>
+                  <img
+                    className="lab-home-crate-cover"
+                    src={resolveMixArtwork(episode.coverUrl)}
+                    alt=""
+                    onError={handleArtworkError}
+                  />
+                  <span className="lab-home-crate-copy">
+                    <b>{shelfMixTitle(episode.title)}</b>
                   </span>
-                </div>
-                <img
-                  className="lab-home-crate-cover"
-                  src={resolveMixArtwork(episode.coverUrl)}
-                  alt=""
-                  onError={handleArtworkError}
-                />
-                <span className="lab-home-crate-copy">
-                  <b>{shelfMixTitle(episode.title)}</b>
-                </span>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         </section>
 

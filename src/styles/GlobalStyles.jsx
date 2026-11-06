@@ -2293,76 +2293,118 @@ export const GlobalStyles = () => (
         font-variant-numeric: tabular-nums;
       }
 
-      /* Fresh crates — horizontal slider (up to 10 newest) */
-      .lab-home-crates-pane {
+      /* Fresh crates — match Continue Listening streaming rail */
+      .lab-home-crates-pane.is-desktop-rail {
         display: flex;
         flex-direction: row;
         align-items: stretch;
-        gap: 12px;
+        gap: 14px;
         max-height: none;
         overflow-x: auto;
         overflow-y: hidden;
         overscroll-behavior-x: contain;
         scroll-snap-type: x mandatory;
         -webkit-overflow-scrolling: touch;
-        padding: 0 0 6px;
+        padding: 2px 2px 8px;
         border: 0;
         border-radius: 0;
         background: transparent;
-        scrollbar-width: thin;
-        scrollbar-color: rgba(56, 189, 248, 0.35) transparent;
+        scrollbar-width: none;
       }
-      .lab-home-crates-pane::-webkit-scrollbar {
-        height: 6px;
-      }
-      .lab-home-crates-pane::-webkit-scrollbar-thumb {
-        background: rgba(56, 189, 248, 0.35);
-        border-radius: 99px;
-      }
-      .lab-home-crates-pane .lab-home-crate {
-        width: 128px;
-        min-width: 128px;
-        max-width: none;
+      .lab-home-crates-pane.is-desktop-rail::-webkit-scrollbar { display: none; }
+      .lab-home-crate-card {
+        width: 156px;
         flex: none;
+        scroll-snap-align: start;
         display: flex;
         flex-direction: column;
-        align-items: stretch;
-        gap: 8px;
-        padding: 10px;
-        scroll-snap-align: start;
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        background: var(--surface);
-        text-decoration: none;
+        gap: 10px;
+        padding: 0;
+        border: 0;
+        background: none;
         color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
       }
-      .lab-home-crates-pane .lab-home-crate:hover {
-        border-color: rgba(56, 189, 248, 0.35);
-        background: rgba(56, 189, 248, 0.06);
+      .lab-home-crate-art {
+        position: relative;
+        display: block;
+        width: 156px;
+        height: 156px;
+        border-radius: 12px;
+        overflow: hidden;
+        background: var(--surface2);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
       }
-      .lab-home-crates-pane .lab-home-crate-vinyl { display: none; }
-      .lab-home-crates-pane .lab-home-crate-cover {
-        position: static;
-        width: 88%;
-        height: auto;
-        aspect-ratio: 1;
-        flex-shrink: 0;
-        align-self: center;
-        border-radius: 10px;
+      .lab-home-crate-art img {
+        width: 100%;
+        height: 100%;
         object-fit: cover;
+        display: block;
       }
-      .lab-home-crate-copy { min-width: 0; }
-      .lab-home-crates-pane .lab-home-crate b {
-        margin-top: 0;
+      .lab-home-crate-play {
+        position: absolute;
+        right: 10px;
+        bottom: 10px;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--accent2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45), 0 0 20px var(--glow);
+        opacity: 0;
+        transform: translateY(6px);
+        transition: opacity 0.18s ease, transform 0.18s ease;
+        pointer-events: none;
+        z-index: 2;
+      }
+      .lab-home-crate-card:hover .lab-home-crate-play,
+      .lab-home-crate-card.is-active .lab-home-crate-play,
+      .lab-home-crate-card:focus-visible .lab-home-crate-play {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .lab-home-crate-card.is-active .lab-home-crate-art {
+        box-shadow:
+          0 0 0 1px rgba(56, 189, 248, 0.45),
+          0 8px 28px rgba(0, 0, 0, 0.35);
+      }
+      .lab-home-crates-pane.is-desktop-rail .lab-home-crate-copy {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .lab-home-crates-pane.is-desktop-rail .lab-home-crate-copy b {
+        margin: 0;
         font-size: 13px;
         font-weight: 700;
         line-height: 1.3;
-        white-space: normal;
-        overflow: hidden;
+        color: var(--text);
         display: -webkit-box;
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
+        overflow: hidden;
+        white-space: normal;
         word-break: break-word;
+      }
+      .lab-home-crates-pane.is-desktop-rail .lab-home-crate-copy .sub {
+        display: block;
+        margin: 0;
+        color: var(--text2);
+        font-size: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .lab-home-crate-meta {
+        color: var(--text3);
+        font-size: 11px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
       }
 
       /* Top 5 — full-width ranked list, titles wrap end-to-end */
