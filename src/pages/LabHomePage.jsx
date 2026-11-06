@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import Icon from "../components/Icon.jsx";
 import { GENRES } from "../constants/genres.js";
 import { mixTitleBody } from "../constants/mixTitle.js";
 import { handleArtworkError, resolveMixArtwork } from "../constants/artwork.js";
 import { useApp } from "../context/AppContext.jsx";
 import { getDjOfMonth } from "../lib/djOfMonth.js";
-import { fmtPlayerTime } from "../lib/format.js";
+import { fmtDuration, fmtPlayerTime } from "../lib/format.js";
 import { isMixesItem } from "../lib/contentType.js";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { prefetchMixPlayback } from "../lib/audioUrls.js";
@@ -165,25 +166,29 @@ export default function LabHomePage() {
   const djMix = djFeature ? episodes.find((episode) => episode.id === djFeature.mixId) : null;
   const playingDj = Boolean(djMix && player.isPlaying && player.currentTrack?.id === djMix.id);
 
-  // Desktop Continue: 8 mixes (4 + 4 extra); mobile keeps a tighter stack of 4.
+  // Desktop Continue: 6 art-forward rail cards; mobile keeps a tighter stack of 4.
   const continueSessions = useMemo(
-    () => sessions.slice(0, isDesktopHome ? 8 : 4),
+    () => sessions.slice(0, isDesktopHome ? 6 : 4),
     [sessions, isDesktopHome],
   );
 
-  // Warm Continue listening (+ current Now Spinning) so resume/play starts with less buffer wait.
+  // Warm Continue listening (+ Now Spinning) near each resume point so play starts faster.
   useEffect(() => {
     if (!userId) return;
     const opts = { guestPreviewOnly: false, isAuthenticated: true, preferFullMix: false };
-    const toWarm = [
-      spinning,
-      ...continueSessions.map((session) => session.episode),
-    ].filter(Boolean);
     const seen = new Set();
-    for (const episode of toWarm.slice(0, 3)) {
-      if (!episode.id || seen.has(episode.id)) continue;
+    if (spinning?.id && !seen.has(spinning.id)) {
+      seen.add(spinning.id);
+      void prefetchMixPlayback(spinning, opts);
+    }
+    for (const session of continueSessions.slice(0, 5)) {
+      const episode = session?.episode;
+      if (!episode?.id || seen.has(episode.id)) continue;
       seen.add(episode.id);
-      void prefetchMixPlayback(episode, opts);
+      void prefetchMixPlayback(episode, opts, {
+        warm: true,
+        seekSec: Number(session.positionSec) || 0,
+      });
     }
   }, [userId, spinning?.id, continueSessions]);
 
@@ -251,15 +256,54 @@ export default function LabHomePage() {
             {continueSessions.length === 0 ? (
               <p className="lab-home-empty">Start a mix and it will wait here so you can pick it up again.</p>
             ) : (
-              <div className="lab-home-shelf lab-home-continue-pane">
+              <div
+                className={`lab-home-shelf lab-home-continue-pane${isDesktopHome ? " is-desktop-rail" : ""}`}
+              >
                 {continueSessions.map((session) => {
                   const episode = session.episode;
                   const active = player.currentTrack?.id === episode.id;
+                  const isPlaying = active && player.isPlaying;
                   const livePos =
                     active && Number(player.durationSec) > 0
                       ? (Number(player.progress) / 100) * Number(player.durationSec)
                       : session.positionSec;
                   const dur = (active && player.durationSec) || session.durationSec || episode.durationSecs || 0;
+                  const leftSec = Math.max(0, Math.floor(Number(dur) || 0) - Math.floor(Number(livePos) || 0));
+                  const pct = progressPct(livePos, dur);
+
+                  if (isDesktopHome) {
+                    return (
+                      <button
+                        key={session.mixId}
+                        type="button"
+                        className={`lab-home-continue-card${active ? " is-active" : ""}`}
+                        title={episode.title}
+                        onClick={() => void player.playTrack(episode)}
+                      >
+                        <span className="lab-home-continue-art">
+                          <img
+                            src={resolveMixArtwork(episode.coverUrl)}
+                            alt=""
+                            onError={handleArtworkError}
+                          />
+                          <span className="lab-home-continue-play" aria-hidden="true">
+                            <Icon name={isPlaying ? "pause" : "play"} size={18} color="#07090F" />
+                          </span>
+                          <span className="lab-home-progress lab-home-continue-progress" aria-hidden="true">
+                            <span style={{ width: `${pct}%` }} />
+                          </span>
+                        </span>
+                        <span className="lab-home-continue-copy">
+                          <b>{shelfMixTitle(episode.title)}</b>
+                          <span className="sub">{artistName(episode, users)}</span>
+                          <span className="lab-home-continue-left">
+                            {leftSec > 0 ? `${fmtPlayerTime(leftSec)} left` : `${pct}%`}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  }
+
                   return (
                     <button
                       key={session.mixId}
@@ -273,7 +317,7 @@ export default function LabHomePage() {
                         <b>{shelfMixTitle(episode.title)}</b>
                         <span className="sub">{artistName(episode, users)}</span>
                         <span className="lab-home-progress" aria-hidden="true">
-                          <span style={{ width: `${progressPct(livePos, dur)}%` }} />
+                          <span style={{ width: `${pct}%` }} />
                         </span>
                       </span>
                     </button>
@@ -289,25 +333,66 @@ export default function LabHomePage() {
             <span>Fresh crates</span>
             <Link to="/mixes">See all</Link>
           </h2>
-          <div className="lab-home-crates lab-home-crates-pane">
-            {crates.map((episode) => (
-              <Link key={episode.id} className="lab-home-crate" to={`/mix/${episode.id}`} state={{ from: "/home" }} title={episode.title}>
-                <div className="lab-home-crate-vinyl" aria-hidden="true">
-                  <span>
-                    <img src={resolveMixArtwork(episode.coverUrl)} alt="" onError={handleArtworkError} />
+          <div
+            className={`lab-home-crates lab-home-crates-pane${isDesktopHome ? " is-desktop-rail" : ""}`}
+          >
+            {crates.map((episode) => {
+              const active = player.currentTrack?.id === episode.id;
+              const isPlaying = active && player.isPlaying;
+
+              if (isDesktopHome) {
+                return (
+                  <button
+                    key={episode.id}
+                    type="button"
+                    className={`lab-home-crate-card${active ? " is-active" : ""}`}
+                    title={episode.title}
+                    onClick={() => void player.playTrack(episode)}
+                  >
+                    <span className="lab-home-crate-art">
+                      <img
+                        src={resolveMixArtwork(episode.coverUrl)}
+                        alt=""
+                        onError={handleArtworkError}
+                      />
+                      <span className="lab-home-crate-play" aria-hidden="true">
+                        <Icon name={isPlaying ? "pause" : "play"} size={18} color="#07090F" />
+                      </span>
+                    </span>
+                    <span className="lab-home-crate-copy">
+                      <b>{shelfMixTitle(episode.title)}</b>
+                      <span className="sub">{artistName(episode, users)}</span>
+                      <span className="lab-home-crate-meta">{fmtDuration(episode.durationSecs)}</span>
+                    </span>
+                  </button>
+                );
+              }
+
+              return (
+                <Link
+                  key={episode.id}
+                  className="lab-home-crate"
+                  to={`/mix/${episode.id}`}
+                  state={{ from: "/home" }}
+                  title={episode.title}
+                >
+                  <div className="lab-home-crate-vinyl" aria-hidden="true">
+                    <span>
+                      <img src={resolveMixArtwork(episode.coverUrl)} alt="" onError={handleArtworkError} />
+                    </span>
+                  </div>
+                  <img
+                    className="lab-home-crate-cover"
+                    src={resolveMixArtwork(episode.coverUrl)}
+                    alt=""
+                    onError={handleArtworkError}
+                  />
+                  <span className="lab-home-crate-copy">
+                    <b>{shelfMixTitle(episode.title)}</b>
                   </span>
-                </div>
-                <img
-                  className="lab-home-crate-cover"
-                  src={resolveMixArtwork(episode.coverUrl)}
-                  alt=""
-                  onError={handleArtworkError}
-                />
-                <span className="lab-home-crate-copy">
-                  <b>{shelfMixTitle(episode.title)}</b>
-                </span>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         </section>
 

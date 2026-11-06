@@ -69,6 +69,11 @@ export function shouldResumeAt(positionSec, durationSec) {
   return true;
 }
 
+/** Sync local resume row (no network). Use to arm playback before DB returns. */
+export function peekLocalPlaybackProgress(userId, mixId) {
+  return readLocal(userId, mixId);
+}
+
 function accumulateListen(prev, positionSec) {
   const last = Number(prev?.lastReportedSec) || 0;
   const total = Number(prev?.totalListenedSec) || 0;
