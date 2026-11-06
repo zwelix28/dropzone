@@ -2166,61 +2166,131 @@ export const GlobalStyles = () => (
       }
       .lab-home-sec { font-weight: 500; }
 
-      /* Continue listening — ~15% tighter tiles than prior desktop size */
-      .lab-home-continue-pane {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 1px;
-        overflow: hidden;
-        scroll-snap-type: none;
-        padding: 0;
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        background: var(--border);
-      }
-      .lab-home-continue-pane .lab-home-shelf-card {
-        width: auto;
-        min-width: 0;
+      /* Continue listening — Spotify-style horizontal resume rail */
+      .lab-home-continue-pane.is-desktop-rail {
         display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 10px;
-        scroll-snap-align: none;
-        background: var(--surface);
+        flex-direction: row;
+        align-items: stretch;
+        gap: 14px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        overscroll-behavior-x: contain;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        padding: 2px 2px 8px;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        scrollbar-width: none;
       }
-      .lab-home-continue-pane .lab-home-shelf-art {
-        width: 54px;
-        height: 54px;
-        flex-shrink: 0;
-      }
-      .lab-home-continue-pane .lab-home-shelf-art .lab-home-crate-vinyl {
-        display: none;
-      }
-      .lab-home-continue-pane .lab-home-shelf-card .lab-home-shelf-art img.lab-home-crate-cover {
-        width: 54px;
-        height: 54px;
-        border-radius: 7px;
-      }
-      .lab-home-continue-copy {
-        min-width: 0;
-        flex: 1;
+      .lab-home-continue-pane.is-desktop-rail::-webkit-scrollbar { display: none; }
+      .lab-home-continue-card {
+        width: 156px;
+        flex: none;
+        scroll-snap-align: start;
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        gap: 10px;
+        padding: 0;
+        border: 0;
+        background: none;
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
       }
-      .lab-home-continue-pane .lab-home-shelf-card b {
-        margin-top: 0;
-        font-size: 11px;
-        font-weight: 700;
-        white-space: normal;
-        overflow: visible;
+      .lab-home-continue-art {
+        position: relative;
         display: block;
+        width: 156px;
+        height: 156px;
+        border-radius: 12px;
+        overflow: hidden;
+        background: var(--surface2);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+      }
+      .lab-home-continue-art img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .lab-home-continue-play {
+        position: absolute;
+        right: 10px;
+        bottom: 14px;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--accent2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45), 0 0 20px var(--glow);
+        opacity: 0;
+        transform: translateY(6px);
+        transition: opacity 0.18s ease, transform 0.18s ease;
+        pointer-events: none;
+        z-index: 2;
+      }
+      .lab-home-continue-card:hover .lab-home-continue-play,
+      .lab-home-continue-card.is-active .lab-home-continue-play,
+      .lab-home-continue-card:focus-visible .lab-home-continue-play {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .lab-home-continue-progress {
+        position: absolute;
+        left: 10px;
+        right: 10px;
+        bottom: 8px;
+        margin: 0;
+        height: 3px;
+        border-radius: 99px;
+        background: rgba(255, 255, 255, 0.22);
+        z-index: 1;
+      }
+      .lab-home-continue-progress span {
+        background: var(--accent2);
+      }
+      .lab-home-continue-card.is-active .lab-home-continue-art {
+        box-shadow:
+          0 0 0 1px rgba(56, 189, 248, 0.45),
+          0 8px 28px rgba(0, 0, 0, 0.35);
+      }
+      .lab-home-continue-pane.is-desktop-rail .lab-home-continue-copy {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .lab-home-continue-pane.is-desktop-rail .lab-home-continue-copy b {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1.3;
+        color: var(--text);
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        white-space: normal;
         word-break: break-word;
       }
-      .lab-home-continue-pane .lab-home-shelf-card .sub { display: none; }
-      .lab-home-continue-pane .lab-home-progress {
-        margin-top: 2px;
-        height: 2px;
+      .lab-home-continue-pane.is-desktop-rail .lab-home-continue-copy .sub {
+        display: block;
+        margin: 0;
+        color: var(--text2);
+        font-size: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .lab-home-continue-left {
+        color: var(--text3);
+        font-size: 11px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
       }
 
       /* Fresh crates — horizontal slider (up to 10 newest) */
