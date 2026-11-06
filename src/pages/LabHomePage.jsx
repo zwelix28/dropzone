@@ -171,19 +171,23 @@ export default function LabHomePage() {
     [sessions, isDesktopHome],
   );
 
-  // Warm Continue listening (+ current Now Spinning) so resume/play starts with less buffer wait.
+  // Warm Continue listening (+ Now Spinning) near each resume point so play starts faster.
   useEffect(() => {
     if (!userId) return;
     const opts = { guestPreviewOnly: false, isAuthenticated: true, preferFullMix: false };
-    const toWarm = [
-      spinning,
-      ...continueSessions.map((session) => session.episode),
-    ].filter(Boolean);
     const seen = new Set();
-    for (const episode of toWarm.slice(0, 3)) {
-      if (!episode.id || seen.has(episode.id)) continue;
+    if (spinning?.id && !seen.has(spinning.id)) {
+      seen.add(spinning.id);
+      void prefetchMixPlayback(spinning, opts);
+    }
+    for (const session of continueSessions.slice(0, 5)) {
+      const episode = session?.episode;
+      if (!episode?.id || seen.has(episode.id)) continue;
       seen.add(episode.id);
-      void prefetchMixPlayback(episode, opts);
+      void prefetchMixPlayback(episode, opts, {
+        warm: true,
+        seekSec: Number(session.positionSec) || 0,
+      });
     }
   }, [userId, spinning?.id, continueSessions]);
 

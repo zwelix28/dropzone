@@ -4,7 +4,7 @@ import {
   registerExclusiveAudioOwner,
   requestExclusivePlayback,
 } from "../lib/audioExclusive.js";
-import { releaseWarmPlayback } from "../lib/audioPrefetch.js";
+import { releaseWarmPlayback, withMediaTimeFragment } from "../lib/audioPrefetch.js";
 import {
   episodeHasAudioSource,
   episodeHasGuestPlayback,
@@ -16,6 +16,7 @@ import { getGuestPreviewSegment } from "../lib/forYouPreview.js";
 import {
   clearPlaybackProgress,
   fetchPlaybackProgress,
+  peekLocalPlaybackProgress,
   savePlaybackProgress,
   shouldResumeAt,
 } from "../lib/playbackProgress.js";
@@ -274,15 +275,35 @@ export default function usePlayer({
       audio.volume = Math.max(0, Math.min(1, volume / 100));
       audio.preload = "auto";
 
-      const url = await resolveMixPlaybackUrl(ep, {
+      // Arm resume from local cache immediately; refine with DB in parallel with URL resolve.
+      let resumeSec = 0;
+      if (!guestPreviewOnly && userId && isAuthenticated) {
+        const local = peekLocalPlaybackProgress(userId, ep.id);
+        if (local && shouldResumeAt(local.positionSec, local.durationSec || ep.durationSecs)) {
+          resumeSec = local.positionSec;
+        }
+      }
+
+      const resolveOpts = {
         guestPreviewOnly,
         isAuthenticated,
         preferFullMix: guestPreviewOnly,
-      });
+      };
+      const urlPromise = resolveMixPlaybackUrl(ep, resolveOpts);
+      const progressPromise =
+        !guestPreviewOnly && userId && isAuthenticated
+          ? fetchPlaybackProgress(userId, ep.id)
+          : Promise.resolve(null);
+
+      const [url, saved] = await Promise.all([urlPromise, progressPromise]);
       if (gen !== trackGenRef.current) return;
       if (isSuspended()) {
         pause();
         return;
+      }
+
+      if (saved && shouldResumeAt(saved.positionSec, saved.durationSec || ep.durationSecs)) {
+        resumeSec = saved.positionSec;
       }
 
       if (!url) {
@@ -290,8 +311,9 @@ export default function usePlayer({
         return;
       }
 
-      // Same URL as a standby warmer → browser HTTP cache usually has the first chunks ready.
-      audio.src = url;
+      // Media fragment helps browsers Range-request near the resume point; warmer HTTP cache helps too.
+      audio.src =
+        !guestPreviewOnly && resumeSec > 0 ? withMediaTimeFragment(url, resumeSec) : url;
       releaseWarmPlayback(ep.id);
 
       if (guestPreviewOnly) {
@@ -300,15 +322,6 @@ export default function usePlayer({
         if (gen !== trackGenRef.current) return;
         setIsPlaying(ok);
         return;
-      }
-
-      let resumeSec = 0;
-      if (userId && isAuthenticated) {
-        const saved = await fetchPlaybackProgress(userId, ep.id);
-        if (gen !== trackGenRef.current) return;
-        if (saved && shouldResumeAt(saved.positionSec, saved.durationSec || ep.durationSecs)) {
-          resumeSec = saved.positionSec;
-        }
       }
 
       await waitForMetadata(audio);

@@ -1,4 +1,6 @@
 import { warmPlaybackUrl } from "./audioPrefetch.js";
+
+export { withMediaTimeFragment } from "./audioPrefetch.js";
 import { supabase } from "./supabaseClient.js";
 import { FOR_YOU_PREVIEW_SEC } from "./forYouPreview.js";
 
@@ -137,11 +139,11 @@ export async function resolveMixPlaybackUrl(episode, { guestPreviewOnly, isAuthe
 }
 
 /** Resolve + optionally warm a standby buffer. Never throws; safe for fire-and-forget. */
-export async function prefetchMixPlayback(episode, opts, { warm = true } = {}) {
+export async function prefetchMixPlayback(episode, opts, { warm = true, seekSec = 0 } = {}) {
   if (!episode) return null;
   try {
     const url = await resolveMixPlaybackUrl(episode, opts);
-    if (url && warm && episode.id) warmPlaybackUrl(episode.id, url);
+    if (url && warm && episode.id) warmPlaybackUrl(episode.id, url, { seekSec });
     return url;
   } catch {
     return null;

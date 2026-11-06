@@ -6,6 +6,7 @@ import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { handleArtworkError, resolveMixArtwork } from "../constants/artwork.js";
 import { fmtPlayerTime, fmtStreamedAt } from "../lib/format.js";
+import { prefetchMixPlayback } from "../lib/audioUrls.js";
 import {
   dismissLibrarySession,
   fetchLibrarySessions,
@@ -58,6 +59,19 @@ export default function LibraryPage() {
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [load]);
+
+  // Pre-buffer top Library resume rows near their saved positions.
+  useEffect(() => {
+    if (!userId) return;
+    const opts = { guestPreviewOnly: false, isAuthenticated: true, preferFullMix: false };
+    for (const session of sessions.slice(0, 5)) {
+      if (!session?.episode?.id) continue;
+      void prefetchMixPlayback(session.episode, opts, {
+        warm: true,
+        seekSec: Number(session.positionSec) || 0,
+      });
+    }
+  }, [userId, sessions]);
 
   const visibleSessions = useMemo(() => {
     if (!q) return sessions;
