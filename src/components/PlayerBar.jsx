@@ -37,10 +37,11 @@ export default function PlayerBar({
   const isMobile = useMediaQuery("(max-width: 720px)");
   if (!track) return null;
   const user = users.find((u) => u.id === track.userId);
-  const { auth, trackEvent } = useApp();
+  const { auth, trackEvent, likedMixIds, toggleLike } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const guest = !auth.session?.user?.id;
+  const liked = Boolean(!guest && track.id && likedMixIds.includes(track.id));
   const allowDownload = canDownloadMix(auth.currentUser, {
     isOwner: Boolean(auth.currentUser?.id && track.userId === auth.currentUser.id),
   });
@@ -360,8 +361,21 @@ export default function PlayerBar({
             <button type="button" onClick={() => void onNext?.()} style={{ background: "none", color: "var(--text2)" }}>
               <Icon name="skip" size={18} />
             </button>
-            <button type="button" onClick={() => {}} style={{ background: "none", color: "var(--text3)" }}>
-              <Icon name="heart" size={16} />
+            <button
+              type="button"
+              onClick={() => {
+                if (guest) {
+                  auth.setShowAuth(true);
+                  return;
+                }
+                void toggleLike(track.id);
+              }}
+              aria-label={liked ? "Remove from likes" : "Add to likes"}
+              title={liked ? "Remove from likes" : "Save to likes"}
+              aria-pressed={liked}
+              style={{ background: "none", color: liked ? "#f87171" : "var(--text3)" }}
+            >
+              <Icon name="heart" size={16} color={liked ? "#f87171" : "currentColor"} />
             </button>
           </div>
 

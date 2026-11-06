@@ -1,23 +1,191 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, Navigate, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
 import PageHeader from "../components/PageHeader.jsx";
+import UserAvatar from "../components/UserAvatar.jsx";
+import VerifiedBadge from "../components/VerifiedBadge.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { handleArtworkError, resolveMixArtwork } from "../constants/artwork.js";
-import { fmtPlayerTime, fmtStreamedAt } from "../lib/format.js";
+import { fmtDuration, fmtPlayerTime, fmtStreamedAt } from "../lib/format.js";
 import { prefetchMixPlayback } from "../lib/audioUrls.js";
 import {
   dismissLibrarySession,
   fetchLibrarySessions,
 } from "../lib/playbackProgress.js";
 import { signedInHomePath } from "../featureFlags.js";
+import { scrollAppMainToTop } from "../lib/scrollAppMain.js";
+
+const DESKTOP_PAGE_SIZE = 8;
+const MOBILE_PAGE_SIZE = 12;
 
 function sessionProgressPct(positionSec, durationSec) {
   const dur = Number(durationSec) || 0;
   const pos = Number(positionSec) || 0;
   if (dur <= 0) return 0;
   return Math.min(99, Math.max(1, Math.round((pos / dur) * 100)));
+}
+
+function LibraryListRow({
+  session,
+  user,
+  isActive,
+  isPlaying,
+  livePos,
+  dur,
+  pct,
+  busy,
+  onResume,
+  onRemove,
+}) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const episode = session.episode;
+  const description = (episode.description || "").trim();
+
+  const openMix = () => {
+    navigate(`/mix/${episode.id}`, { state: { from: location.pathname } });
+  };
+
+  const handleResume = (event) => {
+    event.stopPropagation();
+    event.preventDefault();
+    onResume?.(session);
+  };
+
+  return (
+    <article className={`mixes-row library-row${isActive ? " is-active" : ""}`}>
+      <div className="mixes-row-art">
+        <img
+          src={resolveMixArtwork(episode.coverUrl)}
+          alt=""
+          onError={handleArtworkError}
+        />
+        <button
+          type="button"
+          className="mixes-row-play"
+          aria-label={isPlaying ? `Pause ${episode.title}` : `Resume ${episode.title}`}
+          disabled={busy}
+          onClick={handleResume}
+        >
+          <Icon name={isPlaying ? "pause" : "play"} size={22} color="#07090F" />
+        </button>
+      </div>
+
+      <div className="mixes-row-body">
+        <div className="mixes-row-top">
+          <div className="mixes-row-copy">
+            <h2 className="mixes-row-title">{episode.title || "Untitled Mix"}</h2>
+            {user ? (
+              <Link to={`/user/${user.id}`} className="mixes-row-artist" onClick={(e) => e.stopPropagation()}>
+                <UserAvatar user={user} size={22} />
+                <span>{user.username}</span>
+                {user.verified ? <VerifiedBadge size={13} /> : null}
+              </Link>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            className="btn btn-ghost library-row-remove"
+            aria-label={`Remove ${episode.title} from library`}
+            title="Remove session"
+            disabled={busy}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove?.(session.mixId);
+            }}
+          >
+            <Icon name="x" size={16} color="var(--text3)" />
+          </button>
+        </div>
+
+        {description ? <p className="mixes-row-desc">{description}</p> : null}
+
+        <div className="library-row-progress">
+          <div className="progress-wrap" style={{ height: 4 }}>
+            <div className="progress-fill" style={{ width: `${pct}%`, height: "100%" }} />
+          </div>
+          <div className="library-row-progress-meta">
+            <span>
+              {fmtPlayerTime(livePos)}
+              {dur > 0 ? ` / ${fmtPlayerTime(dur)}` : ""} · {pct}%
+            </span>
+            <span>{session.updatedAt ? fmtStreamedAt(session.updatedAt) : "Saved"}</span>
+          </div>
+        </div>
+
+        <div className="mixes-row-meta">
+          {episode.genre ? <span className="tag tag-blue">{episode.genre}</span> : null}
+          {episode.durationSecs ? <span>{fmtDuration(episode.durationSecs)}</span> : null}
+        </div>
+
+        <div className="mixes-row-actions">
+          <button type="button" className="btn btn-primary" disabled={busy} onClick={handleResume}>
+            <Icon name={isPlaying ? "pause" : "play"} size={15} />
+            {isPlaying ? "Pause" : "Resume"}
+          </button>
+          <button type="button" className="btn btn-ghost" onClick={openMix}>
+            View mix
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function LibraryMobileRow({
+  session,
+  isPlaying,
+  pct,
+  busy,
+  onResume,
+  onRemove,
+}) {
+  const episode = session.episode;
+
+  return (
+    <li className="track-card track-card-row library-mobile-row">
+      <button
+        type="button"
+        aria-label={isPlaying ? `Pause ${episode.title}` : `Resume ${episode.title}`}
+        disabled={busy}
+        onClick={() => onResume?.(session)}
+        className="library-mobile-art"
+      >
+        <img
+          src={resolveMixArtwork(episode.coverUrl)}
+          alt=""
+          onError={handleArtworkError}
+        />
+        <span className="library-mobile-art-overlay">
+          <span className="library-mobile-play">
+            <Icon name={isPlaying ? "pause" : "play"} size={12} color="#07090F" />
+          </span>
+        </span>
+      </button>
+
+      <div className="library-mobile-body">
+        <div className="library-mobile-top">
+          <Link to={`/mix/${episode.id}`} className="library-mobile-title">
+            {episode.title}
+          </Link>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            aria-label={`Remove ${episode.title} from library`}
+            title="Remove session"
+            disabled={busy}
+            onClick={() => onRemove?.(session.mixId)}
+          >
+            <Icon name="x" size={16} color="var(--text3)" />
+          </button>
+        </div>
+        <div className="progress-wrap" style={{ height: 3 }}>
+          <div className="progress-fill" style={{ width: `${pct}%`, height: "100%" }} />
+        </div>
+      </div>
+    </li>
+  );
 }
 
 export default function LibraryPage() {
@@ -29,6 +197,7 @@ export default function LibraryPage() {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
+  const [page, setPage] = useState(1);
   const episodesRef = useRef(episodes);
   episodesRef.current = episodes;
   const loadedUserIdRef = useRef(null);
@@ -60,7 +229,6 @@ export default function LibraryPage() {
     return () => window.removeEventListener("focus", onFocus);
   }, [load]);
 
-  // Pre-buffer top Library resume rows near their saved positions.
   useEffect(() => {
     if (!userId) return;
     const opts = { guestPreviewOnly: false, isAuthenticated: true, preferFullMix: false };
@@ -86,6 +254,25 @@ export default function LibraryPage() {
     });
   }, [sessions, users, q]);
 
+  const pageSize = isCompact ? MOBILE_PAGE_SIZE : DESKTOP_PAGE_SIZE;
+  const totalPages = Math.max(1, Math.ceil(visibleSessions.length / pageSize));
+
+  useEffect(() => {
+    setPage(1);
+  }, [q, isCompact]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const pageItems = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return visibleSessions.slice(start, start + pageSize);
+  }, [visibleSessions, page, pageSize]);
+
+  const rangeStart = visibleSessions.length === 0 ? 0 : (page - 1) * pageSize + 1;
+  const rangeEnd = Math.min(visibleSessions.length, page * pageSize);
+
   if (!userId) {
     return <Navigate to="/" replace />;
   }
@@ -103,237 +290,149 @@ export default function LibraryPage() {
     setBusyId(null);
   };
 
+  const goPage = (next) => {
+    setPage(next);
+    scrollAppMainToTop({ smooth: true });
+  };
+
   return (
-    <div
-      className="fade-in"
-      style={{
-        padding: isCompact ? "16px 12px" : "32px 36px",
-        paddingBottom: 120,
-        maxWidth: 920,
-      }}
-    >
-      <PageHeader icon="library" title="LIBRARY" />
+    <div className={`fade-in mixes-page library-page${isCompact ? " is-compact" : ""}`}>
+      <PageHeader icon="library" title="LIBRARY" large marginBottom={isCompact ? 16 : 20} />
+      <p className="mixes-lede">
+        Pick up where you left off — full artwork and progress for every session in progress.
+      </p>
 
       {loading ? (
-        <p style={{ color: "var(--text3)", fontSize: 14 }}>Loading sessions…</p>
+        <p className="library-status">Loading sessions…</p>
       ) : sessions.length === 0 ? (
-        <div
-          style={{
-            padding: isCompact ? "28px 16px" : "40px 24px",
-            textAlign: "center",
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            borderRadius: 12,
-            maxWidth: 420,
-          }}
-        >
-          <Icon name="library" size={28} color="var(--text3)" />
-          <p style={{ color: "var(--text3)", fontSize: isCompact ? 14 : 15, margin: "14px 0 16px", lineHeight: 1.6 }}>
-            No sessions in progress. Start a mix and it will show up here so you can continue later.
-          </p>
-          <Link
-            to={signedInHomePath()}
-            className="btn btn-primary"
-            style={isCompact ? { width: "100%", justifyContent: "center" } : undefined}
-          >
+        <div className="mixes-empty library-empty">
+          <Icon name="library" size={40} color="var(--text3)" />
+          <p>No sessions in progress. Start a mix and it will show up here so you can continue later.</p>
+          <Link to={signedInHomePath()} className="btn btn-primary">
             Browse mixes
           </Link>
         </div>
       ) : visibleSessions.length === 0 ? (
-        <p style={{ color: "var(--text3)", fontSize: isCompact ? 14 : 15 }}>No sessions match that search.</p>
+        <p className="library-status">No sessions match that search.</p>
       ) : (
-        <ul
-          style={{
-            listStyle: "none",
-            margin: 0,
-            padding: 0,
-            display: "flex",
-            flexDirection: "column",
-            gap: isCompact ? 8 : 10,
-          }}
-        >
-          {visibleSessions.map((session) => {
-            const ep = session.episode;
-            const isActive = player.currentTrack?.id === ep.id;
-            const isPlaying = isActive && player.isPlaying;
-            const livePos =
-              isActive && Number(player.durationSec) > 0
-                ? (Number(player.progress) / 100) * Number(player.durationSec)
-                : session.positionSec;
-            const dur = (isActive && player.durationSec) || session.durationSec || ep.durationSecs || 0;
-            const pct = sessionProgressPct(livePos, dur);
-            const busy = busyId === session.mixId;
-            const artSize = isCompact ? 72 : Math.round(88 * 1.15);
+        <>
+          <div className="mixes-toolbar">
+            <span>
+              Showing {rangeStart}–{rangeEnd} of {visibleSessions.length}
+            </span>
+            {totalPages > 1 ? (
+              <span>
+                Page {page} of {totalPages}
+              </span>
+            ) : null}
+          </div>
 
-            return (
-              <li
-                key={session.mixId}
-                className={isCompact ? "track-card track-card-row" : undefined}
-                style={{
-                  display: "flex",
-                  gap: isCompact ? 0 : 16,
-                  alignItems: "center",
-                  padding: isCompact ? "8px 10px 8px 8px" : 14,
-                  background: isActive ? "rgba(56,189,248,0.06)" : "var(--surface)",
-                  border: `1px solid ${isActive ? "rgba(56,189,248,0.35)" : "var(--border)"}`,
-                  borderRadius: 12,
-                  overflow: "hidden",
-                }}
-              >
-                <button
-                  type="button"
-                  aria-label={isPlaying ? `Pause ${ep.title}` : `Resume ${ep.title}`}
-                  disabled={busy}
-                  onClick={() => void handleResume(session)}
-                  style={{
-                    position: "relative",
-                    flexShrink: 0,
-                    width: artSize,
-                    height: artSize,
-                    borderRadius: isCompact ? 8 : 10,
-                    overflow: "hidden",
-                    border: isCompact ? "none" : "1px solid var(--border)",
-                    padding: 0,
-                    cursor: "pointer",
-                    background: "var(--bg2)",
-                  }}
-                >
-                  <img
-                    src={resolveMixArtwork(ep.coverUrl)}
-                    alt=""
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                    onError={handleArtworkError}
+          {isCompact ? (
+            <ul className="library-mobile-list">
+              {pageItems.map((session) => {
+                const ep = session.episode;
+                const isActive = player.currentTrack?.id === ep.id;
+                const isPlaying = isActive && player.isPlaying;
+                const livePos =
+                  isActive && Number(player.durationSec) > 0
+                    ? (Number(player.progress) / 100) * Number(player.durationSec)
+                    : session.positionSec;
+                const dur = (isActive && player.durationSec) || session.durationSec || ep.durationSecs || 0;
+                const pct = sessionProgressPct(livePos, dur);
+                return (
+                  <LibraryMobileRow
+                    key={session.mixId}
+                    session={session}
+                    isPlaying={isPlaying}
+                    pct={pct}
+                    busy={busyId === session.mixId}
+                    onResume={handleResume}
+                    onRemove={handleRemove}
                   />
-                  <span
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      background: isActive ? "rgba(7,9,15,0.45)" : "rgba(7,9,15,0.22)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: isCompact ? 28 : 36,
-                        height: isCompact ? 28 : 36,
-                        borderRadius: "50%",
-                        background: "var(--accent2)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        boxShadow: "0 0 24px var(--glow)",
-                      }}
-                    >
-                      <Icon
-                        name={isPlaying ? "pause" : "play"}
-                        size={isCompact ? 12 : 16}
-                        color="#07090F"
-                      />
-                    </span>
-                  </span>
-                </button>
-
-                <div
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: isCompact ? 6 : 8,
-                    paddingLeft: isCompact ? 10 : 0,
-                    justifyContent: isCompact ? "center" : undefined,
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <Link
-                        to={`/mix/${ep.id}`}
-                        style={{
-                          color: "var(--text)",
-                          textDecoration: "none",
-                          fontWeight: 600,
-                          fontSize: isCompact ? 13 : 15,
-                          lineHeight: 1.35,
-                          display: "block",
-                          ...(isCompact
-                            ? { wordBreak: "break-word" }
-                            : {
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                              }),
-                        }}
-                      >
-                        {ep.title}
-                      </Link>
-                    </div>
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      aria-label={`Remove ${ep.title} from library`}
-                      title="Remove session"
-                      disabled={busy}
-                      onClick={() => void handleRemove(session.mixId)}
-                      style={{ padding: 6, flexShrink: 0, marginTop: isCompact ? -2 : 0 }}
-                    >
-                      <Icon name="x" size={16} color="var(--text3)" />
-                    </button>
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="mixes-list" role="list">
+              {pageItems.map((session) => {
+                const ep = session.episode;
+                const user = users.find((u) => u.id === ep.userId);
+                const isActive = player.currentTrack?.id === ep.id;
+                const isPlaying = isActive && player.isPlaying;
+                const livePos =
+                  isActive && Number(player.durationSec) > 0
+                    ? (Number(player.progress) / 100) * Number(player.durationSec)
+                    : session.positionSec;
+                const dur = (isActive && player.durationSec) || session.durationSec || ep.durationSecs || 0;
+                const pct = sessionProgressPct(livePos, dur);
+                return (
+                  <div key={session.mixId} role="listitem">
+                    <LibraryListRow
+                      session={session}
+                      user={user}
+                      isActive={isActive}
+                      isPlaying={isPlaying}
+                      livePos={livePos}
+                      dur={dur}
+                      pct={pct}
+                      busy={busyId === session.mixId}
+                      onResume={handleResume}
+                      onRemove={handleRemove}
+                    />
                   </div>
+                );
+              })}
+            </div>
+          )}
 
-                  <div>
-                    <div className="progress-wrap" style={{ height: isCompact ? 3 : 4 }}>
-                      <div className="progress-fill" style={{ width: `${pct}%`, height: "100%" }} />
-                    </div>
-                    {!isCompact ? (
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          gap: 8,
-                          marginTop: 6,
-                          fontSize: 11,
-                          color: "var(--text3)",
-                        }}
-                      >
-                        <span style={{ fontWeight: 700 }}>
-                          {fmtPlayerTime(livePos)}
-                          {dur > 0 ? ` / ${fmtPlayerTime(dur)}` : ""} · {pct}%
-                        </span>
-                        <span style={{ fontWeight: 700 }}>
-                          {session.updatedAt ? fmtStreamedAt(session.updatedAt) : "Saved"}
-                        </span>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {!isCompact ? (
-                    <div style={{ display: "flex", gap: 8, marginTop: "auto", flexWrap: "wrap" }}>
+          {totalPages > 1 ? (
+            <nav className="mixes-pager" aria-label="Library pages">
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={page <= 1}
+                onClick={() => goPage(Math.max(1, page - 1))}
+              >
+                <Icon name="chevronLeft" size={16} />
+                Previous
+              </button>
+              <div className="mixes-pager-pages">
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((n) => n === 1 || n === totalPages || Math.abs(n - page) <= 1)
+                  .reduce((acc, n, idx, arr) => {
+                    if (idx > 0 && n - arr[idx - 1] > 1) acc.push("…");
+                    acc.push(n);
+                    return acc;
+                  }, [])
+                  .map((n, idx) =>
+                    n === "…" ? (
+                      <span key={`gap-${idx}`} className="mixes-pager-gap">
+                        …
+                      </span>
+                    ) : (
                       <button
+                        key={n}
                         type="button"
-                        className="lab-home-chip is-on"
-                        disabled={busy}
-                        onClick={() => void handleResume(session)}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+                        className={`mixes-pager-num${page === n ? " is-on" : ""}`}
+                        aria-current={page === n ? "page" : undefined}
+                        onClick={() => goPage(n)}
                       >
-                        <Icon name={isPlaying ? "pause" : "play"} size={14} />
-                        {isPlaying ? "Pause" : "Resume"}
+                        {n}
                       </button>
-                      <Link
-                        to={`/mix/${ep.id}`}
-                        className="lab-home-chip"
-                        style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}
-                      >
-                        Details
-                      </Link>
-                    </div>
-                  ) : null}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                    ),
+                  )}
+              </div>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={page >= totalPages}
+                onClick={() => goPage(Math.min(totalPages, page + 1))}
+              >
+                Next
+              </button>
+            </nav>
+          ) : null}
+        </>
       )}
     </div>
   );

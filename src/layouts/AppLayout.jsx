@@ -237,6 +237,7 @@ export default function AppLayout() {
             />
           </div>
           <main
+            id="app-main"
             ref={mainRef}
             style={{
               flex: 1,

@@ -110,6 +110,14 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
   const uploadAbortRef = useRef(null);
   const maxAudioMb = readMaxAudioMb();
 
+  // Must stay above early returns — flipping `done` after upload previously
+  // skipped this hook and blanked the mobile screen.
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    const main = document.getElementById("app-main");
+    if (main) main.scrollTop = 0;
+  }, [step, done]);
+
   const pickAudioFile = async (file) => {
     if (!file) return;
     if (maxAudioMb != null && file.size > maxAudioMb * 1024 * 1024) {
@@ -473,10 +481,6 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
     ? ["Audio", "Info", "Details", "Review"]
     : ["Audio", "Cover & Title", "Details", "Review"];
   const totalSteps = stepLabels.length;
-
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [step]);
 
   return (
     <div
