@@ -14,7 +14,8 @@ export default function HomeRoute() {
     );
   }
   if (auth.session?.user?.id) {
-    return <Navigate to={auth.localMode ? "/home" : signedInHomePath()} replace />;
+    // Always Lab Home — never dump signed-in users onto Mixes/Profile by accident.
+    return <Navigate to={signedInHomePath()} replace />;
   }
   return <HomePage />;
 }

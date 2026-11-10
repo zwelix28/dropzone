@@ -24,7 +24,16 @@ drop policy if exists "mix_comments_insert_own" on public.mix_comments;
 create policy "mix_comments_insert_own"
   on public.mix_comments for insert
   to authenticated
-  with check (auth.uid() = user_id);
+  with check (
+    auth.uid() = user_id
+    and public.profile_can_use_app(auth.uid())
+    and exists (
+      select 1
+      from public.mixes m
+      where m.id = mix_id
+        and coalesce(m.status, 'approved') = 'approved'
+    )
+  );
 
 drop policy if exists "mix_comments_delete_own" on public.mix_comments;
 create policy "mix_comments_delete_own"

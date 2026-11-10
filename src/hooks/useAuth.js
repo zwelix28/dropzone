@@ -44,8 +44,8 @@ function mapProfile(row) {
     location: row.location || "",
     isAdmin: row.is_admin ?? false,
     isBanned: row.is_banned ?? false,
-    // Missing column (pre-migration) stays usable; explicit false = pending approval.
-    isApproved: row.is_approved !== false,
+    // true / false / null (null = column missing — see isAccountApproved)
+    isApproved: row.is_approved === true ? true : row.is_approved === false ? false : null,
     plan: normalizePlan(row.plan),
     notifyEmailNewMix: row.notify_email_new_mix !== false,
     notifyPushNewMix: row.notify_push_new_mix !== false,

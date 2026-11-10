@@ -67,7 +67,7 @@ export default function LiveRoute() {
           Upgrade options will appear here when billing is connected. Admins can set your plan from the admin
           dashboard for testing.
         </p>
-        <BackButton to="/discover" label="Discover" />
+        <BackButton to="/home" label="Home" />
       </LockedShell>
     );
   }

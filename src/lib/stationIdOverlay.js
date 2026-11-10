@@ -12,7 +12,7 @@ export const STATION_ID_SRC = "/dhl_vo.mp3";
 const CUE_SEC = 5;
 /** Skip only if the mix is shorter than the cue + VO. */
 const MIN_MIX_DURATION_SEC = CUE_SEC + 6;
-const VO_LEVEL = 0.92;
+const VO_LEVEL = 0.745; // was 0.828; another −10% under denser mixes
 
 function clamp01(n) {
   return Math.max(0, Math.min(1, Number(n) || 0));

@@ -16,6 +16,7 @@ import { listLocalUploadEpisodes } from "../lib/localUploads.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 import { mixRowToEpisode, notificationRowToApp, profileRowToUser } from "../lib/maps.js";
 import { isMixApproved } from "../lib/mixStatus.js";
+import { readPlayerSession } from "../lib/playerSession.js";
 
 const AppContext = createContext(null);
 
@@ -71,6 +72,7 @@ export function AppProvider({ children }) {
 
   const [episodes, setEpisodes] = useState([]);
   episodesRef.current = episodes;
+  const playerSessionRestoredRef = useRef(false);
   const [users, setUsers] = useState([]);
   usersRef.current = users;
   const [liveStreams] = useState([]);
@@ -317,6 +319,35 @@ export function AppProvider({ children }) {
       void refreshProfiles();
     }
   }, [refreshMixes, refreshProfiles]);
+
+  // After catalog loads, rehydrate the mini-player from the last session (refresh-safe).
+  useEffect(() => {
+    if (playerSessionRestoredRef.current) return;
+    if (!episodes.length) return;
+    if (auth.authLoading) return;
+    // Guests don't persist full-mix sessions the same way; signed-in restores matter most.
+    if (!auth.session?.user?.id) return;
+    if (location.pathname === "/foryou") return;
+
+    const session = readPlayerSession();
+    if (!session?.mixId) {
+      playerSessionRestoredRef.current = true;
+      return;
+    }
+    const episode = episodes.find((ep) => ep.id === session.mixId);
+    if (!episode) {
+      // Catalog may still be syncing; wait for a later episodes update.
+      return;
+    }
+    playerSessionRestoredRef.current = true;
+    void player.restoreSession(episode, session);
+  }, [
+    episodes,
+    auth.authLoading,
+    auth.session?.user?.id,
+    location.pathname,
+    player.restoreSession,
+  ]);
 
   useEffect(() => {
     refreshNotifications();

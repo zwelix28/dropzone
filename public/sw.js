@@ -6,7 +6,7 @@
  * refreshed in the background.
  */
 
-const CACHE = "dhlab-shell-v6";
+const CACHE = "dhlab-shell-v7";
 const OFFLINE_URL = "/";
 const PRECACHE = [OFFLINE_URL, "/DeepHouseLabLogo.png", "/pwa-icon-192.png"];
 
@@ -109,9 +109,19 @@ self.addEventListener("push", (event) => {
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
+/** Same-origin relative paths only (align with client/edge safeAppHref). */
+function safeAppHref(href) {
+  const raw = typeof href === "string" ? href.trim() : "";
+  if (!raw) return "/";
+  if (!raw.startsWith("/") || raw.startsWith("//")) return "/";
+  if (raw.includes("\\")) return "/";
+  if (/[\s"'<>]/.test(raw)) return "/";
+  return raw;
+}
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const href = event.notification?.data?.href || "/";
+  const href = safeAppHref(event.notification?.data?.href || "/");
   const targetUrl = new URL(href, self.location.origin).href;
 
   event.waitUntil(

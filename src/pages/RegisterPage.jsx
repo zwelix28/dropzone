@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { GENRES } from "../constants/genres.js";
+import GenrePicker from "../components/GenrePicker.jsx";
 import Icon from "../components/Icon.jsx";
 import PasswordField from "../components/PasswordField.jsx";
 import { signedInHomePath } from "../featureFlags.js";
@@ -113,8 +113,14 @@ export default function RegisterPage() {
 
           {!isSupabaseConfigured() ? (
             <p className="auth-notice is-warn">
-              Add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> to{" "}
-              <code>.env.local</code> and restart the dev server.
+              {import.meta.env.DEV ? (
+                <>
+                  Add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> to{" "}
+                  <code>.env.local</code> and restart the dev server.
+                </>
+              ) : (
+                <>Registration isn’t available right now. Please try again later.</>
+              )}
             </p>
           ) : null}
 
@@ -177,38 +183,13 @@ export default function RegisterPage() {
               hint={confirmTouched && passwordsMatch ? "Passwords match" : undefined}
             />
 
-            <fieldset className="auth-genre">
-              <legend className="auth-label">Primary genre</legend>
-              <div className="auth-genre-slider" role="radiogroup" aria-label="Primary genre">
-                {GENRES.map((g) => {
-                  const selected = form.genre === g;
-                  return (
-                    <label key={g} className={`auth-genre-chip${selected ? " is-on" : ""}`}>
-                      <input
-                        type="radio"
-                        name="primary-genre"
-                        value={g}
-                        checked={selected}
-                        onChange={() => setForm((f) => ({ ...f, genre: g }))}
-                      />
-                      <span>{g}</span>
-                    </label>
-                  );
-                })}
-              </div>
-              <select
-                className="inp auth-genre-select"
-                value={form.genre}
-                aria-label="Primary genre"
-                onChange={(e) => setForm((f) => ({ ...f, genre: e.target.value }))}
-              >
-                {GENRES.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
-                ))}
-              </select>
-            </fieldset>
+            <GenrePicker
+              id="register-genre"
+              name="primary-genre"
+              label="Primary genre"
+              value={form.genre}
+              onChange={(genre) => setForm((f) => ({ ...f, genre }))}
+            />
           </div>
 
           <button

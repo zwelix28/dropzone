@@ -8,10 +8,14 @@ import TrackCard from "../components/TrackCard.jsx";
 import UserAvatar from "../components/UserAvatar.jsx";
 import VerifiedBadge from "../components/VerifiedBadge.jsx";
 import { useApp } from "../context/AppContext.jsx";
+import { FEATURE_COMMUNITY, signedInHomePath } from "../featureFlags.js";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 import { profileRowToUser } from "../lib/maps.js";
 import { fmt } from "../lib/format.js";
+import { scrollAppMainToTop } from "../lib/scrollAppMain.js";
+
+const MOBILE_MIXES_PAGE_SIZE = 10;
 
 export default function UserProfilePage() {
   const { userId } = useParams();
@@ -20,6 +24,7 @@ export default function UserProfilePage() {
   const [remoteUser, setRemoteUser] = useState(null);
   const [loadError, setLoadError] = useState(null);
   const [fetchDone, setFetchDone] = useState(false);
+  const [mixPage, setMixPage] = useState(1);
 
   const fromList = useMemo(() => (userId ? users.find((u) => u.id === userId) : null), [users, userId]);
   const fromListId = fromList?.id || null;
@@ -88,6 +93,33 @@ export default function UserProfilePage() {
     return [...users, pu];
   }, [users, fromList, remoteUser]);
 
+  const userEps = useMemo(
+    () => (profileUser ? episodes.filter((e) => e.userId === profileUser.id) : []),
+    [episodes, profileUser],
+  );
+  const totalMixPages = isCompact
+    ? Math.max(1, Math.ceil(userEps.length / MOBILE_MIXES_PAGE_SIZE))
+    : 1;
+
+  useEffect(() => {
+    setMixPage(1);
+  }, [profileUser?.id, isCompact, userEps.length]);
+
+  useEffect(() => {
+    if (mixPage > totalMixPages) setMixPage(totalMixPages);
+  }, [mixPage, totalMixPages]);
+
+  const visibleMixes = useMemo(() => {
+    if (!isCompact) return userEps;
+    const start = (mixPage - 1) * MOBILE_MIXES_PAGE_SIZE;
+    return userEps.slice(start, start + MOBILE_MIXES_PAGE_SIZE);
+  }, [userEps, isCompact, mixPage]);
+
+  const goMixPage = (next) => {
+    setMixPage(next);
+    scrollAppMainToTop({ smooth: true });
+  };
+
   if (auth.currentUser?.id && userId === auth.currentUser.id) {
     return <Navigate to="/profile" replace />;
   }
@@ -101,7 +133,7 @@ export default function UserProfilePage() {
       <div className="fade-in" style={{ padding: isCompact ? "16px 12px" : "32px 36px" }}>
         <p style={{ color: "var(--red)", fontSize: isCompact ? 14 : 15 }}>{loadError}</p>
         <div style={{ marginTop: 16 }}>
-          <BackButton to="/discover" label="Discover" />
+          <BackButton to="/home" label="Home" />
         </div>
       </div>
     );
@@ -122,20 +154,24 @@ export default function UserProfilePage() {
         <p style={{ color: "var(--text2)", marginBottom: 20, fontSize: isCompact ? 14 : 15 }}>
           This account doesn’t exist or is no longer available.
         </p>
-        <BackButton to="/discover" label="Discover" />
+        <BackButton to="/home" label="Home" />
       </div>
     );
   }
 
-  const userEps = episodes.filter((e) => e.userId === profileUser.id);
   const avatarSize = isCompact ? 80 : 108;
   const pagePad = isCompact ? "16px 12px" : "32px 36px";
+  const rangeStart = userEps.length === 0 ? 0 : (mixPage - 1) * MOBILE_MIXES_PAGE_SIZE + 1;
+  const rangeEnd = Math.min(userEps.length, mixPage * MOBILE_MIXES_PAGE_SIZE);
 
   return (
     <div className="fade-in" style={{ padding: pagePad, paddingBottom: 120 }}>
       <div style={{ maxWidth: 900, margin: "0 auto" }}>
         <div style={{ marginBottom: isCompact ? 12 : 16 }}>
-          <BackButton to="/community" label="Community" />
+          <BackButton
+            to={FEATURE_COMMUNITY ? "/community" : signedInHomePath()}
+            label={FEATURE_COMMUNITY ? "Community" : "Back"}
+          />
         </div>
 
         {isCompact ? (
@@ -262,6 +298,26 @@ export default function UserProfilePage() {
                 {userEps.length}
               </span>
             </h2>
+            {isCompact && totalMixPages > 1 ? (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  marginBottom: 10,
+                  fontSize: 11,
+                  color: "var(--text3)",
+                }}
+              >
+                <span>
+                  Showing {rangeStart}–{rangeEnd} of {userEps.length}
+                </span>
+                <span>
+                  Page {mixPage} of {totalMixPages}
+                </span>
+              </div>
+            ) : null}
+
             <div
               style={{
                 display: "grid",
@@ -271,7 +327,7 @@ export default function UserProfilePage() {
                 gap: isCompact ? 8 : 14,
               }}
             >
-              {userEps.map((ep) => (
+              {visibleMixes.map((ep) => (
                 <TrackCard
                   key={ep.id}
                   episode={ep}
@@ -285,6 +341,33 @@ export default function UserProfilePage() {
                 />
               ))}
             </div>
+
+            {isCompact && totalMixPages > 1 ? (
+              <nav className="mixes-pager" aria-label="Mixes pages">
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  disabled={mixPage <= 1}
+                  onClick={() => goMixPage(Math.max(1, mixPage - 1))}
+                >
+                  <Icon name="chevronLeft" size={16} />
+                  Previous
+                </button>
+                <div className="mixes-pager-pages">
+                  <span style={{ fontSize: 12, color: "var(--text3)" }}>
+                    {mixPage} / {totalMixPages}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  disabled={mixPage >= totalMixPages}
+                  onClick={() => goMixPage(Math.min(totalMixPages, mixPage + 1))}
+                >
+                  Next
+                </button>
+              </nav>
+            ) : null}
           </>
         ) : null}
       </div>

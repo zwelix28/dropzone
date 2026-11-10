@@ -135,7 +135,7 @@ export default function MobileNowPlaying({
   const openArtist = () => {
     if (!user) return;
     onClose();
-    navigate(`/user/${user.id}`);
+    navigate(auth.currentUser?.id === user.id ? "/profile" : `/user/${user.id}`);
   };
 
   const restart = () => {

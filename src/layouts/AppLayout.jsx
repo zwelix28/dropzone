@@ -194,6 +194,7 @@ export default function AppLayout() {
             onLogout={handleLogout}
             onLogin={() => auth.setShowAuth(true)}
             variant="desktop"
+            hasPlayer={Boolean(player.currentTrack)}
           />
         ) : null}
 
@@ -226,7 +227,7 @@ export default function AppLayout() {
               showMenuButton={isMobile}
               onMenuClick={() => setNavOpen(true)}
               pinHeader={isMobile && isForYou}
-              showNotificationsButton={!showMobileTabNav}
+              showNotificationsButton
               onToggleNotifications={() => {
                 setShowNotifications((v) => {
                   const next = !v;
@@ -334,6 +335,7 @@ export default function AppLayout() {
           shuffleOn={player.shuffleOn}
           onToggleShuffle={player.toggleShuffle}
           elevatedForTabNav={showMobileTabNav}
+          desktopExpanded={showDesktopExpandedPlayer}
           onExpandFullPlayer={
             player.currentTrack
               ? () => {
@@ -345,19 +347,7 @@ export default function AppLayout() {
         />
       ) : null}
 
-      {showMobileTabNav ? (
-        <MobileBottomNav
-          unreadCount={unreadCount}
-          notificationsOpen={showNotifications}
-          onNotifications={() => {
-            setShowNotifications((v) => {
-              const next = !v;
-              if (next && auth.currentUser) void refreshNotifications();
-              return next;
-            });
-          }}
-        />
-      ) : null}
+      {showMobileTabNav ? <MobileBottomNav /> : null}
 
       {auth.showAuth && <AuthModal onClose={() => auth.setShowAuth(false)} />}
 

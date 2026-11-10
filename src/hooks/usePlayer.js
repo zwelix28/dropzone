@@ -10,6 +10,7 @@ import {
   episodeHasGuestPlayback,
   invalidateMixPlaybackUrlCache,
   prefetchMixPlayback,
+  renewMixPlaybackUrl,
   resolveMixPlaybackUrl,
 } from "../lib/audioUrls.js";
 import { getGuestPreviewSegment } from "../lib/forYouPreview.js";
@@ -22,6 +23,11 @@ import {
 } from "../lib/playbackProgress.js";
 import { moveQueueIds, orderedQueue } from "../lib/playbackQueue.js";
 import {
+  clearPlayerSession,
+  readPlayerSession,
+  writePlayerSession,
+} from "../lib/playerSession.js";
+import {
   bindMediaSessionActions,
   syncMediaSessionMetadata,
   syncMediaSessionPlaybackState,
@@ -30,6 +36,10 @@ import {
 import { createStationIdOverlay } from "../lib/stationIdOverlay.js";
 
 const SAVE_INTERVAL_MS = 10000;
+/** Max automatic recoveries after a stream error / stall for one track load. */
+const MAX_STREAM_RECOVERIES = 2;
+/** Re-sign storage URLs before the ~1h Supabase expiry kills a long listen. */
+const SIGNED_URL_RENEW_MS = 45 * 60 * 1000;
 
 function effectiveDurationSec(audio, track, guestPreviewOnly, segment) {
   if (!guestPreviewOnly) {
@@ -141,6 +151,14 @@ export default function usePlayer({
   const getArtistNameRef = useRef(getArtistName);
   getArtistNameRef.current = getArtistName;
   const reportedDurationIdsRef = useRef(new Set());
+  const streamRecoveryRef = useRef(0);
+  const volumeRef = useRef(volume);
+  volumeRef.current = volume;
+  const shuffleOnRef = useRef(shuffleOn);
+  shuffleOnRef.current = shuffleOn;
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
+  const sessionRestoredRef = useRef(false);
   const stationIdRef = useRef(null);
   if (!stationIdRef.current) {
     stationIdRef.current = createStationIdOverlay({
@@ -154,6 +172,26 @@ export default function usePlayer({
     audioRef.current.preload = "auto";
   }
 
+  const snapshotSession = useCallback((overrides = {}) => {
+    const track = currentTrackRef.current;
+    const audio = audioRef.current;
+    if (!track?.id || guestPreviewOnlyRef.current) return;
+    const positionSec =
+      overrides.positionSec != null
+        ? Number(overrides.positionSec)
+        : Number(audio?.currentTime) || 0;
+    writePlayerSession({
+      mixId: track.id,
+      positionSec,
+      durationSec:
+        Number(audio?.duration) || Number(track.durationSecs) || Number(overrides.durationSec) || 0,
+      wasPlaying: overrides.wasPlaying != null ? Boolean(overrides.wasPlaying) : Boolean(isPlayingRef.current),
+      volume: volumeRef.current,
+      queueOrder: queueOrderRef.current,
+      shuffleOn: shuffleOnRef.current,
+    });
+  }, []);
+
   const resolveOptsRef = useRef({ guestPreviewOnly, isAuthenticated });
   resolveOptsRef.current = { guestPreviewOnly, isAuthenticated };
 
@@ -163,10 +201,11 @@ export default function usePlayer({
     const uid = userIdRef.current;
     const track = currentTrackRef.current;
     const audio = audioRef.current;
-    if (!uid || !track?.id || guestPreviewOnlyRef.current) return;
+    if (!track?.id || guestPreviewOnlyRef.current) return;
 
     if (clear) {
-      await clearPlaybackProgress(uid, track.id);
+      clearPlayerSession();
+      if (uid) await clearPlaybackProgress(uid, track.id);
       return;
     }
     if (!audio) return;
@@ -177,8 +216,9 @@ export default function usePlayer({
     const positionSec = Number(audio.currentTime) || 0;
     const duration = Number(audio.duration) || Number(track.durationSecs) || 0;
     lastSaveAtRef.current = now;
-    await savePlaybackProgress(uid, track.id, positionSec, duration);
-  }, []);
+    snapshotSession({ positionSec, durationSec: duration, wasPlaying: !audio.paused });
+    if (uid) await savePlaybackProgress(uid, track.id, positionSec, duration);
+  }, [snapshotSession]);
 
   const pause = useCallback(() => {
     const audio = audioRef.current;
@@ -186,8 +226,9 @@ export default function usePlayer({
     audio.pause();
     setIsPlaying(false);
     stationIdRef.current?.onMainPause();
+    snapshotSession({ wasPlaying: false });
     void persistProgress({ force: true });
-  }, [persistProgress]);
+  }, [persistProgress, snapshotSession]);
 
   useEffect(() => registerExclusiveAudioOwner(AUDIO_OWNER_MAIN, pause), [pause]);
 
@@ -198,12 +239,14 @@ export default function usePlayer({
     try {
       await audio.play();
       setIsPlaying(true);
+      snapshotSession({ wasPlaying: true });
       return true;
     } catch {
       setIsPlaying(false);
+      snapshotSession({ wasPlaying: false });
       return false;
     }
-  }, [isSuspended]);
+  }, [isSuspended, snapshotSession]);
 
   const restartGuestPreview = useCallback((audio) => {
     const { start } = segmentRef.current;
@@ -257,6 +300,7 @@ export default function usePlayer({
       }
 
       const gen = ++trackGenRef.current;
+      streamRecoveryRef.current = 0;
       const segment = guestPreviewOnly ? getGuestPreviewSegment(ep.durationSecs) : { start: 0, end: 0, windowSec: 0 };
       segmentRef.current = segment;
 
@@ -341,11 +385,13 @@ export default function usePlayer({
           const eff = mediaDur || resumeSec;
           setProgress(eff ? (resumeSec / eff) * 100 : 0);
           setIsPlaying(ok);
+          snapshotSession({ positionSec: resumeSec, durationSec: mediaDur, wasPlaying: ok });
           return;
         }
       }
 
-      await startPlayback();
+      const started = await startPlayback();
+      snapshotSession({ positionSec: 0, wasPlaying: started });
     },
     [
       currentTrack,
@@ -359,6 +405,7 @@ export default function usePlayer({
       isGuestPreviewEnded,
       restartGuestPreview,
       persistProgress,
+      snapshotSession,
     ],
   );
 
@@ -460,18 +507,69 @@ export default function usePlayer({
       }
     };
 
+    const recoverStream = async (reason) => {
+      if (guestPreviewOnly) return;
+      if (!currentTrackRef.current) return;
+      if (streamRecoveryRef.current >= MAX_STREAM_RECOVERIES) {
+        console.warn("playback: gave up recovering stream", reason);
+        setIsPlaying(false);
+        snapshotSession({ wasPlaying: false });
+        return;
+      }
+      streamRecoveryRef.current += 1;
+      const track = currentTrackRef.current;
+      const pos = Number(audio.currentTime) || 0;
+      console.warn(`playback: recovering after ${reason} (try ${streamRecoveryRef.current})`, track.id);
+      try {
+        const url = await renewMixPlaybackUrl(track, {
+          guestPreviewOnly: false,
+          isAuthenticated,
+          preferFullMix: false,
+        });
+        if (!url || currentTrackRef.current?.id !== track.id) return;
+        const resumeAt = pos > 1 ? pos : 0;
+        audio.src = resumeAt > 0 ? withMediaTimeFragment(url, resumeAt) : url;
+        await waitForMetadata(audio);
+        if (currentTrackRef.current?.id !== track.id) return;
+        if (resumeAt > 0) {
+          const ok = await seekToAndPlay(audio, resumeAt);
+          setIsPlaying(ok);
+          snapshotSession({ positionSec: resumeAt, wasPlaying: ok });
+        } else {
+          const ok = await startPlayback();
+          setIsPlaying(ok);
+        }
+      } catch (err) {
+        console.warn("playback: recovery failed", err);
+        setIsPlaying(false);
+      }
+    };
+
+    const onError = () => {
+      void recoverStream("error");
+    };
+    const onStalled = () => {
+      // Only recover if we were actively playing and the element looks wedged.
+      if (audio.paused || audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) return;
+      void recoverStream("stalled");
+    };
+
     audio.addEventListener("timeupdate", onTimeUpdate);
     audio.addEventListener("play", onPlay);
     audio.addEventListener("pause", onPause);
     audio.addEventListener("ended", onEnded);
+    audio.addEventListener("error", onError);
+    audio.addEventListener("stalled", onStalled);
 
     return () => {
       audio.removeEventListener("timeupdate", onTimeUpdate);
       audio.removeEventListener("play", onPlay);
       audio.removeEventListener("pause", onPause);
       audio.removeEventListener("ended", onEnded);
+      audio.removeEventListener("error", onError);
+      audio.removeEventListener("stalled", onStalled);
     };
-  }, [currentTrack, guestPreviewOnly, persistProgress]);
+  }, [currentTrack, guestPreviewOnly, persistProgress, isAuthenticated, snapshotSession, startPlayback]);
 
   // Flush progress when leaving the page / tab
   useEffect(() => {
@@ -488,6 +586,50 @@ export default function usePlayer({
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [persistProgress]);
+
+  // Long listens: refresh the signed URL before Supabase expiry (~1h) kills the stream.
+  useEffect(() => {
+    if (!currentTrack || guestPreviewOnly || !isPlaying) return undefined;
+    const audio = audioRef.current;
+    if (!audio) return undefined;
+
+    const renew = async () => {
+      const track = currentTrackRef.current;
+      if (!track?.id || audio.paused) return;
+      const pos = Number(audio.currentTime) || 0;
+      try {
+        const url = await renewMixPlaybackUrl(track, {
+          guestPreviewOnly: false,
+          isAuthenticated,
+          preferFullMix: false,
+        });
+        if (!url || currentTrackRef.current?.id !== track.id) return;
+        const wasPlaying = !audio.paused;
+        audio.src = pos > 0 ? withMediaTimeFragment(url, pos) : url;
+        await waitForMetadata(audio);
+        if (currentTrackRef.current?.id !== track.id) return;
+        if (wasPlaying) {
+          const ok = pos > 0 ? await seekToAndPlay(audio, pos) : await startPlayback();
+          setIsPlaying(ok);
+          snapshotSession({ positionSec: pos, wasPlaying: ok });
+        } else if (pos > 0) {
+          try {
+            audio.currentTime = pos;
+          } catch {
+            /* ignore */
+          }
+        }
+        streamRecoveryRef.current = 0;
+      } catch (err) {
+        console.warn("playback: signed URL renew failed", err);
+      }
+    };
+
+    const id = window.setInterval(() => {
+      void renew();
+    }, SIGNED_URL_RENEW_MS);
+    return () => window.clearInterval(id);
+  }, [currentTrack, guestPreviewOnly, isPlaying, isAuthenticated, startPlayback, snapshotSession]);
 
   const getPlaylistTracks = useCallback(() => {
     const list = typeof getPlaylist === "function" ? getPlaylist() : [];
@@ -613,7 +755,10 @@ export default function usePlayer({
     // Mix volume stays under player control; overlay never ducks it.
     audio.volume = Math.max(0, Math.min(1, volume / 100));
     stationIdRef.current?.setUserVolume(volume);
-  }, [volume]);
+    if (currentTrackRef.current?.id) {
+      snapshotSession({ volume });
+    }
+  }, [volume, snapshotSession]);
 
   useEffect(() => {
     return () => {
@@ -732,6 +877,104 @@ export default function usePlayer({
     void playTrack(currentTrack);
   }, [guestPreviewOnly, isAuthenticated, currentTrack, playTrack, isSuspended]);
 
+  /**
+   * Rebuild now-playing after a full page refresh. Browsers block unmuted autoplay
+   * without a gesture, so we load the mix at the saved position and only attempt
+   * play when the prior session was actively playing — falling back to paused.
+   */
+  const restoreSession = useCallback(
+    async (episode, session) => {
+      if (!episode?.id || guestPreviewOnly || isSuspended()) return false;
+      if (sessionRestoredRef.current && currentTrackRef.current?.id === episode.id) return true;
+      sessionRestoredRef.current = true;
+
+      const audio = audioRef.current;
+      if (!audio) return false;
+
+      if (typeof session?.volume === "number" && Number.isFinite(session.volume)) {
+        setVolume(session.volume);
+        audio.volume = Math.max(0, Math.min(1, session.volume / 100));
+      }
+      if (session?.shuffleOn != null) setShuffleOn(Boolean(session.shuffleOn));
+      if (Array.isArray(session?.queueOrder) && session.queueOrder.length) {
+        queueOrderRef.current = session.queueOrder;
+        setQueueOrderState(session.queueOrder);
+      }
+
+      const gen = ++trackGenRef.current;
+      streamRecoveryRef.current = 0;
+      segmentRef.current = { start: 0, end: 0, windowSec: 0 };
+      setCurrentTrack(episode);
+      setDurationSec(Math.floor(Math.max(0, Number(episode.durationSecs) || Number(session?.durationSec) || 0)));
+
+      let resumeSec = Number(session?.positionSec) || 0;
+      if (userId && isAuthenticated) {
+        const local = peekLocalPlaybackProgress(userId, episode.id);
+        if (local && shouldResumeAt(local.positionSec, local.durationSec || episode.durationSecs)) {
+          resumeSec = Math.max(resumeSec, local.positionSec);
+        }
+        const saved = await fetchPlaybackProgress(userId, episode.id);
+        if (gen !== trackGenRef.current) return false;
+        if (saved && shouldResumeAt(saved.positionSec, saved.durationSec || episode.durationSecs)) {
+          resumeSec = saved.positionSec;
+        }
+      }
+      if (!shouldResumeAt(resumeSec, Number(episode.durationSecs) || Number(session?.durationSec) || 0)) {
+        resumeSec = 0;
+      }
+
+      const url = await resolveMixPlaybackUrl(episode, {
+        guestPreviewOnly: false,
+        isAuthenticated,
+        preferFullMix: false,
+      });
+      if (gen !== trackGenRef.current) return false;
+      if (!url) {
+        setIsPlaying(false);
+        return false;
+      }
+
+      audio.pause();
+      audio.src = resumeSec > 0 ? withMediaTimeFragment(url, resumeSec) : url;
+      releaseWarmPlayback(episode.id);
+      await waitForMetadata(audio);
+      if (gen !== trackGenRef.current) return false;
+
+      const mediaDur = Number(audio.duration) || Number(episode.durationSecs) || 0;
+      if (resumeSec > 0 && shouldResumeAt(resumeSec, mediaDur)) {
+        try {
+          audio.currentTime = resumeSec;
+        } catch {
+          /* ignore */
+        }
+        setProgress(mediaDur ? (resumeSec / mediaDur) * 100 : 0);
+      } else {
+        setProgress(0);
+        resumeSec = 0;
+      }
+
+      stationIdRef.current?.onTrackChange(episode.id, {
+        resumeSec,
+        guestPreviewOnly: false,
+      });
+      stationIdRef.current?.setUserVolume(volumeRef.current);
+
+      let playing = false;
+      if (session?.wasPlaying && !isSuspended()) {
+        playing = await startPlayback();
+      } else {
+        setIsPlaying(false);
+      }
+      snapshotSession({
+        positionSec: resumeSec,
+        durationSec: mediaDur,
+        wasPlaying: playing,
+      });
+      return true;
+    },
+    [guestPreviewOnly, isAuthenticated, isSuspended, startPlayback, snapshotSession, userId],
+  );
+
   const playerApi = useMemo(
     () => ({
       currentTrack,
@@ -753,6 +996,7 @@ export default function usePlayer({
       moveQueueItem,
       clearQueue,
       replaceQueue: commitQueueOrder,
+      restoreSession,
       guestPreviewOnly,
       isAuthenticated,
     }),
@@ -775,6 +1019,7 @@ export default function usePlayer({
       moveQueueItem,
       clearQueue,
       commitQueueOrder,
+      restoreSession,
       guestPreviewOnly,
       isAuthenticated,
     ],

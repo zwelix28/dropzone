@@ -73,15 +73,15 @@ begin
     raise exception 'invalid peer';
   end if;
 
-  if not public.dm_mutual_follow(me, p_peer_id) then
-    raise exception 'mutual follow required';
+  if not public.profile_can_use_app(me) then
+    raise exception 'account pending approval';
+  end if;
+  if not public.profile_can_use_app(p_peer_id) then
+    raise exception 'peer unavailable';
   end if;
 
-  if exists (select 1 from public.profiles where id = me and coalesce(is_banned, false)) then
-    raise exception 'banned';
-  end if;
-  if exists (select 1 from public.profiles where id = p_peer_id and coalesce(is_banned, false)) then
-    raise exception 'peer banned';
+  if not public.dm_mutual_follow(me, p_peer_id) then
+    raise exception 'mutual follow required';
   end if;
 
   if me < p_peer_id then
@@ -129,6 +129,13 @@ begin
     raise exception 'invalid peer';
   end if;
 
+  if not public.profile_can_use_app(me) then
+    raise exception 'account pending approval';
+  end if;
+  if not public.profile_can_use_app(p_peer_id) then
+    raise exception 'peer unavailable';
+  end if;
+
   trimmed := trim(p_body);
   if length(trimmed) < 1 or length(trimmed) > 4000 then
     raise exception 'invalid body';
@@ -136,13 +143,6 @@ begin
 
   if not public.dm_mutual_follow(me, p_peer_id) then
     raise exception 'mutual follow required';
-  end if;
-
-  if exists (select 1 from public.profiles where id = me and coalesce(is_banned, false)) then
-    raise exception 'banned';
-  end if;
-  if exists (select 1 from public.profiles where id = p_peer_id and coalesce(is_banned, false)) then
-    raise exception 'peer banned';
   end if;
 
   if me < p_peer_id then

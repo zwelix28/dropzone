@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import GenrePicker from "../components/GenrePicker.jsx";
 import Icon from "../components/Icon.jsx";
 import PageHeader from "../components/PageHeader.jsx";
-import { GENRES } from "../constants/genres.js";
 import { MIX_TITLE_PREFIX, mixTitleBody, withMixTitlePrefix } from "../constants/mixTitle.js";
 import { isProPlan } from "../constants/plans.js";
 import { useApp } from "../context/AppContext.jsx";
@@ -10,19 +10,24 @@ import { signedInHomePath } from "../featureFlags.js";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { getAudioFileDurationSec } from "../lib/audioDuration.js";
 import { MIX_STATUS_APPROVED, MIX_STATUS_PENDING } from "../lib/mixStatus.js";
-import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 import { isLocalMode } from "../lib/localMode.js";
 import { saveLocalUpload } from "../lib/localUploads.js";
+import { scrollAppMainToTop } from "../lib/scrollAppMain.js";
+import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 import { readMaxAudioMb, uploadMixAudio } from "../lib/uploadMixAudio.js";
 import { randomUUID } from "../lib/uuid.js";
 
-function formatStorageError(err) {
+function formatStorageError(err, { showOpsHints = false } = {}) {
   const msg = err?.message || String(err);
+  const maxMb = readMaxAudioMb();
   if (/exceeded the maximum allowed size|maximum allowed size|Payload too large|413|Entity Too Large|file size/i.test(msg)) {
-    return `${msg} Raise “Global file size limit” under Supabase Dashboard → Storage → Settings (Pro supports large mix files). Match VITE_MAX_AUDIO_MB in .env.local to that limit.`;
+    if (showOpsHints || import.meta.env.DEV) {
+      return `${msg} Raise “Global file size limit” under Supabase Dashboard → Storage → Settings (Pro supports large mix files). Match VITE_MAX_AUDIO_MB to that limit.`;
+    }
+    return `This file is too large. Maximum size is ${maxMb} MB.`;
   }
   if (/Failed to fetch|NetworkError|network|timeout|aborted/i.test(msg)) {
-    return `${msg} Large uploads need a stable connection. Try again — resumable upload will continue from where it left off when possible.`;
+    return "Upload interrupted — check your connection and try again. Large mixes can resume from where they left off.";
   }
   return msg;
 }
@@ -49,7 +54,9 @@ async function insertMixRow(row, { isSubmission }) {
     if (!missing.length) throw error;
     if (isSubmission && missing.includes("status")) {
       throw new Error(
-        "Mix review is not set up on this project yet. Run supabase/mix-submissions.sql in the Supabase SQL Editor, then submit again.",
+        import.meta.env.DEV
+          ? "Mix review is not set up on this project yet. Run supabase/mix-submissions.sql in the Supabase SQL Editor, then submit again."
+          : "Mix submissions aren’t available right now. Please try again later or contact Deep House Lab.",
       );
     }
 
@@ -65,6 +72,31 @@ function defaultMixDescription(title) {
   const t = mixTitleBody(title);
   if (!t) return "";
   return `Listen to ${t} on Deep House Lab.`;
+}
+
+/** Decoding duration via <audio> OOMs Safari on large mixes and can reload the tab. */
+const DURATION_PROBE_MAX_BYTES = 12 * 1024 * 1024;
+
+/**
+ * Keep a File/Blob that is independent of the <input type="file"> value.
+ * Clearing the input (needed to re-pick the same file) invalidates the original
+ * File on mobile WebKit if we still need it for upload.
+ */
+function stabilizePickedFile(file) {
+  if (!file) return null;
+  try {
+    const blob = file.slice(0, file.size, file.type || "audio/mpeg");
+    if (typeof File === "function") {
+      return new File([blob], file.name || "mix.mp3", {
+        type: blob.type || "audio/mpeg",
+        lastModified: file.lastModified || Date.now(),
+      });
+    }
+    Object.defineProperty(blob, "name", { value: file.name || "mix.mp3", configurable: true });
+    return blob;
+  } catch {
+    return file;
+  }
 }
 
 /**
@@ -93,7 +125,9 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
     coverPreview: null,
     isForSale: false,
     priceZar: "",
-    contentType: "", // "single" | "mix" — required before publish
+    // Submissions are always mixes — set up front so picking a file does not
+    // re-render the shell in the middle of the file-picker user gesture.
+    contentType: mode === "submission" ? "mix" : "",
     durationSecs: 0,
   });
   const [drag, setDrag] = useState(false);
@@ -105,37 +139,147 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
   const [publishedMixId, setPublishedMixId] = useState(null);
   const [publishError, setPublishError] = useState(null);
   const [audioFileError, setAudioFileError] = useState(null);
+  const [stagedAudioPath, setStagedAudioPath] = useState(null);
+  const [stagingProgress, setStagingProgress] = useState(0);
+  const [stagingError, setStagingError] = useState(null);
   const descriptionManuallyEditedRef = useRef(false);
   const audioInputRef = useRef(null);
   const uploadAbortRef = useRef(null);
+  const stageAbortRef = useRef(null);
+  const audioFileRef = useRef(null);
+  const stagedPathRef = useRef(null);
+  const stagingErrorRef = useRef(null);
+  const successRef = useRef(null);
   const maxAudioMb = readMaxAudioMb();
 
   // Must stay above early returns — flipping `done` after upload previously
   // skipped this hook and blanked the mobile screen.
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    const main = document.getElementById("app-main");
-    if (main) main.scrollTop = 0;
+    scrollAppMainToTop({ smooth: true });
   }, [step, done]);
+
+  useEffect(() => {
+    if (!done || !isSubmission) return;
+    successRef.current?.focus({ preventScroll: true });
+  }, [done, isSubmission]);
+
+  useEffect(() => {
+    stagedPathRef.current = stagedAudioPath;
+  }, [stagedAudioPath]);
+
+  useEffect(() => {
+    const busy = submitting || (stagingProgress > 0 && stagingProgress < 100 && !stagedAudioPath);
+    if (!busy) return undefined;
+    const onBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [submitting, stagingProgress, stagedAudioPath]);
+
+  useEffect(() => {
+    return () => {
+      stageAbortRef.current?.abort();
+      uploadAbortRef.current?.abort();
+    };
+  }, []);
+
+  const startAudioStaging = (file) => {
+    if (!file || !uid || isLocalMode() || !isSupabaseConfigured()) return;
+    stageAbortRef.current?.abort();
+    const abort = new AbortController();
+    stageAbortRef.current = abort;
+    setStagedAudioPath(null);
+    stagedPathRef.current = null;
+    stagingErrorRef.current = null;
+    setStagingProgress(1);
+    setStagingError(null);
+
+    const audioExt = (String(file.name || "mix.mp3").split(".").pop() || "mp3").toLowerCase();
+    const audioPath = `${uid}/${randomUUID()}.${audioExt}`;
+
+    void (async () => {
+      try {
+        await uploadMixAudio({
+          file,
+          path: audioPath,
+          signal: abort.signal,
+          onProgress: (pct) => {
+            if (abort.signal.aborted) return;
+            setStagingProgress(Math.max(1, Math.round(pct)));
+          },
+        });
+        if (abort.signal.aborted) return;
+        setStagedAudioPath(audioPath);
+        stagedPathRef.current = audioPath;
+        stagingErrorRef.current = null;
+        setStagingProgress(100);
+      } catch (err) {
+        if (abort.signal.aborted) return;
+        console.error(err);
+        const msg = formatStorageError(err) || "Could not upload audio. You can still try Submit.";
+        stagingErrorRef.current = msg;
+        setStagingError(msg);
+        setStagingProgress(0);
+        setStagedAudioPath(null);
+        stagedPathRef.current = null;
+      } finally {
+        if (stageAbortRef.current === abort) stageAbortRef.current = null;
+      }
+    })();
+  };
 
   const pickAudioFile = async (file) => {
     if (!file) return;
     if (maxAudioMb != null && file.size > maxAudioMb * 1024 * 1024) {
       setAudioFileError(
-        `This file is ${(file.size / 1024 / 1024).toFixed(1)} MB, over your client limit of ${maxAudioMb} MB (VITE_MAX_AUDIO_MB). Raise that value and the Storage global file size limit in Supabase to match.`,
+        import.meta.env.DEV
+          ? `This file is ${(file.size / 1024 / 1024).toFixed(1)} MB, over VITE_MAX_AUDIO_MB (${maxAudioMb} MB). Raise that and the Storage global file size limit in Supabase.`
+          : `This file is ${(file.size / 1024 / 1024).toFixed(1)} MB. Maximum size is ${maxAudioMb} MB.`,
       );
       return;
     }
+
+    // Abort any in-flight stage from a previous pick.
+    stageAbortRef.current?.abort();
+    setStagedAudioPath(null);
+    stagedPathRef.current = null;
+    setStagingProgress(0);
+    setStagingError(null);
     setAudioFileError(null);
-    const durationSecs = await getAudioFileDurationSec(file);
-    setForm((f) => ({ ...f, audioFile: file, durationSecs }));
+    setPublishError(null);
+
+    // Hold a copy that survives clearing the <input> value (mobile WebKit).
+    const stable = stabilizePickedFile(file);
+    audioFileRef.current = stable;
+    setForm((f) => ({
+      ...f,
+      audioFile: stable,
+      durationSecs: 0,
+      contentType: f.contentType || (isSubmission ? "mix" : f.contentType),
+    }));
+
+    // Start cloud upload immediately so the multi-step wizard does not lose the
+    // File reference on iOS (~40s idle) and so large mixes do not wait until Submit.
+    startAudioStaging(stable);
+
+    if (stable.size <= DURATION_PROBE_MAX_BYTES) {
+      try {
+        const durationSecs = await getAudioFileDurationSec(stable);
+        setForm((f) => (f.audioFile === stable ? { ...f, durationSecs } : f));
+      } catch (err) {
+        console.warn("duration probe skipped", err);
+      }
+    }
   };
 
   const chooseContentTypeAndBrowse = (contentType) => {
-    setForm((f) => ({ ...f, contentType }));
-    requestAnimationFrame(() => {
-      audioInputRef.current?.click();
-    });
+    // Keep the file-picker click inside the same user gesture.
+    if (form.contentType !== contentType) {
+      setForm((f) => ({ ...f, contentType }));
+    }
+    audioInputRef.current?.click();
   };
 
   const handleCoverChange = (file) => {
@@ -153,11 +297,15 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
     }
     if (audioFileError) return;
     if (maxAudioMb != null && form.audioFile.size > maxAudioMb * 1024 * 1024) {
-      setPublishError(`Audio must be under ${maxAudioMb} MB (VITE_MAX_AUDIO_MB).`);
+      setPublishError(`Audio must be under ${maxAudioMb} MB.`);
       return;
     }
     if (!isLocalMode() && !isSupabaseConfigured()) {
-      setPublishError("Configure Supabase in .env.local first.");
+      setPublishError(
+        import.meta.env.DEV
+          ? "Configure Supabase in .env.local first."
+          : "Uploads are temporarily unavailable. Please try again later.",
+      );
       return;
     }
     if (form.contentType !== "single" && form.contentType !== "mix") {
@@ -183,8 +331,11 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
 
     const abort = new AbortController();
     uploadAbortRef.current = abort;
+    const audioFile = audioFileRef.current || form.audioFile;
 
     try {
+      if (!audioFile) throw new Error("No audio file selected");
+
       const tracklist = (form.tracklist || "")
         .split("\n")
         .map((s) => s.trim())
@@ -199,8 +350,8 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
       const priceZar = isForSale ? Math.round(Number(form.priceZar) * 100) / 100 : null;
 
       let durationSecs = Number(form.durationSecs) || 0;
-      if (durationSecs < 1 && form.audioFile) {
-        durationSecs = await getAudioFileDurationSec(form.audioFile);
+      if (durationSecs < 1 && audioFile && audioFile.size <= DURATION_PROBE_MAX_BYTES) {
+        durationSecs = await getAudioFileDurationSec(audioFile);
       }
 
       if (isLocalMode()) {
@@ -219,7 +370,7 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
           contentType: form.contentType === "single" ? "single" : "mix",
           isForSale,
           priceZar,
-          audioBlob: form.audioFile,
+          audioBlob: audioFile,
           coverBlob: form.coverFile || null,
         });
         setPublishedMixId(id);
@@ -231,24 +382,41 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
         return;
       }
 
-      const audioExt = (form.audioFile.name.split(".").pop() || "mp3").toLowerCase();
-      const audioPath = `${uid}/${randomUUID()}.${audioExt}`;
+      let audioPath = stagedPathRef.current || stagedAudioPath;
+      if (audioPath) {
+        setProgress(70);
+        setProgressLabel("Audio already uploaded…");
+      } else {
+        // Staging may still be running — wait briefly, otherwise upload now.
+        if (stageAbortRef.current) {
+          setProgressLabel("Finishing audio upload…");
+          for (let i = 0; i < 600 && !stagedPathRef.current && stageAbortRef.current; i += 1) {
+            await new Promise((r) => setTimeout(r, 250));
+            if (stagedPathRef.current) break;
+            if (stagingErrorRef.current) break;
+            setProgress(Math.min(68, 5 + Math.round(i / 9)));
+          }
+          audioPath = stagedPathRef.current;
+        }
 
-      setProgressLabel(
-        form.audioFile.size >= 6 * 1024 * 1024
-          ? "Uploading audio (resumable)…"
-          : "Uploading audio…",
-      );
-
-      await uploadMixAudio({
-        file: form.audioFile,
-        path: audioPath,
-        signal: abort.signal,
-        onProgress: (pct) => {
-          // Map audio transfer to 5–70% of overall publish progress
-          setProgress(Math.max(5, Math.round(5 + (pct / 100) * 65)));
-        },
-      });
+        if (!audioPath) {
+          const audioExt = (String(audioFile.name || "mix.mp3").split(".").pop() || "mp3").toLowerCase();
+          audioPath = `${uid}/${randomUUID()}.${audioExt}`;
+          setProgressLabel(
+            audioFile.size >= 6 * 1024 * 1024
+              ? "Uploading audio (resumable)…"
+              : "Uploading audio…",
+          );
+          await uploadMixAudio({
+            file: audioFile,
+            path: audioPath,
+            signal: abort.signal,
+            onProgress: (pct) => {
+              setProgress(Math.max(5, Math.round(5 + (pct / 100) * 65)));
+            },
+          });
+        }
+      }
       setProgress(72);
       setProgressLabel("Uploading cover…");
 
@@ -298,7 +466,9 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
       setDone(true);
     } catch (e) {
       console.error(e);
-      setPublishError(formatStorageError(e) || "Upload failed");
+      setPublishError(
+        formatStorageError(e, { showOpsHints: !isSubmission && Boolean(currentUser?.isAdmin) }) || "Upload failed",
+      );
       setProgressLabel("");
     } finally {
       uploadAbortRef.current = null;
@@ -358,6 +528,106 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
       </div>
     );
 
+  const resetForm = () => {
+    setDone(false);
+    setStep(1);
+    setPublishedMixId(null);
+    setPublishError(null);
+    setAudioFileError(null);
+    descriptionManuallyEditedRef.current = false;
+    setForm({
+      title: MIX_TITLE_PREFIX,
+      description: "",
+      tracklist: "",
+      genre: "Tech House",
+      tags: "",
+      audioFile: null,
+      coverFile: null,
+      coverPreview: null,
+      isForSale: false,
+      priceZar: "",
+      contentType: isSubmission ? "mix" : "",
+      durationSecs: 0,
+    });
+    audioFileRef.current = null;
+    stageAbortRef.current?.abort();
+    setStagedAudioPath(null);
+    stagedPathRef.current = null;
+    stagingErrorRef.current = null;
+    setStagingProgress(0);
+    setStagingError(null);
+    setProgress(0);
+    scrollAppMainToTop();
+  };
+
+  if (done && isSubmission) {
+    const mixLabel = mixTitleBody(form.title) || form.title || "Untitled";
+    return (
+      <div
+        className={`floor-submit-page submit-mix-page fade-in${isCompact ? " is-compact" : ""} is-success`}
+        style={{ padding: isCompact ? "8px 12px 24px" : "8px 36px 56px" }}
+      >
+        <div className="floor-submit-shell">
+          <section
+            ref={successRef}
+            tabIndex={-1}
+            className="lab-confirm is-review"
+            aria-live="polite"
+            aria-label="Mix submitted for review"
+          >
+            <div className="lab-confirm-glow" aria-hidden="true" />
+            <div className="lab-confirm-icon" aria-hidden="true">
+              <Icon name="check" size={isCompact ? 26 : 30} color="var(--orange)" />
+            </div>
+            <p className="lab-confirm-kicker">Submission received</p>
+            <h1 className="lab-confirm-title">Up for review</h1>
+            <p className="lab-confirm-copy">
+              {isLocalMode() ? (
+                <>
+                  “{mixLabel}” is saved in this browser for local testing. It was not sent to Supabase.
+                </>
+              ) : (
+                <>
+                  Thanks — “{mixLabel}” is with the Deep House Lab team. It stays private until an administrator
+                  approves it, and you’ll get an in-app notification either way.
+                </>
+              )}
+            </p>
+            <ul className="lab-confirm-steps">
+              <li>
+                <Icon name="shield" size={14} color="var(--accent)" />
+                <span>Lab review before it goes live</span>
+              </li>
+              <li>
+                <Icon name="bell" size={14} color="var(--accent)" />
+                <span>In-app alert when reviewed</span>
+              </li>
+              <li>
+                <Icon name="music" size={14} color="var(--accent)" />
+                <span>Featured on Mixes once approved</span>
+              </li>
+            </ul>
+            <div className="lab-confirm-actions">
+              <button type="button" className="btn btn-primary" onClick={resetForm}>
+                Submit another
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => {
+                  setDone(false);
+                  onViewHistory?.();
+                }}
+              >
+                View my submissions
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    );
+  }
+
   if (done)
     return (
       <div
@@ -368,7 +638,7 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          minHeight: isSubmission ? "42vh" : "70vh",
+          minHeight: "70vh",
         }}
       >
         <div
@@ -376,22 +646,18 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
             width: isCompact ? 64 : 80,
             height: isCompact ? 64 : 80,
             borderRadius: "50%",
-            background: isSubmission ? "rgba(251,146,60,0.15)" : "rgba(52,211,153,0.15)",
-            border: `2px solid ${isSubmission ? "var(--orange)" : "var(--green)"}`,
+            background: "rgba(52,211,153,0.15)",
+            border: "2px solid var(--green)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             marginBottom: 16,
           }}
         >
-          <Icon
-            name={isSubmission ? "send" : "check"}
-            size={isCompact ? 28 : 36}
-            color={isSubmission ? "var(--orange)" : "var(--green)"}
-          />
+          <Icon name="check" size={isCompact ? 28 : 36} color="var(--green)" />
         </div>
         <h2 style={{ fontSize: isCompact ? 22 : 28, fontWeight: 700, marginBottom: 8, textAlign: "center" }}>
-          {isSubmission ? "Sent for review" : "Upload Successful!"}
+          Upload Successful!
         </h2>
         <p
           style={{
@@ -407,11 +673,6 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
             <>
               "<strong>{form.title || "Untitled"}</strong>" is saved in this browser and ready to play. It was not sent to Supabase.
             </>
-          ) : isSubmission ? (
-            <>
-              "<strong>{form.title || "Untitled"}</strong>" is with our team. It stays private until an administrator
-              approves it, and you will get a notification either way.
-            </>
           ) : (
             <>
               Your {form.contentType === "single" ? "single" : "mix"} "<strong>{form.title || "Untitled"}</strong>" is now
@@ -420,57 +681,20 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
           )}
         </p>
         <div style={{ display: "flex", gap: isCompact ? 8 : 12, flexWrap: "wrap", justifyContent: "center", width: "100%", maxWidth: 360 }}>
+          <button className="btn btn-primary" onClick={resetForm}>
+            Upload Another
+          </button>
           <button
             className="btn btn-primary"
+            disabled={!publishedMixId}
             onClick={() => {
-              setDone(false);
-              setStep(1);
-              setPublishedMixId(null);
-              setPublishError(null);
-              setAudioFileError(null);
-              descriptionManuallyEditedRef.current = false;
-              setForm({
-                title: MIX_TITLE_PREFIX,
-                description: "",
-                tracklist: "",
-                genre: "Tech House",
-                tags: "",
-                audioFile: null,
-                coverFile: null,
-                coverPreview: null,
-                isForSale: false,
-                priceZar: "",
-                contentType: "",
-                durationSecs: 0,
-              });
-              setProgress(0);
+              if (publishedMixId) navigate(`/mix/${publishedMixId}`, { state: { from: "/upload" } });
             }}
           >
-            {isSubmission ? "Submit Another" : "Upload Another"}
+            View Mix
           </button>
-          {isSubmission ? null : (
-            <button
-              className="btn btn-primary"
-              disabled={!publishedMixId}
-              onClick={() => {
-                if (publishedMixId) navigate(`/mix/${publishedMixId}`, { state: { from: "/upload" } });
-              }}
-            >
-              View Mix
-            </button>
-          )}
-          <button
-            className="btn btn-ghost"
-            onClick={() => {
-              setDone(false);
-              if (isSubmission) {
-                onViewHistory?.();
-                return;
-              }
-              navigate("/profile");
-            }}
-          >
-            {isSubmission ? "View My Submissions" : "View My Uploads"}
+          <button className="btn btn-ghost" onClick={() => navigate("/profile")}>
+            View My Uploads
           </button>
         </div>
       </div>
@@ -482,55 +706,44 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
     : ["Audio", "Cover & Title", "Details", "Review"];
   const totalSteps = stepLabels.length;
 
-  return (
-    <div
-      className="fade-in"
-      style={{
-        padding: isCompact ? "16px 12px" : "32px 36px",
-        paddingBottom: isSubmission ? 28 : 100,
-        maxWidth: isCompact ? "100%" : 760,
-        margin: isCompact ? 0 : undefined,
-      }}
-    >
-      <PageHeader title={isSubmission ? "SUBMIT MIX" : "UPLOAD MIX"} large marginBottom={isSubmission ? 18 : 32} />
+  const wizard = (
+    <>
+      {!isSubmission ? (
+        <PageHeader title="UPLOAD MIX" large marginBottom={32} />
+      ) : null}
 
       {isLocalMode() ? (
-        <div
-          style={{
-            padding: isCompact ? "10px 12px" : "12px 14px",
-            borderRadius: 10,
-            background: "rgba(56,189,248,0.08)",
-            border: "1px solid rgba(56,189,248,0.28)",
-            marginBottom: isCompact ? 16 : 24,
-          }}
-        >
-          <p style={{ margin: 0, fontSize: isCompact ? 12 : 13, color: "var(--text2)", lineHeight: 1.5 }}>
-            Local testing saves this mix in this browser only. It will play here, and it is not sent to Supabase. Publish it again after local mode is turned off.
+        isSubmission ? (
+          <p className="floor-submit-notice">
+            Local testing saves this mix in this browser only. It will play here, and it is not sent to Supabase.
           </p>
-        </div>
+        ) : (
+          <div
+            style={{
+              padding: isCompact ? "10px 12px" : "12px 14px",
+              borderRadius: 10,
+              background: "rgba(56,189,248,0.08)",
+              border: "1px solid rgba(56,189,248,0.28)",
+              marginBottom: isCompact ? 16 : 24,
+            }}
+          >
+            <p style={{ margin: 0, fontSize: isCompact ? 12 : 13, color: "var(--text2)", lineHeight: 1.5 }}>
+              Local testing saves this mix in this browser only. It will play here, and it is not sent to Supabase. Publish it again after local mode is turned off.
+            </p>
+          </div>
+        )
       ) : null}
 
       {isSubmission ? (
-        <div
-          style={{
-            display: "flex",
-            gap: 10,
-            alignItems: "flex-start",
-            padding: isCompact ? "10px 12px" : "12px 14px",
-            borderRadius: 10,
-            background: "rgba(251,146,60,0.1)",
-            border: "1px solid rgba(251,146,60,0.25)",
-            marginBottom: isCompact ? 20 : 30,
-          }}
-        >
-          <Icon name="shield" size={16} color="var(--orange)" />
-          <p style={{ margin: 0, fontSize: isCompact ? 12 : 13, color: "var(--text2)", lineHeight: 1.5 }}>
-            Submit mix for review
-          </p>
-        </div>
+        <p className="floor-submit-notice is-warn" style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <span style={{ flexShrink: 0, marginTop: 1, display: "inline-flex" }}>
+            <Icon name="shield" size={16} color="var(--orange)" />
+          </span>
+          <span>Every mix is reviewed by Deep House Lab before it appears on Mixes.</span>
+        </p>
       ) : null}
 
-      <div style={{ display: "flex", gap: 0, marginBottom: isCompact ? 20 : 36, width: "100%" }}>
+      <div className={isSubmission ? "submit-mix-stepper" : undefined} style={isSubmission ? undefined : { display: "flex", gap: 0, marginBottom: isCompact ? 20 : 36, width: "100%" }}>
         {stepLabels.map((s, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: isCompact ? 6 : 8, flexShrink: 0 }}>
@@ -590,80 +803,95 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
           <input
             ref={audioInputRef}
             id="audio-inp"
+            className="sr-only"
             type="file"
-            accept="audio/*"
-            style={{ display: "none" }}
+            accept="audio/*,.mp3,.wav,.flac,.aac,.m4a,.ogg"
             onChange={(e) => {
-              pickAudioFile(e.target.files?.[0]);
-              e.target.value = "";
+              e.preventDefault();
+              e.stopPropagation();
+              const input = e.currentTarget;
+              const file = input.files?.[0];
+              if (!file) return;
+              // Do NOT clear the input until the File is copied into state —
+              // clearing first invalidates the blob on mobile WebKit and looks
+              // like a full page refresh with nothing uploaded.
+              void (async () => {
+                try {
+                  await pickAudioFile(file);
+                } finally {
+                  input.value = "";
+                }
+              })();
             }}
           />
 
-          <div style={{ marginBottom: 24 }}>
-            <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 8, color: "var(--text2)" }}>
-              Upload a mix *
-            </label>
-            <p style={{ fontSize: isCompact ? 12 : 13, color: "var(--text3)", margin: "0 0 12px", lineHeight: 1.45 }}>
-              Click Mix to browse and select your audio file.
-            </p>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr",
-                gap: 10,
-                maxWidth: isCompact ? undefined : 420,
-              }}
-            >
-              {[
-                {
-                  value: "mix",
-                  title: "Mix",
-                  desc: "A full-length mix or session. Appears on Mixes.",
-                  icon: "music",
-                },
-              ].map((opt) => {
-                const selected = form.contentType === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => chooseContentTypeAndBrowse(opt.value)}
-                    style={{
-                      textAlign: "left",
-                      padding: isCompact ? "14px" : "16px 18px",
-                      borderRadius: 12,
-                      border: selected ? "2px solid var(--accent2)" : "1px solid var(--border)",
-                      background: selected ? "var(--surface)" : "var(--surface2)",
-                      cursor: "pointer",
-                      display: "flex",
-                      gap: 12,
-                      alignItems: "flex-start",
-                    }}
-                  >
-                    <Icon name={opt.icon} size={20} color={selected ? "var(--accent2)" : "var(--text3)"} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: isCompact ? 14 : 15, marginBottom: 4 }}>{opt.title}</div>
-                      <div style={{ fontSize: isCompact ? 12 : 13, color: "var(--text2)", lineHeight: 1.45 }}>{opt.desc}</div>
-                      <div
-                        style={{
-                          marginTop: 10,
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: selected ? "var(--accent2)" : "var(--text3)",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 6,
-                        }}
-                      >
-                        <Icon name="upload" size={13} color={selected ? "var(--accent2)" : "var(--text3)"} />
-                        Browse audio file
+          {!isSubmission ? (
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 8, color: "var(--text2)" }}>
+                Upload a mix *
+              </label>
+              <p style={{ fontSize: isCompact ? 12 : 13, color: "var(--text3)", margin: "0 0 12px", lineHeight: 1.45 }}>
+                Click Mix to browse and select your audio file.
+              </p>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr",
+                  gap: 10,
+                  maxWidth: isCompact ? undefined : 420,
+                }}
+              >
+                {[
+                  {
+                    value: "mix",
+                    title: "Mix",
+                    desc: "A full-length mix or session. Appears on Mixes.",
+                    icon: "music",
+                  },
+                ].map((opt) => {
+                  const selected = form.contentType === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => chooseContentTypeAndBrowse(opt.value)}
+                      style={{
+                        textAlign: "left",
+                        padding: isCompact ? "14px" : "16px 18px",
+                        borderRadius: 12,
+                        border: selected ? "2px solid var(--accent2)" : "1px solid var(--border)",
+                        background: selected ? "var(--surface)" : "var(--surface2)",
+                        cursor: "pointer",
+                        display: "flex",
+                        gap: 12,
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <Icon name={opt.icon} size={20} color={selected ? "var(--accent2)" : "var(--text3)"} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: isCompact ? 14 : 15, marginBottom: 4 }}>{opt.title}</div>
+                        <div style={{ fontSize: isCompact ? 12 : 13, color: "var(--text2)", lineHeight: 1.45 }}>{opt.desc}</div>
+                        <div
+                          style={{
+                            marginTop: 10,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: selected ? "var(--accent2)" : "var(--text3)",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
+                        >
+                          <Icon name="upload" size={13} color={selected ? "var(--accent2)" : "var(--text3)"} />
+                          Browse audio file
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                );
-              })}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          ) : null}
 
           {form.contentType ? (
             <>
@@ -671,6 +899,11 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
                 <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 8, color: "var(--text2)" }}>
                   Audio File *
                 </label>
+                <p style={{ fontSize: isCompact ? 12 : 13, color: "var(--text3)", margin: "0 0 12px", lineHeight: 1.45 }}>
+                  {isSubmission
+                    ? "Drop your mix here or browse for an MP3, WAV, FLAC, or AAC file."
+                    : "Add the audio file for this upload."}
+                </p>
                 <div
                   className={`drop-zone ${drag ? "dragging" : ""}`}
                   style={dzPad ? { padding: dzPad } : undefined}
@@ -683,9 +916,17 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
                     e.preventDefault();
                     setDrag(false);
                     const f = e.dataTransfer.files[0];
-                    if (f) pickAudioFile(f);
+                    if (f) void pickAudioFile(f);
                   }}
                   onClick={() => audioInputRef.current?.click()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      audioInputRef.current?.click();
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
                 >
                   {form.audioFile ? (
                     <div>
@@ -722,6 +963,10 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
                         type="button"
                         className="btn btn-ghost"
                         style={{ marginTop: isCompact ? 12 : 16, fontSize: isCompact ? 13 : 14 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          audioInputRef.current?.click();
+                        }}
                       >
                         Browse Files
                       </button>
@@ -731,14 +976,44 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
                 {audioFileError ? (
                   <p style={{ color: "var(--red)", fontSize: 13, marginTop: 10 }}>{audioFileError}</p>
                 ) : null}
+                {form.audioFile && !isLocalMode() && isSupabaseConfigured() ? (
+                  <div style={{ marginTop: 12 }}>
+                    {stagedAudioPath ? (
+                      <p style={{ margin: 0, fontSize: 12, color: "var(--green)" }}>
+                        Audio uploaded — finish the details and submit for review.
+                      </p>
+                    ) : stagingError ? (
+                      <p style={{ margin: 0, fontSize: 12, color: "var(--orange)" }}>{stagingError}</p>
+                    ) : stagingProgress > 0 ? (
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 6 }}>
+                          <span style={{ fontSize: 12, color: "var(--text2)" }}>Uploading audio…</span>
+                          <span style={{ fontSize: 12, color: "var(--accent)", fontFamily: "var(--ff-mono)" }}>
+                            {Math.floor(stagingProgress)}%
+                          </span>
+                        </div>
+                        <div className="progress-wrap" style={{ height: 6 }}>
+                          <div className="progress-fill" style={{ width: `${stagingProgress}%` }} />
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 {maxAudioMb != null ? (
                   <p style={{ fontSize: 12, color: "var(--text3)", marginTop: 8 }}>
-                    Client limit: {maxAudioMb} MB. Also raise Dashboard → Storage → Settings → Global file size limit to at least this value (Pro).
+                    Maximum audio file size: {maxAudioMb} MB.
+                    {import.meta.env.DEV ? (
+                      <>
+                        {" "}
+                        Dev: also raise Dashboard → Storage → Settings → Global file size limit to match.
+                      </>
+                    ) : null}
                   </p>
                 ) : null}
               </div>
 
               <button
+                type="button"
                 className="btn btn-primary"
                 style={{ padding: isCompact ? "10px 20px" : "12px 32px", width: isCompact ? "100%" : "auto" }}
                 onClick={() => setStep(2)}
@@ -854,22 +1129,13 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
               </div>
             </div>
 
-            <div>
-              <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}>
-                Genre
-              </label>
-              <select
-                className="inp"
-                value={form.genre}
-                onChange={(e) => setForm((f) => ({ ...f, genre: e.target.value }))}
-              >
-                {GENRES.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <GenrePicker
+              id="upload-genre"
+              name="upload-genre"
+              label="Genre"
+              value={form.genre}
+              onChange={(genre) => setForm((f) => ({ ...f, genre }))}
+            />
           </div>
           <div
             style={{
@@ -879,10 +1145,11 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
               flexDirection: isCompact ? "column-reverse" : "row",
             }}
           >
-            <button className="btn btn-ghost" onClick={() => setStep(1)} style={{ width: isCompact ? "100%" : "auto" }}>
+            <button type="button" className="btn btn-ghost" onClick={() => setStep(1)} style={{ width: isCompact ? "100%" : "auto" }}>
               Back
             </button>
             <button
+              type="button"
               className="btn btn-primary"
               onClick={() => setStep(3)}
               disabled={!mixTitleBody(form.title)}
@@ -1025,10 +1292,11 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
               flexDirection: isCompact ? "column-reverse" : "row",
             }}
           >
-            <button className="btn btn-ghost" onClick={() => setStep(2)} style={{ width: isCompact ? "100%" : "auto" }}>
+            <button type="button" className="btn btn-ghost" onClick={() => setStep(2)} style={{ width: isCompact ? "100%" : "auto" }}>
               Back
             </button>
             <button
+              type="button"
               className="btn btn-primary"
               onClick={() => setStep(4)}
               style={{ width: isCompact ? "100%" : "auto" }}
@@ -1163,6 +1431,7 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
 
           <div style={{ display: "flex", gap: 12, flexDirection: isCompact ? "column-reverse" : "row" }}>
             <button
+              type="button"
               className="btn btn-ghost"
               onClick={() => setStep(3)}
               disabled={submitting}
@@ -1171,6 +1440,7 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
               Back
             </button>
             <button
+              type="button"
               className="btn btn-primary"
               style={{ padding: isCompact ? "10px 20px" : "12px 32px", width: isCompact ? "100%" : "auto" }}
               onClick={() => void handleSubmit()}
@@ -1186,6 +1456,49 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
           </div>
         </div>
       )}
+    </>
+  );
+
+  if (isSubmission) {
+    return (
+      <div
+        className={`floor-submit-page submit-mix-page fade-in${isCompact ? " is-compact" : ""}`}
+        style={{ padding: isCompact ? "8px 12px 28px" : "8px 36px 56px" }}
+      >
+        <div className="floor-submit-shell">
+          <PageHeader icon="send" title="SUBMIT MIX" large marginBottom={isCompact ? 8 : 12} />
+          {isCompact ? <h1 className="floor-submit-mobile-title">Submit mix</h1> : null}
+          <p className="floor-submit-lede">
+            Send a deep-house mix for Lab review. Approved mixes go live on Mixes.
+          </p>
+          <section className={`settings-section${isCompact ? " is-compact" : ""}`}>
+            <div className="settings-section-head">
+              <div className="settings-section-icon" aria-hidden="true">
+                <Icon name="upload" size={isCompact ? 16 : 18} color="var(--accent)" />
+              </div>
+              <div className="settings-section-titles">
+                <h2>Mix details</h2>
+                <p>Audio, artwork, and metadata — step {step} of {totalSteps}</p>
+              </div>
+            </div>
+            <div className="settings-section-body">{wizard}</div>
+          </section>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="fade-in"
+      style={{
+        padding: isCompact ? "16px 12px" : "32px 36px",
+        paddingBottom: 100,
+        maxWidth: isCompact ? "100%" : 760,
+        margin: isCompact ? 0 : undefined,
+      }}
+    >
+      {wizard}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { GENRES } from "../constants/genres.js";
+import GenrePicker from "./GenrePicker.jsx";
 import Icon from "./Icon.jsx";
 import PasswordField from "./PasswordField.jsx";
 import { isLocalMode, LOCAL_TEST_EMAIL, LOCAL_TEST_PASSWORD } from "../lib/localMode.js";
@@ -129,8 +129,14 @@ export default function AuthModal({ onClose }) {
           </p>
         ) : !isSupabaseConfigured() ? (
           <p className="auth-notice is-warn">
-            Add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> to{" "}
-            <code>.env.local</code> and restart the dev server.
+            {import.meta.env.DEV ? (
+              <>
+                Add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> to{" "}
+                <code>.env.local</code> and restart the dev server.
+              </>
+            ) : (
+              <>Sign-in isn’t available right now. Please try again later.</>
+            )}
           </p>
         ) : null}
 
@@ -206,25 +212,15 @@ export default function AuthModal({ onClose }) {
             />
           )}
 
-          {mode === "register" && (
-            <div>
-              <label className="auth-label" htmlFor="auth-genre">
-                Primary genre
-              </label>
-              <select
-                id="auth-genre"
-                className="inp"
-                value={form.genre}
-                onChange={(e) => setForm((f) => ({ ...f, genre: e.target.value }))}
-              >
-                {GENRES.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          {mode === "register" ? (
+            <GenrePicker
+              id="auth-genre"
+              name="auth-primary-genre"
+              label="Primary genre"
+              value={form.genre}
+              onChange={(genre) => setForm((f) => ({ ...f, genre }))}
+            />
+          ) : null}
         </div>
 
         <button

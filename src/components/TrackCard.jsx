@@ -199,7 +199,7 @@ export default function TrackCard({
       >
         <UserAvatar user={user} size={avatarSz} />
         <Link
-          to={`/user/${user.id}`}
+          to={auth.currentUser?.id === user.id ? "/profile" : `/user/${user.id}`}
           onClick={(e) => e.stopPropagation()}
           style={{
             fontSize: metaSize,

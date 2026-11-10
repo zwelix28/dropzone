@@ -13,7 +13,6 @@ import {
   dismissLibrarySession,
   fetchLibrarySessions,
 } from "../lib/playbackProgress.js";
-import { signedInHomePath } from "../featureFlags.js";
 import { scrollAppMainToTop } from "../lib/scrollAppMain.js";
 
 const DESKTOP_PAGE_SIZE = 8;
@@ -308,7 +307,7 @@ export default function LibraryPage() {
         <div className="mixes-empty library-empty">
           <Icon name="library" size={40} color="var(--text3)" />
           <p>No sessions in progress. Start a mix and it will show up here so you can continue later.</p>
-          <Link to={signedInHomePath()} className="btn btn-primary">
+          <Link to="/mixes" className="btn btn-primary">
             Browse mixes
           </Link>
         </div>

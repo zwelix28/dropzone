@@ -32,10 +32,11 @@ export default function DesktopNowPlaying({
   shuffleOn = false,
   onToggleShuffle,
 }) {
-  const { auth, trackEvent } = useApp();
+  const { auth, trackEvent, likedMixIds } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const guest = !auth.session?.user?.id;
+  const liked = Boolean(!guest && track?.id && likedMixIds.includes(track.id));
 
   useEffect(() => {
     const onKey = (e) => {
@@ -63,7 +64,7 @@ export default function DesktopNowPlaying({
       auth.setShowAuth(true);
       return;
     }
-    if (!allowDownload || !hasAudioSource) return;
+    if (!allowDownload || !hasAudioSource || !liked) return;
     const { ok } = await downloadMixWithMetadata(track, { artist: user });
     if (!ok) return;
     void trackEvent({ kind: "download", episodeId: track.id, actorUserId: auth.currentUser?.id });
@@ -82,25 +83,6 @@ export default function DesktopNowPlaying({
     onSeek(0);
     if (!isPlaying) onToggle();
   };
-
-  const iconBtn = (props) => (
-    <button
-      type="button"
-      {...props}
-      style={{
-        background: "none",
-        color: "var(--text2)",
-        minWidth: 40,
-        minHeight: 40,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-        borderRadius: 8,
-        ...props.style,
-      }}
-    />
-  );
 
   return (
     <>
@@ -124,8 +106,9 @@ export default function DesktopNowPlaying({
           bottom: 92,
           left: "50%",
           transform: "translateX(-50%)",
-          width: "min(520px, calc(100vw - 280px))",
-          zIndex: 850,
+          width: "min(520px, calc(100vw - 48px))",
+          maxWidth: 520,
+          zIndex: 870,
           background: "rgba(12,16,28,0.98)",
           border: "1px solid var(--border)",
           borderRadius: 16,
@@ -214,7 +197,7 @@ export default function DesktopNowPlaying({
                   type="button"
                   onClick={() => {
                     onClose();
-                    navigate(`/user/${user.id}`);
+                    navigate(auth.currentUser?.id === user.id ? "/profile" : `/user/${user.id}`);
                   }}
                   style={{
                     display: "inline-flex",
@@ -275,74 +258,74 @@ export default function DesktopNowPlaying({
             </div>
 
             <div
+              className="dnp-transport"
               aria-label="Playback controls"
               style={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: 6,
+                gap: 10,
                 flexWrap: "wrap",
               }}
             >
-              {iconBtn({
-                onClick: () => onToggleShuffle?.(),
-                "aria-label": shuffleOn ? "Shuffle on" : "Shuffle off",
-                "aria-pressed": shuffleOn,
-                title: shuffleOn ? "Shuffle on" : "Shuffle off",
-                style: { color: shuffleOn ? "var(--accent)" : "var(--text2)" },
-                children: <Icon name="shuffle" size={18} />,
-              })}
-              {iconBtn({
-                onClick: () => void onPrev?.(),
-                title: "Previous",
-                children: <Icon name="prev" size={18} />,
-              })}
               <button
                 type="button"
+                className={`mnp-control mnp-control-glow dnp-control${shuffleOn ? " is-on" : ""}`}
+                onClick={() => onToggleShuffle?.()}
+                aria-label={shuffleOn ? "Shuffle on" : "Shuffle off"}
+                aria-pressed={shuffleOn}
+                title={shuffleOn ? "Shuffle on" : "Shuffle off"}
+              >
+                <Icon name="shuffle" size={20} />
+              </button>
+              <button
+                type="button"
+                className="mnp-control mnp-control-glow dnp-control"
+                onClick={() => void onPrev?.()}
+                aria-label="Previous track"
+                title="Previous"
+              >
+                <Icon name="prev" size={20} />
+              </button>
+              <button
+                type="button"
+                className="mnp-control mnp-control-main mnp-control-glow dnp-control-main"
                 onClick={onToggle}
                 aria-label={isPlaying ? "Pause" : "Play"}
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: "50%",
-                  background: "var(--accent2)",
-                  border: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  boxShadow: "0 0 20px var(--glow)",
-                  margin: "0 6px",
-                  flexShrink: 0,
-                }}
               >
-                <Icon name={isPlaying ? "pause" : "play"} size={20} color="#07090F" />
+                <Icon name={isPlaying ? "pause" : "play"} size={24} />
               </button>
-              {iconBtn({
-                onClick: () => void onNext?.(),
-                title: "Next",
-                children: <Icon name="skip" size={18} />,
-              })}
-              {iconBtn({
-                onClick: restart,
-                "aria-label": "Restart mix",
-                title: "Restart",
-                children: (
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M3 12a9 9 0 1 0 3-6.7" />
-                    <polyline points="3 4 3 10 9 10" />
-                  </svg>
-                ),
-              })}
+              <button
+                type="button"
+                className="mnp-control mnp-control-glow dnp-control"
+                onClick={() => void onNext?.()}
+                aria-label="Next track"
+                title="Next"
+              >
+                <Icon name="skip" size={20} />
+              </button>
+              <button
+                type="button"
+                className="mnp-control mnp-control-glow dnp-control"
+                onClick={restart}
+                aria-label="Restart mix"
+                title="Restart"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M3 12a9 9 0 1 0 3-6.7" />
+                  <polyline points="3 4 3 10 9 10" />
+                </svg>
+              </button>
             </div>
 
             <div
@@ -355,37 +338,57 @@ export default function DesktopNowPlaying({
                 flexWrap: "wrap",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                {allowDownload
-                  ? iconBtn({
-                      onClick: () => void handleDownload(),
-                      disabled: !hasAudioSource,
-                      title: guest ? "Sign in to download" : "Download",
-                      style: {
-                        opacity: hasAudioSource ? (guest ? 0.5 : 1) : 0.35,
-                        cursor: hasAudioSource ? "pointer" : "not-allowed",
-                      },
-                      children: <Icon name="download" size={18} />,
-                    })
-                  : null}
-                {iconBtn({
-                  onClick: handleShare,
-                  title: "Share",
-                  children: <Icon name="share" size={18} />,
-                })}
-                {iconBtn({
-                  onClick: () => {
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                {allowDownload ? (
+                  <button
+                    type="button"
+                    className={`mnp-utility mnp-utility-glow dnp-utility${liked && hasAudioSource ? " is-on" : ""}`}
+                    onClick={() => void handleDownload()}
+                    disabled={!hasAudioSource}
+                    title={
+                      guest
+                        ? "Sign in to download"
+                        : !liked
+                          ? "Like this mix to unlock download"
+                          : hasAudioSource
+                            ? "Download full mix"
+                            : "No audio available to download"
+                    }
+                    aria-label={liked ? "Download full mix" : "Like to download"}
+                    style={{
+                      opacity: hasAudioSource ? 1 : 0.4,
+                      cursor: hasAudioSource ? "pointer" : "not-allowed",
+                    }}
+                  >
+                    <Icon name="download" size={18} />
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="mnp-utility mnp-utility-glow dnp-utility"
+                  onClick={handleShare}
+                  title="Share"
+                  aria-label="Share"
+                >
+                  <Icon name="share" size={18} />
+                </button>
+                <button
+                  type="button"
+                  className="mnp-utility mnp-utility-glow dnp-utility"
+                  onClick={() => {
                     if (guest) {
                       auth.setShowAuth(true);
                       return;
                     }
                     onClose();
                     navigate(`/mix/${track.id}`, { state: { from: location.pathname } });
-                  },
-                  title: guest ? "Sign in for mix page" : "Open mix",
-                  style: { opacity: guest ? 0.55 : 1 },
-                  children: <Icon name="eye" size={18} />,
-                })}
+                  }}
+                  title={guest ? "Sign in for mix page" : "Open mix"}
+                  aria-label={guest ? "Sign in for mix page" : "Open mix"}
+                  style={{ opacity: guest ? 0.55 : 1 }}
+                >
+                  <Icon name="eye" size={18} />
+                </button>
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: 10, flex: "1 1 140px", maxWidth: 220 }}>

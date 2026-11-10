@@ -45,7 +45,7 @@ begin
     from public.profiles p
     where p.id is distinct from mix_row.user_id
       and coalesce(p.is_banned, false) = false
-      and coalesce(p.is_approved, true) = true
+      and public.profile_can_use_app(p.id)
       and (
         coalesce(p.notify_email_new_mix, true) = true
         or coalesce(p.notify_push_new_mix, true) = true

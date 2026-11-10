@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
 import PageHeader from "../components/PageHeader.jsx";
@@ -9,17 +9,44 @@ import VerifiedBadge from "../components/VerifiedBadge.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { fmt } from "../lib/format.js";
+import { scrollAppMainToTop } from "../lib/scrollAppMain.js";
+
+const MOBILE_MIXES_PAGE_SIZE = 10;
 
 export default function ProfilePage() {
   const { auth, episodes, users, player, likedMixIds } = useApp();
   const user = auth.currentUser;
   const isCompact = useMediaQuery("(max-width: 720px)");
   const isAdmin = Boolean(user?.isAdmin);
+  const [mixPage, setMixPage] = useState(1);
 
   const userEps = useMemo(
     () => (user ? episodes.filter((e) => e.userId === user.id) : []),
     [episodes, user],
   );
+
+  const totalMixPages = isCompact
+    ? Math.max(1, Math.ceil(userEps.length / MOBILE_MIXES_PAGE_SIZE))
+    : 1;
+
+  useEffect(() => {
+    setMixPage(1);
+  }, [user?.id, isCompact, userEps.length]);
+
+  useEffect(() => {
+    if (mixPage > totalMixPages) setMixPage(totalMixPages);
+  }, [mixPage, totalMixPages]);
+
+  const visibleMixes = useMemo(() => {
+    if (!isCompact) return userEps;
+    const start = (mixPage - 1) * MOBILE_MIXES_PAGE_SIZE;
+    return userEps.slice(start, start + MOBILE_MIXES_PAGE_SIZE);
+  }, [userEps, isCompact, mixPage]);
+
+  const goMixPage = (next) => {
+    setMixPage(next);
+    scrollAppMainToTop({ smooth: true });
+  };
 
   if (!user) {
     return (
@@ -49,6 +76,8 @@ export default function ProfilePage() {
 
   const pagePad = isCompact ? "16px 12px" : "32px 36px";
   const avatarSize = isCompact ? 72 : 88;
+  const rangeStart = userEps.length === 0 ? 0 : (mixPage - 1) * MOBILE_MIXES_PAGE_SIZE + 1;
+  const rangeEnd = Math.min(userEps.length, mixPage * MOBILE_MIXES_PAGE_SIZE);
 
   return (
     <div className="fade-in" style={{ padding: pagePad, paddingBottom: 120 }}>
@@ -60,16 +89,17 @@ export default function ProfilePage() {
             background: "var(--surface)",
             border: "1px solid var(--border)",
             borderRadius: isCompact ? 12 : 16,
-            padding: isCompact ? "14px" : "18px 20px",
+            padding: isCompact ? "18px 14px" : "18px 20px",
             marginBottom: isCompact ? 14 : 18,
           }}
         >
           <div
             style={{
               display: "flex",
-              alignItems: isCompact ? "flex-start" : "center",
+              alignItems: isCompact ? "center" : "center",
               gap: isCompact ? 12 : 18,
               flexDirection: isCompact ? "column" : "row",
+              textAlign: isCompact ? "center" : "left",
             }}
           >
             <UserAvatar
@@ -82,8 +112,17 @@ export default function ProfilePage() {
                 flexShrink: 0,
               }}
             />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+            <div style={{ flex: 1, minWidth: 0, width: isCompact ? "100%" : undefined }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: isCompact ? "center" : "flex-start",
+                  gap: 8,
+                  flexWrap: "wrap",
+                  marginBottom: 4,
+                }}
+              >
                 <span style={{ fontWeight: 800, fontSize: isCompact ? 18 : 22 }}>{user.username}</span>
                 {user.verified ? (
                   <>
@@ -107,29 +146,58 @@ export default function ProfilePage() {
                 <p
                   style={{
                     color: "var(--text2)",
-                    margin: "10px 0 0",
+                    margin: "10px auto 0",
                     lineHeight: 1.55,
                     fontSize: isCompact ? 13 : 14,
-                    maxWidth: 560,
+                    maxWidth: isCompact ? 320 : 560,
                   }}
                 >
                   {user.bio}
                 </p>
               ) : null}
             </div>
-            <Link
-              to="/settings"
-              className="btn btn-ghost"
+            <div
               style={{
-                textDecoration: "none",
+                display: "flex",
+                flexDirection: "row",
+                flexWrap: "wrap",
+                gap: 8,
                 flexShrink: 0,
+                alignItems: "center",
+                justifyContent: isCompact ? "center" : "flex-start",
                 width: isCompact ? "100%" : "auto",
-                justifyContent: "center",
+                marginTop: isCompact ? 4 : 0,
               }}
             >
-              <Icon name="settings" size={14} />
-              Edit profile
-            </Link>
+              <Link
+                to="/on-the-floor"
+                className="btn btn-primary"
+                style={{
+                  textDecoration: "none",
+                  justifyContent: "center",
+                  width: "auto",
+                  paddingLeft: isCompact ? 12 : undefined,
+                  paddingRight: isCompact ? 12 : undefined,
+                }}
+              >
+                <Icon name="fire" size={14} />
+                Promote
+              </Link>
+              <Link
+                to="/settings"
+                className="btn btn-ghost"
+                style={{
+                  textDecoration: "none",
+                  justifyContent: "center",
+                  width: "auto",
+                  paddingLeft: isCompact ? 12 : undefined,
+                  paddingRight: isCompact ? 12 : undefined,
+                }}
+              >
+                <Icon name="settings" size={14} />
+                Edit profile
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -180,29 +248,78 @@ export default function ProfilePage() {
                 </Link>
               </div>
             ) : (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: isCompact
-                    ? "1fr"
-                    : "repeat(auto-fill, minmax(176px, 1fr))",
-                  gap: isCompact ? 8 : 14,
-                }}
-              >
-                {userEps.map((ep) => (
-                  <TrackCard
-                    key={ep.id}
-                    episode={ep}
-                    users={users}
-                    compact={isCompact}
-                    layout={isCompact ? "row" : "stack"}
-                    fullTitle={!isCompact}
-                    isActive={player.currentTrack?.id === ep.id}
-                    isPlaying={player.isPlaying && player.currentTrack?.id === ep.id}
-                    onPlay={player.playTrack}
-                  />
-                ))}
-              </div>
+              <>
+                {isCompact && totalMixPages > 1 ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 12,
+                      marginBottom: 10,
+                      fontSize: 11,
+                      color: "var(--text3)",
+                    }}
+                  >
+                    <span>
+                      Showing {rangeStart}–{rangeEnd} of {userEps.length}
+                    </span>
+                    <span>
+                      Page {mixPage} of {totalMixPages}
+                    </span>
+                  </div>
+                ) : null}
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: isCompact
+                      ? "1fr"
+                      : "repeat(auto-fill, minmax(176px, 1fr))",
+                    gap: isCompact ? 8 : 14,
+                  }}
+                >
+                  {visibleMixes.map((ep) => (
+                    <TrackCard
+                      key={ep.id}
+                      episode={ep}
+                      users={users}
+                      compact={isCompact}
+                      layout={isCompact ? "row" : "stack"}
+                      fullTitle={!isCompact}
+                      isActive={player.currentTrack?.id === ep.id}
+                      isPlaying={player.isPlaying && player.currentTrack?.id === ep.id}
+                      onPlay={player.playTrack}
+                    />
+                  ))}
+                </div>
+
+                {isCompact && totalMixPages > 1 ? (
+                  <nav className="mixes-pager" aria-label="Your mixes pages">
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      disabled={mixPage <= 1}
+                      onClick={() => goMixPage(Math.max(1, mixPage - 1))}
+                    >
+                      <Icon name="chevronLeft" size={16} />
+                      Previous
+                    </button>
+                    <div className="mixes-pager-pages">
+                      <span style={{ fontSize: 12, color: "var(--text3)" }}>
+                        {mixPage} / {totalMixPages}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      disabled={mixPage >= totalMixPages}
+                      onClick={() => goMixPage(Math.min(totalMixPages, mixPage + 1))}
+                    >
+                      Next
+                    </button>
+                  </nav>
+                ) : null}
+              </>
             )}
           </>
         ) : (

@@ -16,6 +16,30 @@ update public.profiles set is_approved = true where coalesce(is_admin, false) = 
 comment on column public.profiles.is_approved is
   'When false, user may authenticate but cannot use the app until an admin approves.';
 
+-- Shared gate for RLS / RPCs (approved or admin, and not banned).
+create or replace function public.profile_can_use_app(p_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles p
+    where p.id = p_user_id
+      and coalesce(p.is_banned, false) = false
+      and (
+        coalesce(p.is_admin, false) = true
+        or p.is_approved = true
+      )
+  );
+$$;
+
+revoke all on function public.profile_can_use_app(uuid) from public;
+grant execute on function public.profile_can_use_app(uuid) to authenticated;
+grant execute on function public.profile_can_use_app(uuid) to service_role;
+
 -- New users insert as unapproved (default false). Keep auto-follow behaviour.
 create or replace function public.handle_new_user()
 returns trigger
@@ -116,7 +140,7 @@ begin
       'new_user',
       'Approval needed',
       uname || ' (' || uhandle || ') signed up and is waiting for approval.',
-      '/admin',
+      '/admin?tab=users',
       jsonb_build_object(
         'new_user_id', new.id::text,
         'username', uname,

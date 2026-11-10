@@ -149,7 +149,7 @@ export default function MessagesPage() {
     void refreshDmUnreadCount();
   };
 
-  if (!me) return <Navigate to="/discover" replace />;
+  if (!me) return <Navigate to="/home" replace />;
 
   // Mobile: render single-pane (inbox OR thread) without redirects.
   if (isMobile) {
