@@ -9,3 +9,8 @@ server/uploads
 supabase/.temp
 tmp-icons
 
+# Local design mocks — never commit
+mock design home/
+mock design mobile/
+mock design now/
+
