@@ -2141,14 +2141,18 @@ export const GlobalStyles = () => (
       .lab-home-title {
         flex: 1 1 auto;
         min-height: 0;
-        margin: 8px 0 12px;
-        max-width: 58%;
-        font-size: 22px;
+        margin: 6px 0 8px;
+        max-width: 64%;
+        font-size: 30px;
         font-weight: 700;
-        line-height: 1.25;
+        line-height: 1.12;
+        letter-spacing: -0.03em;
         overflow: hidden;
         white-space: normal;
         word-break: break-word;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
       }
       .lab-home-meta { display: none; }
       .lab-home-play {
