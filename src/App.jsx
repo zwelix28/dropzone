@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import AppLayout from "./layouts/AppLayout.jsx";
 import { useApp } from "./context/AppContext.jsx";
@@ -22,10 +23,12 @@ import LabHomePage from "./pages/LabHomePage.jsx";
 import MixDetailPage from "./pages/MixDetailPage.jsx";
 import PasswordResetPage from "./pages/PasswordResetPage.jsx";
 import RegisterPage from "./pages/RegisterPage.jsx";
+import FloorPage from "./pages/FloorPage.jsx";
+import FloorSubmitPage from "./pages/FloorSubmitPage.jsx";
 import AdminDashboardPage from "./pages/AdminDashboardPage.jsx";
 import MessagesPage from "./pages/MessagesPage.jsx";
 import MessageStartPage from "./pages/MessageStartPage.jsx";
-import { FEATURE_DISCOVER, FEATURE_LETS_DJ, FEATURE_LIVE, FEATURE_STATS, FEATURE_TOP10, FEATURE_VAULT_FEED, signedInHomePath } from "./featureFlags.js";
+import { FEATURE_COMMUNITY, FEATURE_DISCOVER, FEATURE_LETS_DJ, FEATURE_LIVE, FEATURE_ON_THE_FLOOR, FEATURE_STATS, FEATURE_TOP10, FEATURE_VAULT_FEED, signedInHomePath } from "./featureFlags.js";
 import LetsDJPage from "./pages/LetsDJPage.jsx";
 
 function AdminRoute() {
@@ -97,14 +100,19 @@ function UploadRoute() {
 
 function SubmitMixRoute() {
   const { auth } = useApp();
-  if (auth.authLoading) {
+  // Keep the submit wizard mounted across brief auth/session flickers (e.g. token
+  // refresh while a large mix is uploading) so the page does not look like a reload.
+  const hadSessionRef = useRef(Boolean(auth.session?.user?.id));
+  if (auth.session?.user?.id) hadSessionRef.current = true;
+
+  if (auth.authLoading && !hadSessionRef.current) {
     return (
       <div style={{ padding: 48, textAlign: "center", color: "var(--text2)", fontSize: 14 }}>
         Loading…
       </div>
     );
   }
-  if (!auth.session?.user?.id) return <Navigate to="/" replace />;
+  if (!auth.session?.user?.id && !hadSessionRef.current) return <Navigate to="/" replace />;
   return <SubmitMixPage />;
 }
 
@@ -136,7 +144,10 @@ export default function App() {
         <Route path="/mix/:id" element={<MixDetailPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/connections" element={<ConnectionsPage />} />
-        <Route path="/community" element={<CommunityPage />} />
+        <Route
+          path="/community"
+          element={FEATURE_COMMUNITY ? <CommunityPage /> : <Navigate to={signedInHomePath()} replace />}
+        />
         <Route path="/likes" element={<LikesPage />} />
         <Route path="/library" element={<LibraryPage />} />
         <Route path="/messages" element={<MessagesPage />} />
@@ -149,6 +160,11 @@ export default function App() {
         />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route
+          path="/floor"
+          element={FEATURE_ON_THE_FLOOR ? <FloorPage /> : <Navigate to={signedInHomePath()} replace />}
+        />
+        <Route path="/on-the-floor" element={<FloorSubmitPage />} />
         <Route path="/admin" element={<AdminRoute />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

@@ -59,7 +59,7 @@ export default function MessagesInboxPage() {
     };
   }, [me, load]);
 
-  if (!me) return <Navigate to="/discover" replace />;
+  if (!me) return <Navigate to="/home" replace />;
 
   return (
     <div className="fade-in dm-wrap" style={{ padding: isCompact ? "16px 12px" : "32px 36px" }}>

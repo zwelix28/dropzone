@@ -23,6 +23,25 @@ export function registerServiceWorker() {
     let refreshing = false;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
       if (refreshing) return;
+      // If a mix is mid-play, mark the session so restore-after-reload can resume,
+      // then reload onto the new shell.
+      try {
+        const playing = Array.from(document.querySelectorAll("audio")).some(
+          (el) => el && !el.paused && !el.ended && el.currentSrc,
+        );
+        if (playing) {
+          const raw = localStorage.getItem("dhl-player-session");
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            localStorage.setItem(
+              "dhl-player-session",
+              JSON.stringify({ ...parsed, wasPlaying: true, updatedAt: Date.now() }),
+            );
+          }
+        }
+      } catch {
+        /* ignore */
+      }
       refreshing = true;
       window.location.reload();
     });

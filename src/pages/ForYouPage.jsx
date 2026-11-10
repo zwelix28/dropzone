@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
 import UserAvatar from "../components/UserAvatar.jsx";
 import VerifiedBadge from "../components/VerifiedBadge.jsx";
@@ -89,6 +89,7 @@ function ActionButton({ label, onClick, children, active = false, compact = fals
 export default function ForYouPage() {
   const { auth, episodes, users, likedMixIds, toggleLike, trackEvent } = useApp();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const isCompact = useMediaQuery("(max-width: 720px)");
   const containerRef = useRef(null);
@@ -206,6 +207,7 @@ export default function ForYouPage() {
         const list = feedRef.current || [];
         const idx = list.findIndex((e) => e.id === track.id);
         prefetchRef.current(list[idx + 1]);
+        prefetchRef.current(list[idx + 2]);
         prefetchRef.current(list[idx - 1]);
         return true;
       }
@@ -261,13 +263,16 @@ export default function ForYouPage() {
       lastPlayedIdRef.current = null;
       prefetchRef.current(feed[0]);
       prefetchRef.current(feed[1]);
+      prefetchRef.current(feed[2]);
     }
   }, [feed]);
 
   useEffect(() => {
     if (feed.length === 0) return;
+    // Same warmer window as Home Continue: current + nearby cards near climax seek.
     prefetchRef.current(feed[index]);
     prefetchRef.current(feed[index + 1]);
+    prefetchRef.current(feed[index + 2]);
     prefetchRef.current(feed[index - 1]);
   }, [index, feed]);
 
@@ -276,6 +281,29 @@ export default function ForYouPage() {
     if (!track?.id || lastPlayedIdRef.current === track.id) return;
     void startPreview(track);
   }, [current?.id, index, startPreview]);
+
+  // Mobile tab bar → For You: force the current (or first) mix to start immediately.
+  useEffect(() => {
+    if (!location.state?.instantPlay) return;
+    navigate(location.pathname, { replace: true, state: {} });
+    const track = feedRef.current?.[index] || feedRef.current?.[0] || feed[0];
+    if (!track?.id) return;
+    lastPlayedIdRef.current = null;
+    autoplayPendingRef.current = null;
+    void startPreview(track);
+  }, [location.state, location.pathname, navigate, index, feed, startPreview]);
+
+  useEffect(() => {
+    const onPlayNow = () => {
+      const track = feedRef.current?.[index] || feedRef.current?.[0];
+      if (!track?.id) return;
+      lastPlayedIdRef.current = null;
+      autoplayPendingRef.current = null;
+      void startPreview(track);
+    };
+    window.addEventListener("dhl:foryou-play-now", onPlayNow);
+    return () => window.removeEventListener("dhl:foryou-play-now", onPlayNow);
+  }, [index, startPreview]);
 
   useEffect(() => {
     const root = containerRef.current;
@@ -612,7 +640,11 @@ export default function ForYouPage() {
                   {artist ? (
                     <button
                       type="button"
-                      onClick={() => navigate(`/user/${artist.id}`)}
+                      onClick={() =>
+                        navigate(
+                          auth.currentUser?.id === artist.id ? "/profile" : `/user/${artist.id}`,
+                        )
+                      }
                       style={{
                         display: "inline-flex",
                         alignItems: "center",
@@ -690,7 +722,12 @@ export default function ForYouPage() {
                         <ActionButton
                           compact
                           label={artist ? `Open ${artist.username}'s profile` : "Artist profile"}
-                          onClick={() => artist && navigate(`/user/${artist.id}`)}
+                          onClick={() => {
+                            if (!artist) return;
+                            navigate(
+                              auth.currentUser?.id === artist.id ? "/profile" : `/user/${artist.id}`,
+                            );
+                          }}
                         >
                           <UserAvatar user={artist} size={26} showVerified={false} />
                         </ActionButton>
@@ -796,7 +833,13 @@ export default function ForYouPage() {
         >
           <ActionButton
             label={currentUser ? `Open ${currentUser.username}'s profile` : "Artist profile"}
-            onClick={() => currentUser && navigate(`/user/${currentUser.id}`)}
+            onClick={() => {
+              if (!currentUser?.id) return;
+              // Own mixes → My Profile; other artists → public profile.
+              navigate(
+                auth.currentUser?.id === currentUser.id ? "/profile" : `/user/${currentUser.id}`,
+              );
+            }}
           >
             <UserAvatar user={currentUser} size={32} showVerified={false} />
           </ActionButton>

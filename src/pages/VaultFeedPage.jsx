@@ -89,7 +89,7 @@ export default function VaultFeedPage() {
   }
 
   if (!uid) {
-    return <Navigate to="/discover" replace />;
+    return <Navigate to="/home" replace />;
   }
 
   const showLoading = loading || followingIds === null;
@@ -136,15 +136,15 @@ export default function VaultFeedPage() {
                 ? "Follow DJs and artists to personalize your feed. Deep House Lab releases will appear here as they publish."
                 : "No releases yet from the artists you follow. Check back when they upload new mixes."}
             </p>
-            <Link to="/discover" className="btn btn-ghost">
-              {followingCount === 0 ? "Discover artists" : "Explore more on Discover"}
+            <Link to={followingCount === 0 ? "/mixes" : "/home"} className="btn btn-ghost">
+              {followingCount === 0 ? "Browse mixes" : "Back to Home"}
             </Link>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: isCompact ? 18 : 22 }}>
             {followingCount === 0 ? (
               <p style={{ color: "var(--text3)", fontSize: isCompact ? 12 : 13, margin: "0 0 4px", lineHeight: 1.5 }}>
-                Featuring Deep House Lab — follow more artists on Discover to grow your feed.
+                Featuring Deep House Lab — follow artists from Mixes to grow your feed.
               </p>
             ) : null}
             {feed.map((ep) => {
@@ -161,7 +161,12 @@ export default function VaultFeedPage() {
                 >
                   <button
                     type="button"
-                    onClick={() => artist && navigate(`/user/${artist.id}`)}
+                    onClick={() => {
+                      if (!artist) return;
+                      navigate(
+                        auth.currentUser?.id === artist.id ? "/profile" : `/user/${artist.id}`,
+                      );
+                    }}
                     style={{
                       display: "flex",
                       alignItems: "center",

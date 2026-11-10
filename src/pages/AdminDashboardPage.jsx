@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
 import AdminInsightsPanel from "../components/admin/AdminInsightsPanel.jsx";
 import DjOfMonthPanel from "../components/admin/DjOfMonthPanel.jsx";
+import FloorEventsPanel from "../components/admin/FloorEventsPanel.jsx";
 import PageHeader from "../components/PageHeader.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
@@ -21,8 +22,11 @@ const TABS = [
   { id: "submissions", label: "Submissions", icon: "send" },
   { id: "mixes", label: "Mixes", icon: "music" },
   { id: "dj", label: "DJ of the month", icon: "user" },
+  { id: "floor", label: "On the floor", icon: "fire" },
   { id: "logs", label: "Audit log", icon: "list" },
 ];
+
+const TAB_IDS = new Set(TABS.map((t) => t.id));
 
 function tableShell(children, compact) {
   return (
@@ -36,7 +40,10 @@ export default function AdminDashboardPage() {
   const { auth, episodes, users, refreshMixes, refreshProfiles } = useApp();
   const adminId = auth.session?.user?.id;
   const isCompact = useMediaQuery("(max-width: 720px)");
-  const [tab, setTab] = useState("insights");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const tab = TAB_IDS.has(tabParam) ? tabParam : "insights";
+  const mixParam = searchParams.get("mix");
   const [profiles, setProfiles] = useState([]);
   const [logs, setLogs] = useState([]);
   const [submissions, setSubmissions] = useState([]);
@@ -45,6 +52,22 @@ export default function AdminDashboardPage() {
   const [editForm, setEditForm] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+
+  const setTab = useCallback(
+    (nextTab) => {
+      if (!TAB_IDS.has(nextTab)) return;
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("tab", nextTab);
+          if (nextTab !== "submissions") next.delete("mix");
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
 
   const loadProfiles = useCallback(async () => {
     if (!isSupabaseConfigured()) return;
@@ -94,6 +117,15 @@ export default function AdminDashboardPage() {
     loadLogs();
     loadSubmissions();
   }, [loadProfiles, loadLogs, loadSubmissions]);
+
+  useEffect(() => {
+    if (!mixParam || !submissions.length) return;
+    const index = submissions.findIndex((s) => String(s.id) === String(mixParam));
+    if (index < 0) return;
+    setSubmissionCursor(index);
+    setEditingId(null);
+    setEditForm(null);
+  }, [mixParam, submissions]);
 
   const writeLog = useCallback(
     async (action, targetKind, targetId, detail = {}) => {
@@ -970,6 +1002,7 @@ export default function AdminDashboardPage() {
         )}
 
         {tab === "dj" && <DjOfMonthPanel users={users} episodes={episodes} adminId={adminId} />}
+        {tab === "floor" && <FloorEventsPanel adminId={adminId} />}
 
         {tab === "logs" && (
           <section className="admin-panel">

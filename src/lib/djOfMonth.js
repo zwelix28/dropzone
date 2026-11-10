@@ -51,8 +51,8 @@ export async function saveDjOfMonth({ profileId, mixId, bio, file, adminId }) {
   const text = (bio || "").trim();
   if (!profileId) return { ok: false, error: "Choose the DJ's Deep House Lab handle." };
   if (!mixId) return { ok: false, error: "Choose one of their uploaded mixes." };
-  if (!text) return { ok: false, error: "Add a short bio." };
-  if (text.length > 280) return { ok: false, error: "Bio must be 280 characters or fewer." };
+  if (!text) return { ok: false, error: "Add a DJ bio." };
+  if (text.length > 1000) return { ok: false, error: "Bio must be 1000 characters or fewer." };
 
   if (isLocalMode()) {
     const current = readLocal();

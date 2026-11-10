@@ -78,7 +78,7 @@ export default function DjOfMonthPanel({ users, episodes, adminId }) {
       <h2 className="admin-panel-title">DJ of the month</h2>
       <p className="admin-panel-desc">
         This is the desktop Home card next to Top 5 this week. Choose a Deep House Lab profile, one published mix,
-        a photo, and a short bio.
+        a photo, and a bio (up to 1000 characters).
       </p>
       {isLocalMode() ? (
         <p style={{ color: "var(--orange)", fontSize: 13, lineHeight: 1.5, marginBottom: 16 }}>
@@ -154,16 +154,16 @@ export default function DjOfMonthPanel({ users, episodes, adminId }) {
       <label style={{ display: "block", fontSize: 12, fontWeight: 600, margin: "16px 0 6px" }}>Bio</label>
       <textarea
         className="inp"
-        maxLength={280}
-        rows={4}
+        maxLength={1000}
+        rows={8}
         value={bio}
-        placeholder="A short line about this DJ."
+        placeholder="Tell listeners about this DJ (up to 1000 characters)."
         onChange={(event) => {
           setSaved(false);
           setBio(event.target.value);
         }}
       />
-      <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 6 }}>{bio.trim().length}/280</div>
+      <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 6 }}>{bio.trim().length}/1000</div>
 
       {error ? (
         <p style={{ color: "var(--red)", fontSize: 13, marginTop: 12 }}>{error}</p>

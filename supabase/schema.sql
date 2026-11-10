@@ -18,10 +18,35 @@ create table if not exists public.profiles (
   verified boolean not null default false,
   is_admin boolean not null default false,
   is_banned boolean not null default false,
+  is_approved boolean not null default false,
   plan text not null default 'free' check (plan in ('free', 'paid', 'pro')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Shared gate for RLS / RPCs (approved or admin, and not banned).
+create or replace function public.profile_can_use_app(p_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles p
+    where p.id = p_user_id
+      and coalesce(p.is_banned, false) = false
+      and (
+        coalesce(p.is_admin, false) = true
+        or p.is_approved = true
+      )
+  );
+$$;
+
+revoke all on function public.profile_can_use_app(uuid) from public;
+grant execute on function public.profile_can_use_app(uuid) to authenticated;
+grant execute on function public.profile_can_use_app(uuid) to service_role;
 
 create table if not exists public.mixes (
   id uuid primary key default gen_random_uuid(),
@@ -472,8 +497,8 @@ create policy "follows_insert_own" on public.follows for insert to authenticated
   with check (
     follower_id = auth.uid()
     and following_id <> auth.uid()
-    and not exists (select 1 from public.profiles p where p.id = auth.uid() and coalesce(p.is_banned, false))
-    and not exists (select 1 from public.profiles p where p.id = following_id and coalesce(p.is_banned, false))
+    and public.profile_can_use_app(auth.uid())
+    and public.profile_can_use_app(following_id)
   );
 
 drop policy if exists "follows_delete_own" on public.follows;
@@ -590,7 +615,11 @@ create policy "mix_previews_public_read" on storage.objects for select using (bu
 
 drop policy if exists "mix_previews_auth_insert" on storage.objects;
 create policy "mix_previews_auth_insert" on storage.objects for insert to authenticated
-  with check (bucket_id = 'mix-previews' and (storage.foldername(name))[1] = auth.uid()::text);
+  with check (
+    bucket_id = 'mix-previews'
+    and (storage.foldername(name))[1] = auth.uid()::text
+    and public.profile_can_use_app(auth.uid())
+  );
 
 drop policy if exists "mix_previews_auth_update" on storage.objects;
 create policy "mix_previews_auth_update" on storage.objects for update to authenticated
@@ -605,11 +634,19 @@ create policy "mix_covers_public_read" on storage.objects for select using (buck
 
 drop policy if exists "mix_audio_auth_upload" on storage.objects;
 create policy "mix_audio_auth_upload" on storage.objects for insert to authenticated
-  with check (bucket_id = 'mix-audio' and (storage.foldername(name))[1] = auth.uid()::text);
+  with check (
+    bucket_id = 'mix-audio'
+    and (storage.foldername(name))[1] = auth.uid()::text
+    and public.profile_can_use_app(auth.uid())
+  );
 
 drop policy if exists "mix_covers_auth_upload" on storage.objects;
 create policy "mix_covers_auth_upload" on storage.objects for insert to authenticated
-  with check (bucket_id = 'mix-covers' and (storage.foldername(name))[1] = auth.uid()::text);
+  with check (
+    bucket_id = 'mix-covers'
+    and (storage.foldername(name))[1] = auth.uid()::text
+    and public.profile_can_use_app(auth.uid())
+  );
 
 drop policy if exists "mix_audio_auth_update" on storage.objects;
 create policy "mix_audio_auth_update" on storage.objects for update to authenticated

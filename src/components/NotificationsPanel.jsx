@@ -1,11 +1,16 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import Icon from "./Icon.jsx";
-import { fmtNotificationTime, getNotificationPresentation } from "../lib/notificationDisplay.js";
+import {
+  fmtNotificationTime,
+  getNotificationPresentation,
+  resolveNotificationHref,
+} from "../lib/notificationDisplay.js";
 
 function NotificationRow({ notification, onClose, onMarkRead, compact = false }) {
   const preset = getNotificationPresentation(notification);
   const timeLabel = fmtNotificationTime(notification.createdAt);
+  const href = resolveNotificationHref(notification);
 
   const handleOpen = () => {
     if (!notification.read) onMarkRead(notification.id);
@@ -95,12 +100,12 @@ function NotificationRow({ notification, onClose, onMarkRead, compact = false })
             {notification.message}
           </div>
 
-          {notification.href ? (
+          {href ? (
             <div style={{ marginTop: compact ? 6 : 10 }}>
               <Link
                 className="btn btn-ghost"
                 style={{ padding: compact ? "5px 10px" : "7px 12px", fontSize: compact ? 11 : 12 }}
-                to={notification.href}
+                to={href}
                 onClick={handleOpen}
               >
                 View

@@ -48,7 +48,10 @@ create policy "push_subscriptions_select_own"
 drop policy if exists "push_subscriptions_insert_own" on public.push_subscriptions;
 create policy "push_subscriptions_insert_own"
   on public.push_subscriptions for insert to authenticated
-  with check (auth.uid() = user_id);
+  with check (
+    auth.uid() = user_id
+    and public.profile_can_use_app(auth.uid())
+  );
 
 drop policy if exists "push_subscriptions_update_own" on public.push_subscriptions;
 create policy "push_subscriptions_update_own"
@@ -64,7 +67,7 @@ create policy "push_subscriptions_delete_own"
 grant select, insert, update, delete on public.push_subscriptions to authenticated;
 
 -- ---------------------------------------------------------------------------
--- Broadcast new mixes to all approved listeners (not only followers).
+-- Notify followers when a mix goes live (not a site-wide broadcast).
 -- Email/push still respect each user's notify_* preferences in the edge function.
 -- ---------------------------------------------------------------------------
 create or replace function public.notify_followers_new_mix()
@@ -75,7 +78,7 @@ set search_path = public
 as $$
 declare
   uname text;
-  recipient uuid;
+  follower uuid;
 begin
   if coalesce(new.status, 'approved') <> 'approved' then
     return new;
@@ -86,16 +89,18 @@ begin
 
   select coalesce(username, 'Someone') into uname from public.profiles where id = new.user_id;
 
-  for recipient in
-    select p.id
-    from public.profiles p
-    where p.id <> new.user_id
-      and coalesce(p.is_banned, false) = false
-      and coalesce(p.is_approved, true) = true
+  for follower in
+    select f.follower_id
+    from public.follows f
+    where f.following_id = new.user_id
   loop
+    if not public.profile_can_use_app(follower) then
+      continue;
+    end if;
+
     insert into public.notifications (user_id, type, title, message, href, episode_id, meta)
     values (
-      recipient,
+      follower,
       'new_mix',
       'New mix from ' || uname,
       uname || ' uploaded "' || left(coalesce(new.title, 'Untitled Mix'), 80) || '".',

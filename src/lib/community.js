@@ -49,7 +49,7 @@ export function rankCommunityUsers({
 
   const scored = [];
   for (const user of users) {
-    if (!user?.id || user.isBanned || user.isApproved === false) continue;
+    if (!user?.id || user.isBanned || user.isApproved !== true) continue;
 
     const taste = catalogTaste(user.id, episodes);
     const profileGenre = String(user.genre || "").trim();

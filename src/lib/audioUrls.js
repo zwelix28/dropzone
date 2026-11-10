@@ -83,13 +83,16 @@ export function invalidateMixPlaybackUrlCache() {
  * - Guest: full mix (preferred) or public preview clip — player plays 50s from 2:30
  * Cached in memory so resume / next / For You skip repeat signing.
  */
-export async function resolveMixPlaybackUrl(episode, { guestPreviewOnly, isAuthenticated, preferFullMix = false }) {
+export async function resolveMixPlaybackUrl(
+  episode,
+  { guestPreviewOnly, isAuthenticated, preferFullMix = false, forceRefresh = false } = {},
+) {
   const direct = (episode?.audioUrl || "").trim();
   if (direct.startsWith("blob:") || direct.startsWith("data:")) return direct;
 
   const opts = { guestPreviewOnly, isAuthenticated, preferFullMix };
   const key = episode?.id ? playbackCacheKey(episode, opts) : "";
-  if (key) {
+  if (key && !forceRefresh) {
     const cached = readPlaybackCache(key);
     if (cached) return cached;
   }
@@ -136,6 +139,11 @@ export async function resolveMixPlaybackUrl(episode, { guestPreviewOnly, isAuthe
     return episode.audioUrl;
   }
   return null;
+}
+
+/** Fresh signed URL, bypassing the in-memory cache (long-listen renewal). */
+export async function renewMixPlaybackUrl(episode, opts = {}) {
+  return resolveMixPlaybackUrl(episode, { ...opts, forceRefresh: true });
 }
 
 /** Resolve + optionally warm a standby buffer. Never throws; safe for fire-and-forget. */

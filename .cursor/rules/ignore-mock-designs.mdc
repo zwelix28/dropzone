@@ -1,0 +1,9 @@
+---
+description: Never commit local mock design folders
+alwaysApply: true
+---
+
+# Mock designs
+
+- Do **not** stage, commit, or push folders named `mock design home/`, `mock design mobile/`, `mock design now/`, or similar local design-mock directories.
+- They are gitignored; keep them local-only.

@@ -139,7 +139,7 @@ export default function LikesPage() {
   };
 
   if (!auth.session?.user?.id) {
-    return <Navigate to="/discover" replace />;
+    return <Navigate to="/home" replace />;
   }
 
   return (

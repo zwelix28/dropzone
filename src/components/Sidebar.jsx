@@ -1,5 +1,5 @@
 import { Link, NavLink } from "react-router-dom";
-import { FEATURE_DISCOVER, FEATURE_LETS_DJ, FEATURE_LIVE, FEATURE_STATS, FEATURE_TOP10, FEATURE_VAULT_FEED, signedInHomePath } from "../featureFlags.js";
+import { FEATURE_COMMUNITY, FEATURE_DISCOVER, FEATURE_LETS_DJ, FEATURE_LIVE, FEATURE_ON_THE_FLOOR, FEATURE_STATS, FEATURE_TOP10, FEATURE_VAULT_FEED } from "../featureFlags.js";
 import Icon from "./Icon.jsx";
 import UserAvatar from "./UserAvatar.jsx";
 
@@ -40,15 +40,30 @@ function LiveNavBtn({ onClose, compact = false }) {
 }
 
 /**
- * @param {{ currentUser: any, onLogout: () => void, onLogin: () => void, variant?: 'desktop' | 'drawer', onClose?: () => void, dmUnreadCount?: number }} props
+ * @param {{ currentUser: any, onLogout: () => void, onLogin: () => void, variant?: 'desktop' | 'drawer', onClose?: () => void, dmUnreadCount?: number, hasPlayer?: boolean }} props
  */
 export const DESKTOP_SIDEBAR_WIDTH = 264;
 
-export default function Sidebar({ currentUser, onLogout, onLogin, variant = "desktop", onClose, dmUnreadCount = 0 }) {
+export default function Sidebar({
+  currentUser,
+  onLogout,
+  onLogin,
+  variant = "desktop",
+  onClose,
+  dmUnreadCount = 0,
+  hasPlayer = false,
+}) {
   const isDrawer = variant === "drawer";
 
   return (
-    <aside className={isDrawer ? "sidebar-shell sidebar-drawer" : "sidebar-shell sidebar-desktop"} data-unread={dmUnreadCount || undefined}>
+    <aside
+      className={
+        isDrawer
+          ? "sidebar-shell sidebar-drawer"
+          : `sidebar-shell sidebar-desktop${hasPlayer ? " has-player" : ""}`
+      }
+      data-unread={dmUnreadCount || undefined}
+    >
       <div className="sidebar-shell-glow" aria-hidden="true" />
 
       {isDrawer ? (
@@ -62,9 +77,10 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
 
       <div className={`sidebar-brand${isDrawer ? " is-drawer" : ""}`}>
         <Link
-          to={currentUser ? signedInHomePath() : "/"}
+          to={currentUser ? "/home" : "/"}
           className="sidebar-brand-link"
           onClick={() => onClose?.()}
+          aria-label="Deep House Lab home"
         >
           <img
             src="/logo.png"
@@ -100,6 +116,9 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
           ) : null}
           {currentUser ? <NavBtn compact={isDrawer} to="/mixes" icon="music" label="Mixes" onClose={onClose} /> : null}
           {currentUser ? <NavBtn compact={isDrawer} to="/library" icon="library" label="Library" onClose={onClose} /> : null}
+          {FEATURE_ON_THE_FLOOR ? (
+            <NavBtn compact={isDrawer} to="/floor" icon="fire" label="On the Floor" onClose={onClose} />
+          ) : null}
           {currentUser ? <NavBtn compact={isDrawer} to="/submit-mix" icon="send" label="Submit Mix" onClose={onClose} /> : null}
           {FEATURE_LIVE ? <LiveNavBtn compact={isDrawer} onClose={onClose} /> : null}
           {FEATURE_TOP10 ? <NavBtn compact={isDrawer} to="/top10" icon="trending" label="Top 10" onClose={onClose} /> : null}
@@ -112,7 +131,9 @@ export default function Sidebar({ currentUser, onLogout, onLogin, variant = "des
             <div className="sidebar-nav-heading">Account</div>
             {FEATURE_STATS ? <NavBtn compact={isDrawer} to="/stats" icon="bar2" label="My Stats" onClose={onClose} /> : null}
             <NavBtn compact={isDrawer} to="/likes" icon="heart" label="Likes" onClose={onClose} />
-            <NavBtn compact={isDrawer} to="/community" icon="community" label="Community" onClose={onClose} />
+            {FEATURE_COMMUNITY ? (
+              <NavBtn compact={isDrawer} to="/community" icon="community" label="Community" onClose={onClose} />
+            ) : null}
             <NavBtn compact={isDrawer} to="/profile" icon="user" label="My Profile" onClose={onClose} />
             <NavBtn compact={isDrawer} to="/connections" icon="people" label="Connections" onClose={onClose} />
             <NavBtn compact={isDrawer} to="/settings" icon="settings" label="Settings" onClose={onClose} />

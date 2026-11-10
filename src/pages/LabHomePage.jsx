@@ -1,11 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import FloorFlyerLightbox from "../components/FloorFlyerLightbox.jsx";
 import Icon from "../components/Icon.jsx";
 import { GENRES } from "../constants/genres.js";
 import { mixTitleBody } from "../constants/mixTitle.js";
 import { handleArtworkError, resolveMixArtwork } from "../constants/artwork.js";
 import { useApp } from "../context/AppContext.jsx";
 import { getDjOfMonth } from "../lib/djOfMonth.js";
+import {
+  formatFloorEventPlace,
+  formatFloorEventWhen,
+  listFloorEventsForHome,
+} from "../lib/floorEvents.js";
 import { fmtDuration, fmtPlayerTime } from "../lib/format.js";
 import { isMixesItem } from "../lib/contentType.js";
 import useMediaQuery from "../hooks/useMediaQuery.js";
@@ -124,6 +130,9 @@ export default function LabHomePage() {
   const top = useMemo(() => pickTopFiveThisWeek(mixes), [mixes]);
 
   const [djFeature, setDjFeature] = useState(null);
+  const [floorEvents, setFloorEvents] = useState([]);
+  const [floorPreview, setFloorPreview] = useState(null);
+  const floorSliderRef = useRef(null);
   const userId = auth.session?.user?.id;
   const [sessions, setSessions] = useState(
     () => getLibrarySessionsQuick(auth.session?.user?.id, episodes),
@@ -136,15 +145,35 @@ export default function LabHomePage() {
   const crates = mixes.slice(0, 10);
   const playingHero = Boolean(spinning && player.isPlaying && player.currentTrack?.id === spinning.id);
 
+  const loadFloorEvents = useCallback(() => {
+    listFloorEventsForHome({ limit: 8 }).then(({ rows }) => {
+      setFloorEvents(rows || []);
+    });
+  }, []);
+
   useEffect(() => {
     let live = true;
     getDjOfMonth().then(({ row }) => {
       if (live) setDjFeature(row);
     });
+    loadFloorEvents();
     return () => {
       live = false;
     };
-  }, []);
+  }, [loadFloorEvents]);
+
+  // Refresh promotions when returning to Home (e.g. after promote / admin approve).
+  useEffect(() => {
+    if (location.pathname !== "/home") return;
+    loadFloorEvents();
+  }, [location.pathname, location.key, loadFloorEvents]);
+
+  const scrollFloorSlider = (dir) => {
+    const root = floorSliderRef.current;
+    if (!root) return;
+    const delta = Math.round(root.clientWidth * 0.85) * (dir < 0 ? -1 : 1);
+    root.scrollBy({ left: delta, behavior: "smooth" });
+  };
 
   useEffect(() => {
     if (!userId) {
@@ -217,6 +246,7 @@ export default function LabHomePage() {
       </div>
 
       <div className="lab-home-layout">
+        <div className="lab-home-main">
         <section className="lab-home-hero" aria-label="Now spinning">
           {spinning ? (
             <>
@@ -242,7 +272,13 @@ export default function LabHomePage() {
             <>
               <div className="lab-home-kicker">NOW SPINNING</div>
               <h1 className="lab-home-title">Nothing in this crate yet</h1>
-              <p className="lab-home-meta">Try another genre, or open Mixes.</p>
+              <p className="lab-home-meta">
+                Try another genre, or open{" "}
+                <Link to="/mixes" style={{ color: "var(--accent)", fontWeight: 600 }}>
+                  Mixes
+                </Link>
+                .
+              </p>
             </>
           )}
         </section>
@@ -416,44 +452,121 @@ export default function LabHomePage() {
             </div>
           )}
         </section>
+        </div>
 
-        {djFeature ? (
-          <aside className="lab-home-month" aria-label="DJ of the month">
-            <h2 className="lab-home-sec">
-              <span>DJ of the month</span>
-            </h2>
-            <div className="lab-home-month-card">
-              <img
-                className="lab-home-month-art"
-                src={djFeature.photoUrl || "/logo.png"}
-                alt=""
-                onError={handleArtworkError}
-              />
-              <div className="lab-home-month-copy">
-                <h3 className="lab-home-month-title">{djUser?.username || "DJ"}</h3>
-                {djUser ? (
-                  <Link className="lab-home-month-handle" to={`/user/${djUser.id}`}>
-                    {djUser.handle}
-                  </Link>
-                ) : null}
-                {djFeature.bio ? <p className="lab-home-month-bio">{djFeature.bio}</p> : null}
-                {djMix ? (
-                  <div className="lab-home-month-mix">
-                    <img src={resolveMixArtwork(djMix.coverUrl)} alt="" onError={handleArtworkError} />
-                    <div>
-                      <b>{djMix.title}</b>
-                      <span>{fmtPlayerTime(djMix.durationSecs)}</span>
-                    </div>
-                    <button type="button" className="lab-home-play" onClick={() => void player.playTrack(djMix)}>
-                      {playingDj ? "Pause" : "Play"}
-                    </button>
+        {isDesktopHome && (djFeature || floorEvents.length > 0) ? (
+          <div className="lab-home-rail">
+            {djFeature ? (
+              <aside className="lab-home-month" aria-label="DJ of the month">
+                <h2 className="lab-home-sec">
+                  <span>DJ of the month</span>
+                </h2>
+                <div className="lab-home-month-card">
+                  <img
+                    className="lab-home-month-art"
+                    src={djFeature.photoUrl || "/logo.png"}
+                    alt=""
+                    onError={handleArtworkError}
+                  />
+                  <div className="lab-home-month-copy">
+                    <h3 className="lab-home-month-title">{djUser?.username || "DJ"}</h3>
+                    {djUser ? (
+                      <Link className="lab-home-month-handle" to={`/user/${djUser.id}`}>
+                        {djUser.handle}
+                      </Link>
+                    ) : null}
+                    {djFeature.bio ? <p className="lab-home-month-bio">{djFeature.bio}</p> : null}
+                    {djMix ? (
+                      <div className="lab-home-month-mix">
+                        <img src={resolveMixArtwork(djMix.coverUrl)} alt="" onError={handleArtworkError} />
+                        <div>
+                          <b>{djMix.title}</b>
+                          <span>{fmtPlayerTime(djMix.durationSecs)}</span>
+                        </div>
+                        <button type="button" className="lab-home-play" onClick={() => void player.playTrack(djMix)}>
+                          {playingDj ? "Pause" : "Play"}
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
-                ) : null}
-              </div>
-            </div>
-          </aside>
+                </div>
+              </aside>
+            ) : null}
+
+            {floorEvents.length > 0 ? (
+              <aside className="lab-home-floor" aria-label="This week on the floor">
+                <div className="lab-home-floor-head">
+                  <h2 className="lab-home-sec">
+                    <span>This week on the floor</span>
+                  </h2>
+                  {floorEvents.length > 1 ? (
+                    <div className="lab-home-floor-nav">
+                      <button
+                        type="button"
+                        className="lab-home-floor-nav-btn"
+                        aria-label="Previous promotions"
+                        onClick={() => scrollFloorSlider(-1)}
+                      >
+                        ‹
+                      </button>
+                      <button
+                        type="button"
+                        className="lab-home-floor-nav-btn"
+                        aria-label="Next promotions"
+                        onClick={() => scrollFloorSlider(1)}
+                      >
+                        ›
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="lab-home-floor-card">
+                  <div className="lab-home-floor-slider" ref={floorSliderRef} role="list">
+                    {floorEvents.map((event) => {
+                      const place = formatFloorEventPlace(event.venue, event.city);
+                      const when = formatFloorEventWhen(event.startsAt, event.endsAt);
+                      const live = when === "Happening now";
+                      return (
+                        <button
+                          key={event.id}
+                          type="button"
+                          role="listitem"
+                          className={`lab-home-floor-slide${event.isFeatured ? " is-featured" : ""}${live ? " is-live" : ""}`}
+                          aria-label={`View full flyer for ${event.title}`}
+                          onClick={() => setFloorPreview(event)}
+                        >
+                          <span className="lab-home-floor-slide-art">
+                            <img src={event.flyerUrl || "/logo.png"} alt="" onError={handleArtworkError} />
+                            {live ? <span className="lab-home-floor-slide-badge is-live">Now</span> : null}
+                            {!live && event.isFeatured ? (
+                              <span className="lab-home-floor-slide-badge">Featured</span>
+                            ) : null}
+                          </span>
+                          <span className="lab-home-floor-slide-copy">
+                            <b>{event.title}</b>
+                            {when ? <span>{when}</span> : null}
+                            {place ? <span>{place}</span> : null}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {floorEvents.length > 1 ? (
+                    <p className="lab-home-floor-slider-hint">Swipe or use arrows to see more nights</p>
+                  ) : null}
+                  <p className="lab-home-floor-promote">
+                    Promote a night?{" "}
+                    <Link to="/on-the-floor">Get in touch</Link>
+                  </p>
+                </div>
+              </aside>
+            ) : null}
+          </div>
         ) : null}
       </div>
+      {floorPreview ? (
+        <FloorFlyerLightbox event={floorPreview} onClose={() => setFloorPreview(null)} />
+      ) : null}
     </div>
   );
 }

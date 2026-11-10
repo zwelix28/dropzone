@@ -1,7 +1,17 @@
 import { useEffect, useState } from "react";
 
+function getMatches(query) {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.matchMedia(query).matches;
+  } catch {
+    return false;
+  }
+}
+
 export default function useMediaQuery(query) {
-  const [matches, setMatches] = useState(false);
+  // Read matchMedia on first paint so mobile pages don’t flash desktop layout.
+  const [matches, setMatches] = useState(() => getMatches(query));
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -24,4 +34,3 @@ export default function useMediaQuery(query) {
 
   return matches;
 }
-

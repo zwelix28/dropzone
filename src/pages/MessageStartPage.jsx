@@ -39,7 +39,7 @@ export default function MessageStartPage() {
     };
   }, [me, userId]);
 
-  if (!me) return <Navigate to="/discover" replace />;
+  if (!me) return <Navigate to="/home" replace />;
   if (redirect) return <Navigate to={`/messages/${redirect}`} replace />;
 
   return (

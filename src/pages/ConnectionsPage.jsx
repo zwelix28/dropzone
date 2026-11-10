@@ -7,6 +7,7 @@ import PageHeader from "../components/PageHeader.jsx";
 import UserAvatar from "../components/UserAvatar.jsx";
 import VerifiedBadge from "../components/VerifiedBadge.jsx";
 import { useApp } from "../context/AppContext.jsx";
+import { FEATURE_COMMUNITY } from "../featureFlags.js";
 import { fmt } from "../lib/format.js";
 import { fetchFollowersWithProfiles, fetchFollowingWithProfiles } from "../lib/followLists.js";
 import { isSupabaseConfigured } from "../lib/supabaseClient.js";
@@ -94,7 +95,7 @@ export default function ConnectionsPage() {
   }, [list, q]);
 
   if (!currentUser) {
-    return <Navigate to="/discover" replace />;
+    return <Navigate to="/home" replace />;
   }
 
   const setTab = (next) => {
@@ -118,7 +119,8 @@ export default function ConnectionsPage() {
 
         <PageHeader icon="people" title="CONNECTIONS" large marginBottom={isCompact ? 10 : 14} />
         <p className="connections-lede">
-          People who follow you and accounts you follow. Jump into Community to find more listeners and DJs.
+          People who follow you and accounts you follow
+          {FEATURE_COMMUNITY ? ". Jump into Community to find more listeners and DJs." : "."}
         </p>
 
         <div className="connections-stats" aria-label="Connection totals">
@@ -174,8 +176,17 @@ export default function ConnectionsPage() {
 
         {!isSupabaseConfigured() ? (
           <p style={{ color: "var(--text3)", fontSize: 13, marginBottom: 16 }}>
-            Connect Supabase in <code className="inp" style={{ padding: "2px 6px", fontSize: 12 }}>.env.local</code> to
-            load lists.
+            {import.meta.env.DEV ? (
+              <>
+                Connect Supabase in{" "}
+                <code className="inp" style={{ padding: "2px 6px", fontSize: 12 }}>
+                  .env.local
+                </code>{" "}
+                to load lists.
+              </>
+            ) : (
+              <>Connections aren’t available right now.</>
+            )}
           </p>
         ) : null}
 
@@ -195,13 +206,22 @@ export default function ConnectionsPage() {
             <h3>{tab === "following" ? "No one yet" : "Waiting on your first follower"}</h3>
             <p>
               {tab === "following"
-                ? "You’re not following anyone yet. Open Community to find DJs who share your taste."
+                ? FEATURE_COMMUNITY
+                  ? "You’re not following anyone yet. Open Community to find DJs who share your taste."
+                  : "You’re not following anyone yet. Explore Mixes and profiles to find DJs you like."
                 : "No followers yet. Share your profile and mixes to grow your audience."}
             </p>
-            <Link to="/community" className="btn btn-primary" style={{ textDecoration: "none" }}>
-              <Icon name="community" size={14} />
-              Find people
-            </Link>
+            {FEATURE_COMMUNITY ? (
+              <Link to="/community" className="btn btn-primary" style={{ textDecoration: "none" }}>
+                <Icon name="community" size={14} />
+                Find people
+              </Link>
+            ) : (
+              <Link to="/mixes" className="btn btn-primary" style={{ textDecoration: "none" }}>
+                <Icon name="music" size={14} />
+                Browse mixes
+              </Link>
+            )}
           </div>
         ) : visible.length === 0 ? (
           <div className="connections-empty connections-empty-soft">

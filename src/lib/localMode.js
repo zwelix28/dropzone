@@ -8,12 +8,15 @@
  *    - session flag dhlab.local-auth (local@deephouselab.test / localtest)
  *    - likes in dhlab.local-likes
  *    - DJ of the month in dhlab.dj-of-month
+ *    - Floor events in dhlab.floor-events
  *    - uploaded mixes in IndexedDB database dhlab-local
  * 2. Publish any test mixes again through Upload so they land in Supabase.
- * 3. Run supabase/dj-of-month.sql if it is not applied, then save DJ of the month
- *    again in Admin. Also confirm mix-active-listeners.sql, notify-email-push.sql,
- *    and comment-mentions-mix-detail-href.sql are applied, and that notify-delivery
- *    still has its Resend, VAPID, and NOTIFY_WEBHOOK_SECRET secrets.
+ * 3. Run supabase/dj-of-month.sql, supabase/floor-events.sql, and
+ *    supabase/floor-events-submissions.sql if not applied, then save DJ of the
+ *    month / floor events again in Admin. Also confirm mix-active-listeners.sql,
+ *    notify-email-push.sql, and comment-mentions-mix-detail-href.sql are applied,
+ *    and that notify-delivery still has its Resend, VAPID, and
+ *    NOTIFY_WEBHOOK_SECRET secrets.
  */
 
 function readFlag(value) {

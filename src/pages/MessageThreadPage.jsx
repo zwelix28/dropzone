@@ -123,7 +123,7 @@ export default function MessageThreadPage() {
     void refreshDmUnreadCount();
   };
 
-  if (!me) return <Navigate to="/discover" replace />;
+  if (!me) return <Navigate to="/home" replace />;
   if (!validId) return <Navigate to="/messages" replace />;
 
   if (loadErr && !thread) {

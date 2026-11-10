@@ -33,6 +33,7 @@ export default function PlayerBar({
   shuffleOn = false,
   onToggleShuffle,
   elevatedForTabNav = false,
+  desktopExpanded = false,
 }) {
   const isMobile = useMediaQuery("(max-width: 720px)");
   if (!track) return null;
@@ -59,6 +60,7 @@ export default function PlayerBar({
       return;
     }
     if (!allowDownload || !hasAudioSource) return;
+    if (!liked) return;
     const { ok } = await downloadMixWithMetadata(track, { artist: user });
     if (!ok) return;
     void trackEvent({ kind: "download", episodeId: track.id, actorUserId: auth.currentUser?.id });
@@ -71,6 +73,11 @@ export default function PlayerBar({
       trackEvent,
       actorUserId: auth.currentUser?.id,
     });
+  };
+
+  const restart = () => {
+    onSeek(0);
+    if (!isPlaying) onToggle();
   };
 
   const progressRow = (
@@ -157,7 +164,7 @@ export default function PlayerBar({
 
     return (
       <div
-        className={`player-bar${elevatedForTabNav ? " player-bar-above-tabs" : ""}`}
+        className={`player-bar${elevatedForTabNav ? " player-bar-above-tabs" : ""}${desktopExpanded ? " is-desktop-expanded" : ""}`}
         role={canExpand ? "button" : undefined}
         tabIndex={canExpand ? 0 : undefined}
         aria-label={canExpand ? "Open now playing" : undefined}
@@ -224,7 +231,7 @@ export default function PlayerBar({
   }
 
   return (
-    <div className="player-bar">
+    <div className={`player-bar${desktopExpanded ? " is-desktop-expanded" : ""}`}>
       <div
         style={{
           maxWidth: 1400,
@@ -257,7 +264,7 @@ export default function PlayerBar({
               <img
                 src={resolveMixArtwork(track.coverUrl)}
                 alt={track.title}
-                style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", display: "block" }}
+                style={{ width: 56, height: 56, borderRadius: 10, objectFit: "cover", display: "block" }}
                 onError={handleArtworkError}
               />
             </button>
@@ -265,7 +272,7 @@ export default function PlayerBar({
             <img
               src={resolveMixArtwork(track.coverUrl)}
               alt={track.title}
-              style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover" }}
+              style={{ width: 56, height: 56, borderRadius: 10, objectFit: "cover" }}
               onError={handleArtworkError}
             />
           )}
@@ -327,55 +334,64 @@ export default function PlayerBar({
             minWidth: 0,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div className="dnp-transport" style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button
               type="button"
+              className={`mnp-control mnp-control-glow dnp-control${shuffleOn ? " is-on" : ""}`}
               onClick={() => onToggleShuffle?.()}
               aria-label={shuffleOn ? "Shuffle on" : "Shuffle off"}
               aria-pressed={shuffleOn}
               title={shuffleOn ? "Shuffle on" : "Shuffle off"}
-              style={{ background: "none", color: shuffleOn ? "var(--accent)" : "var(--text3)" }}
             >
-              <Icon name="shuffle" size={16} />
+              <Icon name="shuffle" size={18} />
             </button>
-            <button type="button" onClick={() => void onPrev?.()} style={{ background: "none", color: "var(--text2)" }}>
+            <button
+              type="button"
+              className="mnp-control mnp-control-glow dnp-control"
+              onClick={() => void onPrev?.()}
+              aria-label="Previous track"
+              title="Previous"
+            >
               <Icon name="prev" size={18} />
             </button>
             <button
               type="button"
+              className="mnp-control mnp-control-main mnp-control-glow dnp-control-main"
               onClick={onToggle}
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: "50%",
-                background: "var(--accent2)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 0 16px var(--glow)",
-                transition: "all 0.2s",
-              }}
+              aria-label={isPlaying ? "Pause" : "Play"}
             >
-              <Icon name={isPlaying ? "pause" : "play"} size={18} color="#07090F" />
+              <Icon name={isPlaying ? "pause" : "play"} size={20} />
             </button>
-            <button type="button" onClick={() => void onNext?.()} style={{ background: "none", color: "var(--text2)" }}>
+            <button
+              type="button"
+              className="mnp-control mnp-control-glow dnp-control"
+              onClick={() => void onNext?.()}
+              aria-label="Next track"
+              title="Next"
+            >
               <Icon name="skip" size={18} />
             </button>
             <button
               type="button"
-              onClick={() => {
-                if (guest) {
-                  auth.setShowAuth(true);
-                  return;
-                }
-                void toggleLike(track.id);
-              }}
-              aria-label={liked ? "Remove from likes" : "Add to likes"}
-              title={liked ? "Remove from likes" : "Save to likes"}
-              aria-pressed={liked}
-              style={{ background: "none", color: liked ? "#f87171" : "var(--text3)" }}
+              className="mnp-control mnp-control-glow dnp-control"
+              onClick={restart}
+              aria-label="Restart mix"
+              title="Restart"
             >
-              <Icon name="heart" size={16} color={liked ? "#f87171" : "currentColor"} />
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 12a9 9 0 1 0 3-6.7" />
+                <polyline points="3 4 3 10 9 10" />
+              </svg>
             </button>
           </div>
 
@@ -410,33 +426,58 @@ export default function PlayerBar({
               }}
             />
           </div>
+          <button
+            type="button"
+            className={`mnp-utility dnp-utility${liked ? " is-liked" : ""}`}
+            onClick={() => {
+              if (guest) {
+                auth.setShowAuth(true);
+                return;
+              }
+              void toggleLike(track.id);
+            }}
+            aria-label={liked ? "Remove from likes" : "Add to likes"}
+            title={liked ? "Remove from likes" : "Save to likes"}
+            aria-pressed={liked}
+          >
+            <Icon name="heart" size={16} color={liked ? "#f87171" : "currentColor"} />
+          </button>
           {allowDownload ? (
             <button
               type="button"
+              className={`mnp-utility mnp-utility-glow dnp-utility${liked && hasAudioSource ? " is-on" : ""}`}
               onClick={() => void handleDownload()}
               disabled={!hasAudioSource}
               title={
                 guest
                   ? "Sign in to download"
-                  : hasAudioSource
-                    ? "Download"
-                    : "No audio available to download"
+                  : !liked
+                    ? "Like this mix to unlock download"
+                    : hasAudioSource
+                      ? "Download full mix"
+                      : "No audio available to download"
               }
+              aria-label={liked ? "Download full mix" : "Like to download"}
               style={{
-                background: "none",
-                color: "var(--text2)",
-                opacity: hasAudioSource ? (guest ? 0.45 : 1) : 0.5,
+                opacity: hasAudioSource ? 1 : 0.45,
                 cursor: hasAudioSource ? "pointer" : "not-allowed",
               }}
             >
               <Icon name="download" size={16} />
             </button>
           ) : null}
-          <button type="button" onClick={handleShare} title="Share" style={{ background: "none", color: "var(--text2)" }}>
+          <button
+            type="button"
+            className="mnp-utility mnp-utility-glow dnp-utility"
+            onClick={handleShare}
+            title="Share"
+            aria-label="Share"
+          >
             <Icon name="share" size={16} />
           </button>
           <button
             type="button"
+            className="mnp-utility mnp-utility-glow dnp-utility"
             onClick={() => {
               if (guest) {
                 auth.setShowAuth(true);
@@ -445,11 +486,8 @@ export default function PlayerBar({
               navigate(`/mix/${track.id}`, { state: { from: location.pathname } });
             }}
             title={guest ? "Sign in to view mix details" : "Open mix page"}
-            style={{
-              background: "none",
-              color: "var(--text2)",
-              opacity: guest ? 0.45 : 1,
-            }}
+            aria-label={guest ? "Sign in for mix page" : "Open mix"}
+            style={{ opacity: guest ? 0.55 : 1 }}
           >
             <Icon name="eye" size={16} />
           </button>

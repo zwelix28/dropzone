@@ -19,8 +19,17 @@ export const FEATURE_STATS = false;
 /** Mix page listener comments. Off while the section is parked. */
 export const FEATURE_MIX_COMMENTS = false;
 
-/** Default landing path for signed-in users when Discover is hidden. */
+/** Toggle Community page in nav and `/community` route. */
+export const FEATURE_COMMUNITY = false;
+
+/** Toggle On the Floor browse page in nav and `/floor` route. */
+export const FEATURE_ON_THE_FLOOR = false;
+
+/**
+ * Default landing / “home” path for signed-in users.
+ * Must match the Home tab (`/home` Lab home). Catalog browse is `/mixes`.
+ */
 export function signedInHomePath() {
   if (FEATURE_DISCOVER) return "/discover";
-  return "/mixes";
+  return "/home";
 }

@@ -51,12 +51,7 @@ create policy "mixes_insert_submission" on public.mixes for insert to authentica
   with check (
     auth.uid() = user_id
     and status = 'pending'
-    and exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid()
-        and coalesce(p.is_banned, false) = false
-        and coalesce(p.is_approved, true) = true
-    )
+    and public.profile_can_use_app(auth.uid())
   );
 
 drop policy if exists "mixes_update_admin" on public.mixes;
@@ -123,10 +118,7 @@ begin
     from public.follows f
     where f.following_id = new.user_id
   loop
-    if exists (
-      select 1 from public.profiles p
-      where p.id = follower and coalesce(p.is_banned, false)
-    ) then
+    if not public.profile_can_use_app(follower) then
       continue;
     end if;
 
@@ -186,13 +178,14 @@ begin
       'Mix awaiting review',
       coalesce(uname, 'Someone') || ' (' || coalesce(uhandle, '@user') || ') submitted "'
         || left(coalesce(new.title, 'Untitled Mix'), 80) || '" for review.',
-      '/admin',
+      '/admin?tab=submissions&mix=' || new.id::text,
       new.id,
       jsonb_build_object(
         'submitter_id', new.user_id::text,
         'username', uname,
         'handle', uhandle,
-        'pending_review', true
+        'pending_review', true,
+        'mix_id', new.id::text
       )
     );
   end loop;
