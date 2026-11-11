@@ -4,6 +4,8 @@ import BackButton from "../components/BackButton.jsx";
 import Icon from "../components/Icon.jsx";
 import MixCommentsSection from "../components/MixCommentsSection.jsx";
 import MixLiveListeners from "../components/MixLiveListeners.jsx";
+import MixTracklist from "../components/MixTracklist.jsx";
+import TracklistEditor from "../components/TracklistEditor.jsx";
 import UserAvatar from "../components/UserAvatar.jsx";
 import VerifiedBadge from "../components/VerifiedBadge.jsx";
 import FollowButton from "../components/FollowButton.jsx";
@@ -13,12 +15,19 @@ import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { handleArtworkError, resolveMixArtwork } from "../constants/artwork.js";
 import { GENRES } from "../constants/genres.js";
+import { defaultMixDescription, isAutoMixDescription } from "../constants/mixTitle.js";
 import { canDownloadMix } from "../constants/plans.js";
 import { FEATURE_MIX_COMMENTS, signedInHomePath } from "../featureFlags.js";
 import { episodeHasAudioSource } from "../lib/audioUrls.js";
 import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
 import { fetchMixById } from "../lib/mixLookup.js";
 import { shareMix } from "../lib/shareMix.js";
+import {
+  normalizeTracklist,
+  resolveMixTracklist,
+  stripTracklistFromDescription,
+  tracklistToText,
+} from "../lib/tracklist.js";
 import { uploadMixCover } from "../lib/uploadMixCover.js";
 
 export default function MixDetailPage() {
@@ -52,6 +61,7 @@ export default function MixDetailPage() {
     description: "",
     genre: "Tech House",
     tags: "",
+    tracklist: "",
   });
   const [coverFile, setCoverFile] = useState(null);
   const [coverPreview, setCoverPreview] = useState("");
@@ -94,13 +104,20 @@ export default function MixDetailPage() {
 
   useEffect(() => {
     if (!episode) return;
+    const resolved = resolveMixTracklist(episode.description, episode.tracklist);
     setEdit({
       title: episode.title || "",
-      description: episode.description || "",
+      description: resolved.description || "",
       genre: episode.genre || "Tech House",
       tags: Array.isArray(episode.tags) ? episode.tags.join(", ") : "",
+      tracklist: tracklistToText(resolved.tracklist),
     });
-  }, [episode?.description, episode?.genre, episode?.tags, episode?.title, episode]);
+  }, [episode?.description, episode?.genre, episode?.tags, episode?.title, episode?.tracklist, episode]);
+
+  const displayCopy = useMemo(() => {
+    if (!episode) return { description: "", tracklist: [] };
+    return resolveMixTracklist(episode.description, episode.tracklist);
+  }, [episode]);
 
   useEffect(() => {
     if (!FEATURE_MIX_COMMENTS || !episode?.id || (!focusComments && !highlightCommentId)) return;
@@ -163,15 +180,22 @@ export default function MixDetailPage() {
     if (!canEdit) return;
     setSaving(true);
     setSaveError("");
+    const title = (edit.title || "").trim() || "Untitled Mix";
+    const tracklist = normalizeTracklist(edit.tracklist);
+    const rawDescription = isAutoMixDescription(edit.description)
+      ? defaultMixDescription(title)
+      : edit.description || "";
     const next = {
-      title: (edit.title || "").trim() || "Untitled Mix",
-      description: edit.description || "",
+      title,
+      // Never keep clear-text tracklist inside the description after save.
+      description: stripTracklistFromDescription(rawDescription),
       genre: edit.genre || "Tech House",
       tags: (edit.tags || "")
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean)
         .slice(0, 12),
+      tracklist,
     };
 
     if (isAdmin && coverFile) {
@@ -627,7 +651,20 @@ export default function MixDetailPage() {
                   >
                     Title
                   </label>
-                  <input className="inp" value={edit.title} onChange={(e) => setEdit((s) => ({ ...s, title: e.target.value }))} />
+                  <input
+                    className="inp"
+                    value={edit.title}
+                    onChange={(e) => {
+                      const title = e.target.value;
+                      setEdit((s) => ({
+                        ...s,
+                        title,
+                        ...(isAutoMixDescription(s.description)
+                          ? { description: defaultMixDescription(title) }
+                          : {}),
+                      }));
+                    }}
+                  />
                 </div>
 
                 <div>
@@ -689,7 +726,16 @@ export default function MixDetailPage() {
                     onChange={(e) => setEdit((s) => ({ ...s, description: e.target.value }))}
                     style={{ minHeight: isCompact ? 96 : 140 }}
                   />
+                  <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>
+                    Updates automatically with the title when it still matches the default “Listen to … on Deep House Lab.” form.
+                  </div>
                 </div>
+
+                <TracklistEditor
+                  compact={isCompact}
+                  value={edit.tracklist}
+                  onChange={(tracklist) => setEdit((s) => ({ ...s, tracklist }))}
+                />
 
                 <div
                   style={{
@@ -715,11 +761,13 @@ export default function MixDetailPage() {
                       setCoverFile(null);
                       setCoverPreview("");
                       setSaveError("");
+                      const resolved = resolveMixTracklist(episode.description, episode.tracklist);
                       setEdit({
                         title: episode.title || "",
-                        description: episode.description || "",
+                        description: resolved.description || "",
                         genre: episode.genre || "Tech House",
                         tags: Array.isArray(episode.tags) ? episode.tags.join(", ") : "",
+                        tracklist: tracklistToText(resolved.tracklist),
                       });
                     }}
                   >
@@ -731,19 +779,22 @@ export default function MixDetailPage() {
                 </div>
               </div>
             ) : (
-              <div
-                style={{
-                  color: "var(--text2)",
-                  whiteSpace: "pre-wrap",
-                  lineHeight: 1.75,
-                  fontSize: isCompact ? 13 : 15,
-                  wordBreak: "break-word",
-                  overflowWrap: "anywhere",
-                  maxWidth: "100%",
-                }}
-              >
-                {episode.description || "No description yet."}
-              </div>
+              <>
+                <div
+                  style={{
+                    color: "var(--text2)",
+                    whiteSpace: "pre-wrap",
+                    lineHeight: 1.75,
+                    fontSize: isCompact ? 13 : 15,
+                    wordBreak: "break-word",
+                    overflowWrap: "anywhere",
+                    maxWidth: "100%",
+                  }}
+                >
+                  {displayCopy.description || "No description yet."}
+                </div>
+                <MixTracklist tracklist={displayCopy.tracklist} compact={isCompact} />
+              </>
             )}
           </div>
         </div>

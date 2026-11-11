@@ -3,7 +3,14 @@ import { useNavigate } from "react-router-dom";
 import GenrePicker from "../components/GenrePicker.jsx";
 import Icon from "../components/Icon.jsx";
 import PageHeader from "../components/PageHeader.jsx";
-import { MIX_TITLE_PREFIX, mixTitleBody, withMixTitlePrefix } from "../constants/mixTitle.js";
+import TracklistEditor from "../components/TracklistEditor.jsx";
+import { normalizeTracklist, stripTracklistFromDescription } from "../lib/tracklist.js";
+import {
+  MIX_TITLE_PREFIX,
+  defaultMixDescription,
+  mixTitleBody,
+  withMixTitlePrefix,
+} from "../constants/mixTitle.js";
 import { isProPlan } from "../constants/plans.js";
 import { useApp } from "../context/AppContext.jsx";
 import { signedInHomePath } from "../featureFlags.js";
@@ -66,12 +73,6 @@ async function insertMixRow(row, { isSubmission }) {
   }
 
   throw new Error("Could not save the mix details.");
-}
-
-function defaultMixDescription(title) {
-  const t = mixTitleBody(title);
-  if (!t) return "";
-  return `Listen to ${t} on Deep House Lab.`;
 }
 
 /** Decoding duration via <audio> OOMs Safari on large mixes and can reload the tab. */
@@ -336,10 +337,8 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
     try {
       if (!audioFile) throw new Error("No audio file selected");
 
-      const tracklist = (form.tracklist || "")
-        .split("\n")
-        .map((s) => s.trim())
-        .filter(Boolean);
+      const tracklist = normalizeTracklist(form.tracklist);
+      const description = stripTracklistFromDescription(form.description || "");
       const tags = (form.tags || "")
         .split(",")
         .map((t) => t.trim())
@@ -362,7 +361,7 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
           id,
           userId: uid,
           title: withMixTitlePrefix(form.title).trim(),
-          description: form.description || "",
+          description,
           genre: form.genre || "Tech House",
           tags,
           tracklist,
@@ -437,7 +436,7 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
       const row = {
         user_id: uid,
         title: withMixTitlePrefix(form.title).trim(),
-        description: form.description || "",
+        description,
         genre: form.genre || "Tech House",
         tags,
         tracklist,
@@ -1185,21 +1184,11 @@ export default function UploadPage({ mode = "admin", onSubmitted, onViewHistory 
                 {form.description.length} characters
               </div>
             </div>
-            <div>
-              <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}>
-                Tracklist <span style={{ color: "var(--text3)", fontWeight: 400 }}>(one per line)</span>
-              </label>
-              <textarea
-                className="inp"
-                placeholder={"01. Artist - Track\n02. Artist - Track\n03. Artist - Track"}
-                value={form.tracklist}
-                onChange={(e) => setForm((f) => ({ ...f, tracklist: e.target.value }))}
-                style={{ minHeight: isCompact ? 90 : 130 }}
-              />
-              <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>
-                {form.tracklist.split("\n").map((l) => l.trim()).filter(Boolean).length} items
-              </div>
-            </div>
+            <TracklistEditor
+              compact={isCompact}
+              value={form.tracklist}
+              onChange={(tracklist) => setForm((f) => ({ ...f, tracklist }))}
+            />
             <div>
               <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--text2)" }}>
                 Tags <span style={{ color: "var(--text3)", fontWeight: 400 }}>(comma separated)</span>

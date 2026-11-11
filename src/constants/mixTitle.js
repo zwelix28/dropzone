@@ -28,3 +28,17 @@ export function mixTitleBody(value) {
   const withPrefix = withMixTitlePrefix(value);
   return withPrefix.slice(MIX_TITLE_PREFIX.length).trim();
 }
+
+/** Default mix blurb used on upload and whenever the title is edited. */
+export function defaultMixDescription(title) {
+  const t = mixTitleBody(title);
+  if (!t) return "";
+  return `Listen to ${t} on Deep House Lab.`;
+}
+
+/** True when description is empty or still the auto-generated “Listen to … on Deep House Lab.” form. */
+export function isAutoMixDescription(description) {
+  const d = (description || "").trim();
+  if (!d) return true;
+  return /^Listen to .+ on Deep House Lab\.$/.test(d);
+}

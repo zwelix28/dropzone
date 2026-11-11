@@ -5415,6 +5415,173 @@ export const GlobalStyles = () => (
       }
     }
 
+    /* Mix tracklist — detail page + upload preview */
+    .mix-tracklist {
+      margin-top: 18px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background:
+        radial-gradient(120% 120% at 0% 0%, rgba(56, 189, 248, 0.10), transparent 55%),
+        linear-gradient(165deg, var(--surface2), var(--surface));
+      overflow: hidden;
+    }
+    .mix-tracklist.is-compact {
+      margin-top: 12px;
+      border-radius: 14px;
+    }
+    .mix-tracklist-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid rgba(30, 45, 69, 0.85);
+    }
+    .mix-tracklist.is-compact .mix-tracklist-head {
+      padding: 12px 14px 8px;
+    }
+    .mix-tracklist-kicker {
+      font-family: var(--ff-display);
+      font-size: 18px;
+      letter-spacing: 0.08em;
+      color: var(--text);
+    }
+    .mix-tracklist-count {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text3);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .mix-tracklist-list {
+      list-style: none;
+      margin: 0;
+      padding: 4px 0 8px;
+    }
+    .mix-tracklist-row {
+      display: grid;
+      grid-template-columns: 40px minmax(0, 1fr);
+      gap: 10px;
+      align-items: baseline;
+      padding: 9px 16px;
+      border-top: 1px solid rgba(30, 45, 69, 0.55);
+    }
+    .mix-tracklist-row:first-child {
+      border-top: none;
+    }
+    .mix-tracklist.is-compact .mix-tracklist-row {
+      padding: 8px 14px;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 8px;
+    }
+    .mix-tracklist-num {
+      font-variant-numeric: tabular-nums;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.04em;
+    }
+    .mix-tracklist-copy {
+      min-width: 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 6px 8px;
+      line-height: 1.35;
+    }
+    .mix-tracklist-artist {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .mix-tracklist-sep {
+      color: var(--text3);
+      font-size: 12px;
+    }
+    .mix-tracklist-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text2);
+      overflow-wrap: anywhere;
+    }
+    .mix-tracklist.is-compact .mix-tracklist-artist,
+    .mix-tracklist.is-compact .mix-tracklist-title {
+      font-size: 12px;
+    }
+
+    .tracklist-editor {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .tracklist-editor-toggle-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .tracklist-editor-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text2);
+      margin-bottom: 3px;
+    }
+    .tracklist-editor-hint {
+      font-size: 11px;
+      color: var(--text3);
+      line-height: 1.4;
+      max-width: 42ch;
+    }
+    .tracklist-editor-hint code {
+      font-size: 10px;
+      color: var(--accent3);
+    }
+    .tracklist-editor-switch {
+      flex-shrink: 0;
+      height: 34px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text2);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .tracklist-editor-switch.is-on {
+      background: rgba(14, 165, 233, 0.16);
+      border-color: rgba(56, 189, 248, 0.45);
+      color: var(--accent3);
+    }
+    .tracklist-editor-input {
+      min-height: 130px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .tracklist-editor.is-compact .tracklist-editor-input {
+      min-height: 100px;
+    }
+    .tracklist-editor-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text3);
+    }
+    .tracklist-editor-format-btn {
+      padding: 4px 10px;
+      font-size: 11px;
+    }
+    .tracklist-editor-confirmed-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
     /* Mix detail — mobile action row + seek slider */
     .mix-detail-mobile-actions {
       display: flex;
