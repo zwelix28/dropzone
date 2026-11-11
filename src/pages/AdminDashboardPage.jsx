@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
+import MixTracklist from "../components/MixTracklist.jsx";
+import TracklistEditor from "../components/TracklistEditor.jsx";
 import AdminInsightsPanel from "../components/admin/AdminInsightsPanel.jsx";
 import DjOfMonthPanel from "../components/admin/DjOfMonthPanel.jsx";
 import FloorEventsPanel from "../components/admin/FloorEventsPanel.jsx";
@@ -13,6 +15,12 @@ import { defaultMixDescription, isAutoMixDescription } from "../constants/mixTit
 import { PLAN_FREE, PLAN_PAID, PLAN_PRO } from "../constants/plans.js";
 import { profileRowToUser } from "../lib/maps.js";
 import { MIX_STATUS_APPROVED, MIX_STATUS_PENDING, MIX_STATUS_REJECTED } from "../lib/mixStatus.js";
+import {
+  normalizeTracklist,
+  resolveMixTracklist,
+  stripTracklistFromDescription,
+  tracklistToText,
+} from "../lib/tracklist.js";
 import { uploadMixCover } from "../lib/uploadMixCover.js";
 import { handleArtworkError, resolveMixArtwork } from "../constants/artwork.js";
 
@@ -253,12 +261,13 @@ export default function AdminDashboardPage() {
 
   const startEditSubmission = (submission) => {
     setEditingId(submission.id);
+    const resolved = resolveMixTracklist(submission.description, submission.tracklist);
     setEditForm({
       title: submission.title || "",
       genre: submission.genre || "Tech House",
-      description: submission.description || "",
+      description: resolved.description || "",
       tags: Array.isArray(submission.tags) ? submission.tags.join(", ") : "",
-      tracklist: Array.isArray(submission.tracklist) ? submission.tracklist.join("\n") : "",
+      tracklist: tracklistToText(resolved.tracklist),
       coverUrl: submission.cover_url || "",
       coverFile: null,
       coverPreview: "",
@@ -275,21 +284,20 @@ export default function AdminDashboardPage() {
     setBusy(true);
     setError(null);
     const title = (editForm.title || "").trim() || "Untitled Mix";
+    const tracklist = normalizeTracklist(editForm.tracklist);
+    const rawDescription = isAutoMixDescription(editForm.description)
+      ? defaultMixDescription(title)
+      : editForm.description || "";
     const patch = {
       title,
       genre: editForm.genre || "Tech House",
-      description: isAutoMixDescription(editForm.description)
-        ? defaultMixDescription(title)
-        : editForm.description || "",
+      description: stripTracklistFromDescription(rawDescription),
       tags: (editForm.tags || "")
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean)
         .slice(0, 12),
-      tracklist: (editForm.tracklist || "")
-        .split("\n")
-        .map((l) => l.trim())
-        .filter(Boolean),
+      tracklist,
     };
     if (editForm.coverFile) {
       try {
@@ -729,9 +737,20 @@ export default function AdminDashboardPage() {
                       {activeSubmission.review_note ? (
                         <p className="admin-submission-note">Note: {activeSubmission.review_note}</p>
                       ) : null}
-                      {activeSubmission.description ? (
-                        <p className="admin-submission-desc">{activeSubmission.description}</p>
-                      ) : null}
+                      {(() => {
+                        const resolved = resolveMixTracklist(
+                          activeSubmission.description,
+                          activeSubmission.tracklist,
+                        );
+                        return (
+                          <>
+                            {resolved.description ? (
+                              <p className="admin-submission-desc">{resolved.description}</p>
+                            ) : null}
+                            <MixTracklist tracklist={resolved.tracklist} compact />
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -895,18 +914,11 @@ export default function AdminDashboardPage() {
                           placeholder="deephouse, ibiza, underground"
                         />
                       </div>
-                      <div>
-                        <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 5, color: "var(--text2)" }}>
-                          Tracklist <span style={{ color: "var(--text3)", fontWeight: 400 }}>(one per line)</span>
-                        </label>
-                        <textarea
-                          className="inp"
-                          value={editForm.tracklist}
-                          onChange={(e) => setEditForm((f) => ({ ...f, tracklist: e.target.value }))}
-                          style={{ minHeight: 90 }}
-                          placeholder={"01. Artist - Track\n02. Artist - Track"}
-                        />
-                      </div>
+                      <TracklistEditor
+                        compact={isCompact}
+                        value={editForm.tracklist}
+                        onChange={(tracklist) => setEditForm((f) => ({ ...f, tracklist }))}
+                      />
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                         <button
                           type="button"

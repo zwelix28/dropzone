@@ -51,14 +51,14 @@ function buildComment(episode, artist, mixUrl) {
   if (Array.isArray(episode.tracklist) && episode.tracklist.length) {
     lines.push("");
     lines.push("Tracklist:");
-    episode.tracklist.forEach((entry, index) => {
-      if (typeof entry === "string") {
-        lines.push(`${index + 1}. ${entry}`);
+    episode.tracklist.forEach((entry) => {
+      if (typeof entry === "string" && entry.trim()) {
+        lines.push(entry.trim());
         return;
       }
       if (entry?.title) {
-        const credit = entry.artist ? ` — ${entry.artist}` : "";
-        lines.push(`${index + 1}. ${entry.title}${credit}`);
+        const credit = entry.artist ? `${entry.artist} - ` : "";
+        lines.push(`${credit}${entry.title}`.trim());
       }
     });
   }
