@@ -9,6 +9,7 @@ import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 import { GENRES } from "../constants/genres.js";
+import { defaultMixDescription, isAutoMixDescription } from "../constants/mixTitle.js";
 import { PLAN_FREE, PLAN_PAID, PLAN_PRO } from "../constants/plans.js";
 import { profileRowToUser } from "../lib/maps.js";
 import { MIX_STATUS_APPROVED, MIX_STATUS_PENDING, MIX_STATUS_REJECTED } from "../lib/mixStatus.js";
@@ -273,10 +274,13 @@ export default function AdminDashboardPage() {
     if (!editForm) return;
     setBusy(true);
     setError(null);
+    const title = (editForm.title || "").trim() || "Untitled Mix";
     const patch = {
-      title: (editForm.title || "").trim() || "Untitled Mix",
+      title,
       genre: editForm.genre || "Tech House",
-      description: editForm.description || "",
+      description: isAutoMixDescription(editForm.description)
+        ? defaultMixDescription(title)
+        : editForm.description || "",
       tags: (editForm.tags || "")
         .split(",")
         .map((t) => t.trim())
@@ -838,7 +842,16 @@ export default function AdminDashboardPage() {
                         <input
                           className="inp"
                           value={editForm.title}
-                          onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                          onChange={(e) => {
+                            const title = e.target.value;
+                            setEditForm((f) => ({
+                              ...f,
+                              title,
+                              ...(isAutoMixDescription(f.description)
+                                ? { description: defaultMixDescription(title) }
+                                : {}),
+                            }));
+                          }}
                         />
                       </div>
                       <div>
@@ -867,6 +880,9 @@ export default function AdminDashboardPage() {
                           onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
                           style={{ minHeight: 90 }}
                         />
+                        <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>
+                          Updates automatically with the title when it still matches the default “Listen to … on Deep House Lab.” form.
+                        </div>
                       </div>
                       <div>
                         <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 5, color: "var(--text2)" }}>

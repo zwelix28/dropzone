@@ -3,7 +3,12 @@ import { useNavigate } from "react-router-dom";
 import GenrePicker from "../components/GenrePicker.jsx";
 import Icon from "../components/Icon.jsx";
 import PageHeader from "../components/PageHeader.jsx";
-import { MIX_TITLE_PREFIX, mixTitleBody, withMixTitlePrefix } from "../constants/mixTitle.js";
+import {
+  MIX_TITLE_PREFIX,
+  defaultMixDescription,
+  mixTitleBody,
+  withMixTitlePrefix,
+} from "../constants/mixTitle.js";
 import { isProPlan } from "../constants/plans.js";
 import { useApp } from "../context/AppContext.jsx";
 import { signedInHomePath } from "../featureFlags.js";
@@ -66,12 +71,6 @@ async function insertMixRow(row, { isSubmission }) {
   }
 
   throw new Error("Could not save the mix details.");
-}
-
-function defaultMixDescription(title) {
-  const t = mixTitleBody(title);
-  if (!t) return "";
-  return `Listen to ${t} on Deep House Lab.`;
 }
 
 /** Decoding duration via <audio> OOMs Safari on large mixes and can reload the tab. */

@@ -13,6 +13,7 @@ import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { handleArtworkError, resolveMixArtwork } from "../constants/artwork.js";
 import { GENRES } from "../constants/genres.js";
+import { defaultMixDescription, isAutoMixDescription } from "../constants/mixTitle.js";
 import { canDownloadMix } from "../constants/plans.js";
 import { FEATURE_MIX_COMMENTS, signedInHomePath } from "../featureFlags.js";
 import { episodeHasAudioSource } from "../lib/audioUrls.js";
@@ -163,9 +164,12 @@ export default function MixDetailPage() {
     if (!canEdit) return;
     setSaving(true);
     setSaveError("");
+    const title = (edit.title || "").trim() || "Untitled Mix";
     const next = {
-      title: (edit.title || "").trim() || "Untitled Mix",
-      description: edit.description || "",
+      title,
+      description: isAutoMixDescription(edit.description)
+        ? defaultMixDescription(title)
+        : edit.description || "",
       genre: edit.genre || "Tech House",
       tags: (edit.tags || "")
         .split(",")
@@ -627,7 +631,20 @@ export default function MixDetailPage() {
                   >
                     Title
                   </label>
-                  <input className="inp" value={edit.title} onChange={(e) => setEdit((s) => ({ ...s, title: e.target.value }))} />
+                  <input
+                    className="inp"
+                    value={edit.title}
+                    onChange={(e) => {
+                      const title = e.target.value;
+                      setEdit((s) => ({
+                        ...s,
+                        title,
+                        ...(isAutoMixDescription(s.description)
+                          ? { description: defaultMixDescription(title) }
+                          : {}),
+                      }));
+                    }}
+                  />
                 </div>
 
                 <div>
@@ -689,6 +706,9 @@ export default function MixDetailPage() {
                     onChange={(e) => setEdit((s) => ({ ...s, description: e.target.value }))}
                     style={{ minHeight: isCompact ? 96 : 140 }}
                   />
+                  <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>
+                    Updates automatically with the title when it still matches the default “Listen to … on Deep House Lab.” form.
+                  </div>
                 </div>
 
                 <div
