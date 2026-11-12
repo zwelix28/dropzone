@@ -78,7 +78,9 @@ export default function AuthModal({ onClose }) {
         if (result.ok) {
           if (result.needsEmailConfirmation) {
             setRegisterInfo(
-              "Check your email to confirm your address, then sign in. (You can disable “Confirm email” in Supabase for instant login while testing.)",
+              import.meta.env.DEV
+                ? "Check your email to confirm your address, then sign in. (You can disable “Confirm email” in Supabase for instant login while testing.)"
+                : "Check your email to confirm your address, then sign in.",
             );
           } else {
             onClose();
@@ -148,8 +150,13 @@ export default function AuthModal({ onClose }) {
 
         {forgotSent ? (
           <p className="auth-notice is-ok">
-            If an account exists for that email, you’ll receive a reset link shortly. Add{" "}
-            <code>/reset-password</code> to Supabase redirect URLs.
+            If an account exists for that email, you’ll receive a reset link shortly.
+            {import.meta.env.DEV ? (
+              <>
+                {" "}
+                Dev: add <code>/reset-password</code> to Supabase redirect URLs.
+              </>
+            ) : null}
           </p>
         ) : null}
 

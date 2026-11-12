@@ -65,7 +65,7 @@ export default function HomePage() {
             Get the app
           </button>
           <button type="button" className="landing-site-btn" onClick={listenNow}>
-            Listen now
+            Login
           </button>
         </nav>
         <button
@@ -89,7 +89,7 @@ export default function HomePage() {
               Get the app
             </button>
             <button type="button" className="landing-site-btn landing-site-sheet-cta" onClick={listenNow}>
-              Listen now
+              Login
             </button>
           </div>
         </div>

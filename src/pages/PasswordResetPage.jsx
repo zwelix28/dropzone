@@ -111,10 +111,12 @@ export default function PasswordResetPage() {
         <p style={{ color: "var(--text2)", lineHeight: 1.6, marginBottom: 20 }}>
           Open the reset link from your email. If you just clicked it, wait a second for this page to update.
         </p>
-        <p style={{ fontSize: 13, color: "var(--text3)" }}>
-          In Supabase → Authentication → URL Configuration, add your site URL and{" "}
-          <code style={{ color: "var(--accent)" }}>/reset-password</code> to Redirect URLs.
-        </p>
+        {import.meta.env.DEV ? (
+          <p style={{ fontSize: 13, color: "var(--text3)" }}>
+            Dev: In Supabase → Authentication → URL Configuration, add your site URL and{" "}
+            <code style={{ color: "var(--accent)" }}>/reset-password</code> to Redirect URLs.
+          </p>
+        ) : null}
         <div style={{ marginTop: 24 }}>
           <BackButton to="/" label="Home" />
         </div>
