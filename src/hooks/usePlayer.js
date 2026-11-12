@@ -783,7 +783,7 @@ export default function usePlayer({
       const nextSec = (eff * p) / 100;
       audio.currentTime = nextSec;
       setProgress(p);
-      // Restart / scrub back before the cue must re-arm the station ID VO.
+      // Restart / scrub back before a cue must re-arm that station ID VO.
       stationIdRef.current?.onSeekTo(nextSec, { guestPreviewOnly: false });
       if (seekSaveTimerRef.current) clearTimeout(seekSaveTimerRef.current);
       seekSaveTimerRef.current = setTimeout(() => {

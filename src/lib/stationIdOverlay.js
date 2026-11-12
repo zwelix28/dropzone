@@ -1,34 +1,56 @@
 /**
- * Station-ID voice-over over the main mix player.
+ * Station-ID voice-overs over the main mix player.
  *
  * - Does not change the mix element volume, URLs, downloads, or Media Session.
- * - Second HTMLAudioElement + Web Audio delay/echo for blend.
+ * - Separate HTMLAudioElement per cue + Web Audio delay/echo for blend.
  * - Fail-safe: errors are swallowed; mix playback is never blocked.
  */
 
 export const STATION_ID_SRC = "/dhl_vo.mp3";
+export const STATION_ID_30M_SRC = "/dhl_vo_30m.mp3";
 
-/** Fire once this many seconds into each mix listen. */
-const CUE_SEC = 5;
-/** Skip only if the mix is shorter than the cue + VO. */
-const MIN_MIX_DURATION_SEC = CUE_SEC + 6;
+/** Shared level under denser mixes (tracks main player volume). */
 const VO_LEVEL = 0.745; // was 0.828; another −10% under denser mixes
+
+/** How far past a cue we still allow it to start (timeupdate / seek slack). */
+const CUE_FIRE_WINDOW_SEC = 8;
+
+const CUES = [
+  { id: "intro", src: STATION_ID_SRC, cueSec: 5 },
+  { id: "mid30", src: STATION_ID_30M_SRC, cueSec: 30 * 60 },
+];
 
 function clamp01(n) {
   return Math.max(0, Math.min(1, Number(n) || 0));
+}
+
+function minMixDurationForCue(cueSec) {
+  return cueSec + 6;
 }
 
 /**
  * @param {{ getMainAudio: () => HTMLAudioElement | null }} opts
  */
 export function createStationIdOverlay({ getMainAudio }) {
-  let vo = null;
   let ctx = null;
-  let graphReady = false;
   let trackKey = null;
-  let fired = false;
-  let active = false;
   let userVolume = 0.75;
+
+  /** @type {Map<string, { vo: HTMLAudioElement | null, graphReady: boolean, fired: boolean, active: boolean, cueSec: number, src: string }>} */
+  const slots = new Map(
+    CUES.map((c) => [
+      c.id,
+      {
+        id: c.id,
+        src: c.src,
+        cueSec: c.cueSec,
+        vo: null,
+        graphReady: false,
+        fired: false,
+        active: false,
+      },
+    ]),
+  );
 
   const applyMixVolume = () => {
     const main = getMainAudio?.();
@@ -40,13 +62,19 @@ export function createStationIdOverlay({ getMainAudio }) {
     }
   };
 
-  const applyVoVolume = () => {
-    if (!vo) return;
+  const applyVoVolume = (slot) => {
+    if (!slot?.vo) return;
     try {
       // Element volume still feeds the Web Audio graph.
-      vo.volume = clamp01(userVolume * VO_LEVEL);
+      slot.vo.volume = clamp01(userVolume * VO_LEVEL);
     } catch {
       /* ignore */
+    }
+  };
+
+  const applyAllVoVolumes = () => {
+    for (const slot of slots.values()) {
+      if (slot.active) applyVoVolume(slot);
     }
   };
 
@@ -65,8 +93,8 @@ export function createStationIdOverlay({ getMainAudio }) {
     return ctx;
   };
 
-  const buildEchoGraph = (audioCtx, element) => {
-    if (graphReady) return;
+  const buildEchoGraph = (slot, audioCtx, element) => {
+    if (slot.graphReady) return;
     let source = null;
     try {
       source = audioCtx.createMediaElementSource(element);
@@ -102,33 +130,33 @@ export function createStationIdOverlay({ getMainAudio }) {
       tone.connect(wet);
       wet.connect(audioCtx.destination);
 
-      graphReady = true;
+      slot.graphReady = true;
     } catch {
       // Once createMediaElementSource succeeds, the element must stay routed
       // through the audio context or it will be silent.
       try {
         if (source) source.connect(audioCtx.destination);
-        graphReady = Boolean(source);
+        slot.graphReady = Boolean(source);
       } catch {
-        graphReady = false;
+        slot.graphReady = false;
       }
     }
   };
 
-  const ensureVo = async () => {
+  const ensureVo = async (slot) => {
     if (typeof Audio === "undefined") return null;
-    if (!vo) {
+    if (!slot.vo) {
       try {
-        vo = new Audio(STATION_ID_SRC);
+        const vo = new Audio(slot.src);
         vo.preload = "auto";
         vo.loop = false;
         vo.crossOrigin = "anonymous";
-        vo.setAttribute("data-dhl-station-id", "1");
+        vo.setAttribute("data-dhl-station-id", slot.id);
         vo.addEventListener("ended", () => {
-          active = false;
+          slot.active = false;
         });
         vo.addEventListener("error", () => {
-          active = false;
+          slot.active = false;
         });
         // Warm the file so the first millisecond isn't clipped by buffering.
         try {
@@ -136,159 +164,190 @@ export function createStationIdOverlay({ getMainAudio }) {
         } catch {
           /* ignore */
         }
+        slot.vo = vo;
       } catch {
         return null;
       }
     }
 
     const audioCtx = await ensureContext();
-    if (audioCtx && vo) buildEchoGraph(audioCtx, vo);
-    return vo;
+    if (audioCtx && slot.vo) buildEchoGraph(slot, audioCtx, slot.vo);
+    return slot.vo;
   };
 
-  const stopVo = ({ resetPosition = true } = {}) => {
-    if (vo) {
+  const stopVo = (slot, { resetPosition = true } = {}) => {
+    if (slot.vo) {
       try {
-        vo.pause();
-        if (resetPosition) vo.currentTime = 0;
+        slot.vo.pause();
+        if (resetPosition) slot.vo.currentTime = 0;
       } catch {
         /* ignore */
       }
     }
-    active = false;
+    slot.active = false;
   };
 
-  const startVo = async () => {
-    if (fired || active) return;
-    fired = true;
+  const stopAll = ({ resetPosition = true } = {}) => {
+    for (const slot of slots.values()) stopVo(slot, { resetPosition });
+  };
+
+  const startVo = async (slot) => {
+    if (slot.fired || slot.active) return;
+    slot.fired = true;
 
     const main = getMainAudio?.();
     if (!main || main.paused) {
       // Mix isn't playing yet — allow a later retry when playback continues.
-      fired = false;
+      slot.fired = false;
       return;
     }
 
-    const bed = await ensureVo();
+    const bed = await ensureVo(slot);
     if (!bed) {
-      fired = false;
+      slot.fired = false;
       return;
     }
 
     try {
       // Never start from silence: set level before play so the first samples are heard.
-      applyVoVolume();
+      applyVoVolume(slot);
       if (bed.currentTime > 0.01) bed.currentTime = 0;
       // Give the decoder a tick after seek-to-start on some mobile browsers.
       await new Promise((r) => setTimeout(r, 30));
-      applyVoVolume();
+      applyVoVolume(slot);
       await ensureContext();
       await bed.play();
-      active = true;
+      slot.active = true;
       applyMixVolume();
     } catch {
-      active = false;
-      fired = false;
-      stopVo({ resetPosition: true });
+      slot.active = false;
+      slot.fired = false;
+      stopVo(slot, { resetPosition: true });
       applyMixVolume();
     }
   };
 
+  const armSlotForResume = (slot, resumeSec) => {
+    if (resumeSec > slot.cueSec) {
+      slot.fired = true;
+      return;
+    }
+    slot.fired = false;
+    void ensureVo(slot);
+  };
+
   return {
     onTrackChange(nextTrackId, { resumeSec = 0, guestPreviewOnly = false } = {}) {
-      stopVo({ resetPosition: true });
+      stopAll({ resetPosition: true });
       trackKey = nextTrackId || null;
-      fired = false;
-      active = false;
-      if (guestPreviewOnly || resumeSec > CUE_SEC) {
-        fired = true;
-        return;
+      for (const slot of slots.values()) {
+        slot.fired = false;
+        slot.active = false;
+        if (guestPreviewOnly) {
+          slot.fired = true;
+          continue;
+        }
+        armSlotForResume(slot, resumeSec);
       }
-      void ensureVo();
       applyMixVolume();
     },
 
     setUserVolume(percent) {
       userVolume = clamp01((Number(percent) || 0) / 100);
       applyMixVolume();
-      if (active) applyVoVolume();
+      applyAllVoVolumes();
     },
 
     /**
      * Call after the main mix seek position changes (scrub / Restart).
-     * Seeking back before the cue arms the VO again so Restart replays the tag.
+     * Seeking back before a cue arms that VO again so Restart replays the tag.
      */
     onSeekTo(currentTimeSec, { guestPreviewOnly = false } = {}) {
       if (guestPreviewOnly || !trackKey) return;
       const t = Number(currentTimeSec) || 0;
-      if (t < CUE_SEC) {
-        stopVo({ resetPosition: true });
-        fired = false;
-        active = false;
-        void ensureVo();
-        return;
-      }
-      // Jumped past the intro cue window — don't fire mid-mix.
-      if (t > CUE_SEC + 8) {
-        stopVo({ resetPosition: true });
-        fired = true;
-        active = false;
+      for (const slot of slots.values()) {
+        if (t < slot.cueSec) {
+          stopVo(slot, { resetPosition: true });
+          slot.fired = false;
+          slot.active = false;
+          void ensureVo(slot);
+          continue;
+        }
+        // Jumped past this cue's fire window — don't start it mid-phrase.
+        if (t > slot.cueSec + CUE_FIRE_WINDOW_SEC) {
+          stopVo(slot, { resetPosition: true });
+          slot.fired = true;
+          slot.active = false;
+        }
       }
     },
 
     onTimeUpdate(currentTime, { durationSec = 0, guestPreviewOnly = false } = {}) {
-      if (guestPreviewOnly || !trackKey || fired || active) return;
+      if (guestPreviewOnly || !trackKey) return;
       const t = Number(currentTime) || 0;
       const dur = Number(durationSec) || 0;
-      if (dur > 0 && dur < MIN_MIX_DURATION_SEC) {
-        fired = true;
-        return;
-      }
-      // Seeked far past the cue — don't drop the tag mid-mix.
-      if (t > CUE_SEC + 8) {
-        fired = true;
-        return;
-      }
-      if (t + 0.05 >= CUE_SEC) {
-        void startVo();
+
+      for (const slot of slots.values()) {
+        if (slot.fired || slot.active) continue;
+        if (dur > 0 && dur < minMixDurationForCue(slot.cueSec)) {
+          slot.fired = true;
+          continue;
+        }
+        // Seeked far past the cue — don't drop the tag mid-mix.
+        if (t > slot.cueSec + CUE_FIRE_WINDOW_SEC) {
+          slot.fired = true;
+          continue;
+        }
+        if (t + 0.05 >= slot.cueSec) {
+          void startVo(slot);
+        }
       }
     },
 
     onMainPause() {
-      // Keep cue state; only pause the VO so Play can continue it.
-      if (!active || !vo) return;
-      try {
-        vo.pause();
-      } catch {
-        /* ignore */
-      }
-    },
-
-    onMainPlay() {
-      if (!active || !vo) return;
-      if (vo.ended) {
-        active = false;
-        return;
-      }
-      applyVoVolume();
-      void ensureContext()
-        .then(() => vo.play())
-        .catch(() => {
-          /* ignore */
-        });
-    },
-
-    dispose() {
-      stopVo({ resetPosition: true });
-      if (vo) {
+      // Keep cue state; only pause active VOs so Play can continue them.
+      for (const slot of slots.values()) {
+        if (!slot.active || !slot.vo) continue;
         try {
-          vo.removeAttribute("src");
-          vo.load();
+          slot.vo.pause();
         } catch {
           /* ignore */
         }
       }
-      vo = null;
+    },
+
+    onMainPlay() {
+      for (const slot of slots.values()) {
+        if (!slot.active || !slot.vo) continue;
+        if (slot.vo.ended) {
+          slot.active = false;
+          continue;
+        }
+        applyVoVolume(slot);
+        void ensureContext()
+          .then(() => slot.vo.play())
+          .catch(() => {
+            /* ignore */
+          });
+      }
+    },
+
+    dispose() {
+      stopAll({ resetPosition: true });
+      for (const slot of slots.values()) {
+        if (slot.vo) {
+          try {
+            slot.vo.removeAttribute("src");
+            slot.vo.load();
+          } catch {
+            /* ignore */
+          }
+        }
+        slot.vo = null;
+        slot.graphReady = false;
+        slot.fired = false;
+        slot.active = false;
+      }
       if (ctx) {
         try {
           void ctx.close();
@@ -297,7 +356,6 @@ export function createStationIdOverlay({ getMainAudio }) {
         }
       }
       ctx = null;
-      graphReady = false;
       trackKey = null;
     },
   };

@@ -1,7 +1,8 @@
 import { useRef } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import AppLayout from "./layouts/AppLayout.jsx";
 import { useApp } from "./context/AppContext.jsx";
+import { isPasswordRecoveryPending } from "./lib/passwordRecovery.js";
 import HomeRoute from "./routes/HomeRoute.jsx";
 import DiscoverPage from "./pages/DiscoverPage.jsx";
 import ForYouPage from "./pages/ForYouPage.jsx";
@@ -116,59 +117,79 @@ function SubmitMixRoute() {
   return <SubmitMixPage />;
 }
 
+/** Recovery sessions must stay on /reset-password until a new password is set. */
+function RecoveryRedirect({ children }) {
+  const location = useLocation();
+  if (isPasswordRecoveryPending() && location.pathname !== "/reset-password") {
+    return (
+      <Navigate
+        to={{
+          pathname: "/reset-password",
+          search: location.search,
+          hash: location.hash,
+        }}
+        replace
+      />
+    );
+  }
+  return children;
+}
+
 export default function App() {
   return (
-    <Routes>
-      <Route path="/reset-password" element={<PasswordResetPage />} />
-      <Route element={<AppLayout />}>
-        <Route path="/" element={<HomeRoute />} />
-        <Route
-          path="/discover"
-          element={FEATURE_DISCOVER ? <DiscoverRoute /> : <Navigate to={signedInHomePath()} replace />}
-        />
-        <Route path="/home" element={<LabHomeRoute />} />
-        <Route path="/mixes" element={<MixesRoute />} />
-        <Route
-          path="/vault-feed"
-          element={FEATURE_VAULT_FEED ? <VaultFeedPage /> : <Navigate to={signedInHomePath()} replace />}
-        />
-        <Route path="/foryou" element={<ForYouPage />} />
-        <Route path="/live" element={FEATURE_LIVE ? <LiveRoute /> : <Navigate to="/" replace />} />
-        <Route
-          path="/top10"
-          element={FEATURE_TOP10 ? <Top10Page /> : <Navigate to={signedInHomePath()} replace />}
-        />
-        <Route path="/upload" element={<UploadRoute />} />
-        <Route path="/submit-mix" element={<SubmitMixRoute />} />
-        <Route path="/dj" element={FEATURE_LETS_DJ ? <LetsDJPage /> : <Navigate to="/" replace />} />
-        <Route path="/mix/:id" element={<MixDetailPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/connections" element={<ConnectionsPage />} />
-        <Route
-          path="/community"
-          element={FEATURE_COMMUNITY ? <CommunityPage /> : <Navigate to={signedInHomePath()} replace />}
-        />
-        <Route path="/likes" element={<LikesPage />} />
-        <Route path="/library" element={<LibraryPage />} />
-        <Route path="/messages" element={<MessagesPage />} />
-        <Route path="/messages/to/:userId" element={<MessageStartPage />} />
-        <Route path="/messages/:threadId" element={<MessagesPage />} />
-        <Route path="/user/:userId" element={<UserProfilePage />} />
-        <Route
-          path="/stats"
-          element={FEATURE_STATS ? <StatsPage /> : <Navigate to={signedInHomePath()} replace />}
-        />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route
-          path="/floor"
-          element={FEATURE_ON_THE_FLOOR ? <FloorPage /> : <Navigate to={signedInHomePath()} replace />}
-        />
-        <Route path="/on-the-floor" element={<FloorSubmitPage />} />
-        <Route path="/admin" element={<AdminRoute />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Route>
-    </Routes>
+    <RecoveryRedirect>
+      <Routes>
+        <Route path="/reset-password" element={<PasswordResetPage />} />
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<HomeRoute />} />
+          <Route
+            path="/discover"
+            element={FEATURE_DISCOVER ? <DiscoverRoute /> : <Navigate to={signedInHomePath()} replace />}
+          />
+          <Route path="/home" element={<LabHomeRoute />} />
+          <Route path="/mixes" element={<MixesRoute />} />
+          <Route
+            path="/vault-feed"
+            element={FEATURE_VAULT_FEED ? <VaultFeedPage /> : <Navigate to={signedInHomePath()} replace />}
+          />
+          <Route path="/foryou" element={<ForYouPage />} />
+          <Route path="/live" element={FEATURE_LIVE ? <LiveRoute /> : <Navigate to="/" replace />} />
+          <Route
+            path="/top10"
+            element={FEATURE_TOP10 ? <Top10Page /> : <Navigate to={signedInHomePath()} replace />}
+          />
+          <Route path="/upload" element={<UploadRoute />} />
+          <Route path="/submit-mix" element={<SubmitMixRoute />} />
+          <Route path="/dj" element={FEATURE_LETS_DJ ? <LetsDJPage /> : <Navigate to="/" replace />} />
+          <Route path="/mix/:id" element={<MixDetailPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/connections" element={<ConnectionsPage />} />
+          <Route
+            path="/community"
+            element={FEATURE_COMMUNITY ? <CommunityPage /> : <Navigate to={signedInHomePath()} replace />}
+          />
+          <Route path="/likes" element={<LikesPage />} />
+          <Route path="/library" element={<LibraryPage />} />
+          <Route path="/messages" element={<MessagesPage />} />
+          <Route path="/messages/to/:userId" element={<MessageStartPage />} />
+          <Route path="/messages/:threadId" element={<MessagesPage />} />
+          <Route path="/user/:userId" element={<UserProfilePage />} />
+          <Route
+            path="/stats"
+            element={FEATURE_STATS ? <StatsPage /> : <Navigate to={signedInHomePath()} replace />}
+          />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route
+            path="/floor"
+            element={FEATURE_ON_THE_FLOOR ? <FloorPage /> : <Navigate to={signedInHomePath()} replace />}
+          />
+          <Route path="/on-the-floor" element={<FloorSubmitPage />} />
+          <Route path="/admin" element={<AdminRoute />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </RecoveryRedirect>
   );
 }
 

@@ -15,6 +15,7 @@ import useMediaQuery from "../hooks/useMediaQuery.js";
 import usePresenceHeartbeat from "../hooks/usePresenceHeartbeat.js";
 import { isAccountApproved } from "../lib/accountAccess.js";
 import { isLocalMode } from "../lib/localMode.js";
+import { isPasswordRecoveryPending } from "../lib/passwordRecovery.js";
 
 export default function AppLayout() {
   const { auth, player, users, notificationsByUser, markAllRead, markRead, refreshNotifications, dmUnreadCount } = useApp();
@@ -31,8 +32,10 @@ export default function AppLayout() {
     !auth.authLoading &&
     !auth.session?.user?.id &&
     (location.pathname === "/" || location.pathname === "/register");
+  // Recovery sessions must not hit the approval wall (old logo flash / skip reset form).
   const awaitingApproval =
     !auth.authLoading &&
+    !isPasswordRecoveryPending() &&
     Boolean(auth.session?.user?.id) &&
     Boolean(auth.currentUser) &&
     !isAccountApproved(auth.currentUser);

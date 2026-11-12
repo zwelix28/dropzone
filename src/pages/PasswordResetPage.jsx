@@ -1,13 +1,24 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import BackButton from "../components/BackButton.jsx";
 import Icon from "../components/Icon.jsx";
 import PasswordField from "../components/PasswordField.jsx";
+import { signedInHomePath } from "../featureFlags.js";
+import {
+  clearPasswordRecoveryPending,
+  isPasswordRecoveryPending,
+  markPasswordRecoveryPending,
+  urlLooksLikePasswordRecovery,
+} from "../lib/passwordRecovery.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
+import { useApp } from "../context/AppContext.jsx";
+
+const ART = "/DeepHouseLabLogo.png";
 
 export default function PasswordResetPage() {
   const navigate = useNavigate();
+  const { auth } = useApp();
   const [recoveryReady, setRecoveryReady] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState(null);
@@ -19,44 +30,49 @@ export default function PasswordResetPage() {
   const passwordMismatch = confirmTouched && !passwordsMatch;
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) return;
+    if (!isSupabaseConfigured()) {
+      setChecking(false);
+      return undefined;
+    }
+
+    if (urlLooksLikePasswordRecovery() || isPasswordRecoveryPending()) {
+      markPasswordRecoveryPending();
+    }
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY") {
+        markPasswordRecoveryPending();
         setRecoveryReady(true);
+        setChecking(false);
+        return;
+      }
+      if (session && isPasswordRecoveryPending()) {
+        setRecoveryReady(true);
+        setChecking(false);
       }
     });
 
-    const fromRecoveryUrl = () => {
-      try {
-        const h = window.location.hash || "";
-        const s = window.location.search || "";
-        if (h.includes("type=recovery")) return true;
-        if (h.includes("access_token") && h.includes("recovery")) return true;
-        if (s.includes("code=") && window.location.pathname.includes("reset-password")) return true;
-        return false;
-      } catch {
-        return false;
+    let cancelled = false;
+    (async () => {
+      // Give detectSessionInUrl a moment to exchange hash/PKCE tokens.
+      await new Promise((r) => window.setTimeout(r, 350));
+      if (cancelled) return;
+
+      const { data } = await supabase.auth.getSession();
+      if (cancelled) return;
+
+      if (data.session && (isPasswordRecoveryPending() || urlLooksLikePasswordRecovery())) {
+        markPasswordRecoveryPending();
+        setRecoveryReady(true);
       }
-    };
-
-    if (fromRecoveryUrl()) {
-      setRecoveryReady(true);
-    }
-
-    const t = window.setTimeout(() => {
-      void supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session && fromRecoveryUrl()) {
-          setRecoveryReady(true);
-        }
-      });
-    }, 500);
+      setChecking(false);
+    })();
 
     return () => {
+      cancelled = true;
       subscription.unsubscribe();
-      window.clearTimeout(t);
     };
   }, []);
 
@@ -71,69 +87,125 @@ export default function PasswordResetPage() {
     }
     setBusy(true);
     setError(null);
-    const { error: upErr } = await supabase.auth.updateUser({ password });
+    const { ok, error: upErr } = await auth.updatePassword(password);
     setBusy(false);
-    if (upErr) {
-      setError(upErr.message);
+    if (!ok) {
+      setError(upErr || "Could not update password.");
       return;
     }
+    clearPasswordRecoveryPending();
     setDone(true);
-    window.setTimeout(() => navigate("/"), 1800);
+    window.setTimeout(() => navigate(signedInHomePath(), { replace: true }), 1600);
   };
 
-  if (!isSupabaseConfigured()) {
-    return (
-      <div className="fade-in" style={{ padding: "48px 36px", maxWidth: 480 }}>
-        <p style={{ color: "var(--orange)" }}>Supabase is not configured.</p>
+  const shell = (body) => (
+    <div className="landing-site register-page">
+      <div className="landing-site-glow" aria-hidden="true" />
+      <div className="modal-overlay register-modal-overlay auth-overlay" role="dialog" aria-label="Reset password">
+        <div className="modal auth-card">{body}</div>
       </div>
+    </div>
+  );
+
+  if (!isSupabaseConfigured()) {
+    return shell(
+      <>
+        <div className="auth-brand">
+          <img src={ART} alt="Deep House Lab" width={72} height={72} />
+        </div>
+        <p className="auth-notice is-warn">Sign-in isn’t available right now. Please try again later.</p>
+        <Link to="/" className="auth-submit" style={{ textAlign: "center", textDecoration: "none" }}>
+          Back to Home
+        </Link>
+      </>,
     );
   }
 
   if (done) {
-    return (
-      <div className="fade-in" style={{ padding: "48px 36px", maxWidth: 480, margin: "0 auto" }}>
-        <Icon name="check" size={40} color="var(--green)" />
-        <h1 style={{ fontSize: 24, marginTop: 16 }}>Password updated</h1>
-        <p style={{ color: "var(--text2)", marginTop: 8 }}>Redirecting you home…</p>
-        <Link to="/" style={{ display: "inline-block", marginTop: 20, color: "var(--accent)", fontWeight: 600 }}>
+    return shell(
+      <>
+        <div className="auth-brand">
+          <img src={ART} alt="Deep House Lab" width={72} height={72} />
+        </div>
+        <div className="auth-head auth-head-solo">
+          <div>
+            <h2 className="auth-title">Password updated</h2>
+            <p className="auth-sub">You’re back in — taking you into the Lab.</p>
+          </div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+          <Icon name="check" size={36} color="var(--green)" />
+        </div>
+        <Link to={signedInHomePath()} className="auth-submit" style={{ textAlign: "center", textDecoration: "none" }}>
           Continue
         </Link>
-      </div>
+      </>,
+    );
+  }
+
+  if (checking) {
+    return shell(
+      <>
+        <div className="auth-brand">
+          <img src={ART} alt="Deep House Lab" width={72} height={72} />
+        </div>
+        <p className="auth-notice">Checking your reset link…</p>
+      </>,
     );
   }
 
   if (!recoveryReady) {
-    return (
-      <div className="fade-in" style={{ padding: "48px 36px", maxWidth: 520, margin: "0 auto" }}>
-        <h1 style={{ fontFamily: "var(--ff-display)", fontSize: 28, letterSpacing: "0.04em", marginBottom: 8 }}>
-          RESET PASSWORD
-        </h1>
-        <p style={{ color: "var(--text2)", lineHeight: 1.6, marginBottom: 20 }}>
-          Open the reset link from your email. If you just clicked it, wait a second for this page to update.
-        </p>
+    return shell(
+      <>
+        <Link to="/" className="auth-close auth-close-abs" aria-label="Close">
+          <Icon name="x" size={20} />
+        </Link>
+        <div className="auth-brand">
+          <img src={ART} alt="Deep House Lab" width={72} height={72} />
+        </div>
+        <div className="auth-head auth-head-solo">
+          <div>
+            <h2 className="auth-title">Reset password</h2>
+            <p className="auth-sub">
+              Open the link from your email on this device. If you already did, request a new reset from Sign in.
+            </p>
+          </div>
+        </div>
         {import.meta.env.DEV ? (
-          <p style={{ fontSize: 13, color: "var(--text3)" }}>
-            Dev: In Supabase → Authentication → URL Configuration, add your site URL and{" "}
-            <code style={{ color: "var(--accent)" }}>/reset-password</code> to Redirect URLs.
+          <p className="auth-notice is-warn">
+            Dev: confirm Site URL and Redirect URL include <code>/reset-password</code> in Supabase Auth settings.
           </p>
         ) : null}
-        <div style={{ marginTop: 24 }}>
-          <BackButton to="/" label="Home" />
-        </div>
-      </div>
+        <button
+          type="button"
+          className="auth-submit"
+          onClick={() => {
+            clearPasswordRecoveryPending();
+            navigate("/", { replace: true });
+            auth.setShowAuth(true);
+          }}
+        >
+          Back to sign in
+        </button>
+      </>,
     );
   }
 
-  return (
-    <div className="fade-in" style={{ padding: "48px 36px", maxWidth: 440, margin: "0 auto" }}>
-      <h1 style={{ fontFamily: "var(--ff-display)", fontSize: 28, letterSpacing: "0.04em", marginBottom: 8 }}>
-        NEW PASSWORD
-      </h1>
-      <p style={{ color: "var(--text2)", marginBottom: 24, fontSize: 14 }}>Choose a new password for your account.</p>
+  return shell(
+    <>
+      <div className="auth-brand">
+        <img src={ART} alt="Deep House Lab" width={72} height={72} />
+      </div>
+      <div className="auth-head auth-head-solo">
+        <div>
+          <h2 className="auth-title">New password</h2>
+          <p className="auth-sub">Choose a new password for your Deep House Lab account.</p>
+        </div>
+      </div>
 
-      {error ? <p style={{ color: "var(--red)", fontSize: 13, marginBottom: 14 }}>{error}</p> : null}
+      {error ? <p className="auth-notice is-error">{error}</p> : null}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div className="auth-fields">
         <PasswordField
           label="New password"
           name="new-password"
@@ -157,16 +229,16 @@ export default function PasswordResetPage() {
           error={passwordMismatch ? "Passwords do not match" : undefined}
           hint={confirmTouched && passwordsMatch ? "Passwords match" : undefined}
         />
-        <button
-          type="button"
-          className="btn btn-primary"
-          style={{ marginTop: 8, padding: "12px 24px" }}
-          disabled={busy || !password || !confirm || !passwordsMatch}
-          onClick={() => void submit()}
-        >
-          {busy ? "Saving…" : "Update password"}
-        </button>
       </div>
-    </div>
+
+      <button
+        type="button"
+        className="auth-submit"
+        disabled={busy || !password || !confirm || !passwordsMatch}
+        onClick={() => void submit()}
+      >
+        {busy ? "Saving…" : "Update password"}
+      </button>
+    </>,
   );
 }
