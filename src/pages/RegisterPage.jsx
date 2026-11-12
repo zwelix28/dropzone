@@ -71,7 +71,9 @@ export default function RegisterPage() {
       if (result.ok) {
         if (result.needsEmailConfirmation) {
           setRegisterInfo(
-            "Check your email to confirm your address, then sign in. (You can disable “Confirm email” in Supabase for instant login while testing.)",
+            import.meta.env.DEV
+              ? "Check your email to confirm your address, then sign in. (You can disable “Confirm email” in Supabase for instant login while testing.)"
+              : "Check your email to confirm your address, then sign in.",
           );
         } else {
           navigate(signedInHomePath(), { replace: true });
