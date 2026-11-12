@@ -4766,6 +4766,29 @@ export const GlobalStyles = () => (
     .auth-notice.is-error { color: var(--red); }
     .auth-notice.is-ok { color: var(--green); }
     .auth-notice code { color: var(--accent); }
+    .auth-username-suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--text3);
+    }
+    .auth-username-chip {
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--accent3);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .auth-username-chip:hover {
+      border-color: rgba(56, 189, 248, 0.45);
+    }
     .auth-fields {
       display: flex;
       flex-direction: column;

@@ -24,6 +24,7 @@ export default function AuthModal({ onClose }) {
   const [registerInfo, setRegisterInfo] = useState(null);
   const [forgotSent, setForgotSent] = useState(false);
   const [localError, setLocalError] = useState(null);
+  const [usernameSuggestions, setUsernameSuggestions] = useState([]);
 
   const passwordsMatch = form.password === form.confirmPassword;
   const confirmTouched = form.confirmPassword.length > 0;
@@ -34,10 +35,15 @@ export default function AuthModal({ onClose }) {
     if (mode === "forgot") return true;
     if (!form.password) return false;
     if (mode === "register") {
-      return Boolean(form.confirmPassword && passwordsMatch && form.password.length >= 6);
+      return Boolean(
+        form.username.trim() &&
+          form.confirmPassword &&
+          passwordsMatch &&
+          form.password.length >= 6,
+      );
     }
     return true;
-  }, [form.email, form.password, form.confirmPassword, passwordsMatch, mode]);
+  }, [form.email, form.username, form.password, form.confirmPassword, passwordsMatch, mode]);
 
   const switchMode = (next) => {
     setMode(next);
@@ -45,12 +51,18 @@ export default function AuthModal({ onClose }) {
     setRegisterInfo(null);
     setForgotSent(false);
     setLocalError(null);
+    setUsernameSuggestions([]);
   };
 
   const handleSubmit = async () => {
     if (!isLocalMode() && !isSupabaseConfigured()) return;
     setLocalError(null);
+    setUsernameSuggestions([]);
     if (mode === "register") {
+      if (!form.username.trim()) {
+        setLocalError("Choose a username.");
+        return;
+      }
       if (form.password.length < 6) {
         setLocalError("Password must be at least 6 characters.");
         return;
@@ -85,6 +97,9 @@ export default function AuthModal({ onClose }) {
           } else {
             onClose();
           }
+        } else if (result.usernameTaken) {
+          setLocalError(result.error || "That username is taken.");
+          setUsernameSuggestions(result.suggestions || []);
         }
       }
     } finally {
@@ -96,7 +111,7 @@ export default function AuthModal({ onClose }) {
     mode === "login" ? "Sign in" : mode === "register" ? "Create account" : "Reset password";
   const subtitle =
     mode === "login"
-      ? "Welcome back to the Lab"
+      ? "Welcome back — email or username works"
       : mode === "register"
         ? "Join Deep House Lab"
         : "We’ll email you a link to set a new password";
@@ -164,27 +179,52 @@ export default function AuthModal({ onClose }) {
           {mode === "register" && (
             <div>
               <label className="auth-label" htmlFor="auth-username">
-                Display name
+                Username
               </label>
               <input
                 id="auth-username"
                 className="inp"
                 placeholder="Your DJ name"
+                autoComplete="username"
                 value={form.username}
-                onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+                onChange={(e) => {
+                  setUsernameSuggestions([]);
+                  setForm((f) => ({ ...f, username: e.target.value }));
+                }}
               />
+              {usernameSuggestions.length ? (
+                <div className="auth-username-suggestions">
+                  <span>Try:</span>
+                  {usernameSuggestions.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      className="auth-username-chip"
+                      onClick={() => {
+                        setForm((f) => ({ ...f, username: name }));
+                        setUsernameSuggestions([]);
+                        setLocalError(null);
+                        auth.clearAuthError();
+                      }}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
           )}
 
           <div>
             <label className="auth-label" htmlFor="auth-email">
-              Email
+              {mode === "login" || mode === "forgot" ? "Email or username" : "Email"}
             </label>
             <input
               id="auth-email"
               className="inp"
-              type="email"
-              placeholder="dj@yourlabel.com"
+              type={mode === "register" ? "email" : "text"}
+              autoComplete={mode === "register" ? "email" : "username"}
+              placeholder={mode === "register" ? "dj@yourlabel.com" : "email or username"}
               value={form.email}
               onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
             />

@@ -22,7 +22,7 @@ export default function PendingApprovalGate({ username, onLogout }) {
 
       <div className="landing-frame">
         <header className="landing-brand-block">
-          <img className="landing-logo" src="/logo.png" alt="Deep House Lab" width={120} height={120} />
+          <img className="landing-logo" src="/DeepHouseLabLogo.png" alt="Deep House Lab" width={120} height={120} />
           <h1 className="landing-product">Deep House Lab</h1>
           <p className="landing-tagline">Awaiting approval</p>
         </header>

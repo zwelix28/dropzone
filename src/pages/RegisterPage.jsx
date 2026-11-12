@@ -4,6 +4,7 @@ import GenrePicker from "../components/GenrePicker.jsx";
 import Icon from "../components/Icon.jsx";
 import PasswordField from "../components/PasswordField.jsx";
 import { signedInHomePath } from "../featureFlags.js";
+import { isPasswordRecoveryPending } from "../lib/passwordRecovery.js";
 import { isSupabaseConfigured } from "../lib/supabaseClient.js";
 import { useApp } from "../context/AppContext.jsx";
 
@@ -22,6 +23,7 @@ export default function RegisterPage() {
   const [busy, setBusy] = useState(false);
   const [registerInfo, setRegisterInfo] = useState(null);
   const [localError, setLocalError] = useState(null);
+  const [usernameSuggestions, setUsernameSuggestions] = useState([]);
 
   const passwordsMatch = form.password === form.confirmPassword;
   const confirmTouched = form.confirmPassword.length > 0;
@@ -31,16 +33,21 @@ export default function RegisterPage() {
     () =>
       Boolean(
         form.email.trim() &&
+          form.username.trim() &&
           form.password &&
           form.confirmPassword &&
           passwordsMatch &&
           form.password.length >= 6,
       ),
-    [form.email, form.password, form.confirmPassword, passwordsMatch],
+    [form.email, form.username, form.password, form.confirmPassword, passwordsMatch],
   );
 
   useEffect(() => {
     if (auth.authLoading) return;
+    if (isPasswordRecoveryPending()) {
+      navigate("/reset-password", { replace: true });
+      return;
+    }
     if (auth.session?.user?.id) navigate(signedInHomePath(), { replace: true });
   }, [auth.authLoading, auth.session?.user?.id, navigate]);
 
@@ -52,6 +59,11 @@ export default function RegisterPage() {
   const handleSubmit = async () => {
     if (!isSupabaseConfigured()) return;
     setLocalError(null);
+    setUsernameSuggestions([]);
+    if (!form.username.trim()) {
+      setLocalError("Choose a username.");
+      return;
+    }
     if (form.password.length < 6) {
       setLocalError("Password must be at least 6 characters.");
       return;
@@ -78,6 +90,9 @@ export default function RegisterPage() {
         } else {
           navigate(signedInHomePath(), { replace: true });
         }
+      } else if (result.usernameTaken) {
+        setLocalError(result.error || "That username is taken.");
+        setUsernameSuggestions(result.suggestions || []);
       }
     } finally {
       setBusy(false);
@@ -135,15 +150,39 @@ export default function RegisterPage() {
           <div className="auth-fields">
             <div>
               <label className="auth-label" htmlFor="register-username">
-                Display name
+                Username
               </label>
               <input
                 id="register-username"
                 className="inp"
                 placeholder="Your DJ name"
+                autoComplete="username"
                 value={form.username}
-                onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+                onChange={(e) => {
+                  setUsernameSuggestions([]);
+                  setForm((f) => ({ ...f, username: e.target.value }));
+                }}
               />
+              {usernameSuggestions.length ? (
+                <div className="auth-username-suggestions">
+                  <span>Try:</span>
+                  {usernameSuggestions.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      className="auth-username-chip"
+                      onClick={() => {
+                        setForm((f) => ({ ...f, username: name }));
+                        setUsernameSuggestions([]);
+                        setLocalError(null);
+                        auth.clearAuthError();
+                      }}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
 
             <div>

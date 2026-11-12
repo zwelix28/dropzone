@@ -10,7 +10,14 @@ import {
   LOCAL_TEST_PASSWORD,
   setLocalAuthSession,
 } from "../lib/localMode.js";
+import {
+  capturePasswordRecoveryFromUrl,
+  clearPasswordRecoveryPending,
+  isPasswordRecoveryPending,
+  markPasswordRecoveryPending,
+} from "../lib/passwordRecovery.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
+import { looksLikeEmail, normalizeUsername, suggestUsernames, toHandle } from "../lib/username.js";
 
 const LOCAL_SIGNUP_PAUSED =
   "Local testing uses the account local@deephouselab.test. Sign in with that account.";
@@ -105,6 +112,8 @@ export default function useAuth() {
       return;
     }
 
+    capturePasswordRecoveryFromUrl();
+
     supabase.auth.getSession().then(async ({ data: { session: s } }) => {
       setSession(s);
       if (s?.user) await loadProfile(s.user.id);
@@ -114,7 +123,13 @@ export default function useAuth() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, s) => {
+    } = supabase.auth.onAuthStateChange((event, s) => {
+      if (event === "PASSWORD_RECOVERY") {
+        markPasswordRecoveryPending();
+      }
+      if (event === "SIGNED_OUT") {
+        clearPasswordRecoveryPending();
+      }
       setSession(s);
       if (s?.user) loadProfile(s.user.id);
       else setProfile(null);
@@ -123,9 +138,35 @@ export default function useAuth() {
     return () => subscription.unsubscribe();
   }, [loadProfile, enterLocalSession]);
 
-  const signInWithEmailPassword = useCallback(async (email, password) => {
+  const resolveEmailForLogin = useCallback(async (identifier) => {
+    const raw = String(identifier || "").trim();
+    if (!raw) return { ok: false, email: null, error: "Enter your email or username." };
+    if (looksLikeEmail(raw)) return { ok: true, email: raw.toLowerCase() };
+
+    const { data, error } = await supabase.rpc("resolve_login_email", {
+      p_identifier: normalizeUsername(raw),
+    });
+    if (error) {
+      // Migration not applied yet — fall back to treating input as email.
+      if (/resolve_login_email|function .* does not exist/i.test(error.message || "")) {
+        return {
+          ok: false,
+          email: null,
+          error: "Username login isn’t set up on this project yet. Use your email, or run supabase/username-login.sql.",
+        };
+      }
+      return { ok: false, email: null, error: formatAuthError(error) };
+    }
+    if (!data) {
+      return { ok: false, email: null, error: "No account found for that username." };
+    }
+    return { ok: true, email: String(data) };
+  }, []);
+
+  const signInWithEmailPassword = useCallback(async (identifier, password) => {
     if (isLocalMode()) {
-      const emailOk = email.trim().toLowerCase() === LOCAL_TEST_EMAIL;
+      const id = String(identifier || "").trim().toLowerCase();
+      const emailOk = id === LOCAL_TEST_EMAIL || id === "local" || id === "deephouselab";
       const passwordOk = password === LOCAL_TEST_PASSWORD;
       if (!emailOk || !passwordOk) {
         const shown = "That local test login did not match. Use local@deephouselab.test and localtest.";
@@ -137,21 +178,91 @@ export default function useAuth() {
     }
     if (!isSupabaseConfigured()) return { ok: false, error: "Supabase is not configured" };
     setAuthError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+    const resolved = await resolveEmailForLogin(identifier);
+    if (!resolved.ok || !resolved.email) {
+      const shown = resolved.error || "Could not find that account.";
+      setAuthError(shown);
+      return { ok: false, error: shown };
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: resolved.email,
+      password,
+    });
     if (error) {
       const shown = formatAuthError(error);
       setAuthError(shown);
       return { ok: false, error: shown };
     }
     return { ok: true };
-  }, [enterLocalSession]);
+  }, [enterLocalSession, resolveEmailForLogin]);
+
+  const checkUsernameAvailability = useCallback(async (username) => {
+    const uname = normalizeUsername(username);
+    if (!uname || uname.length < 2) {
+      return {
+        available: false,
+        reason: "too_short",
+        suggestions: [],
+        error: "Choose a username with at least 2 characters.",
+      };
+    }
+    if (!isSupabaseConfigured() || isLocalMode()) {
+      return { available: true, reason: null, suggestions: [] };
+    }
+
+    const { data, error } = await supabase.rpc("check_username_available", {
+      p_username: uname,
+    });
+    if (error) {
+      // Soft-fail without the migration: allow signup and let DB constraints speak.
+      if (/check_username_available|function .* does not exist/i.test(error.message || "")) {
+        return { available: true, reason: null, suggestions: [], skipped: true };
+      }
+      return {
+        available: false,
+        reason: "error",
+        suggestions: suggestUsernames(uname),
+        error: formatAuthError(error),
+      };
+    }
+
+    const available = Boolean(data?.available);
+    const suggestions = Array.isArray(data?.suggestions)
+      ? data.suggestions.map(String)
+      : suggestUsernames(uname);
+    return {
+      available,
+      reason: data?.reason || (available ? null : "taken"),
+      suggestions: available ? [] : suggestions,
+      error: available
+        ? null
+        : data?.reason === "reserved"
+          ? "That username is reserved. Try another."
+          : "That username is taken.",
+    };
+  }, []);
 
   const signUp = useCallback(async (email, password, { username, genre }) => {
     if (isLocalMode()) return { ok: false, error: LOCAL_SIGNUP_PAUSED };
     if (!isSupabaseConfigured()) return { ok: false, error: "Supabase is not configured" };
     setAuthError(null);
-    const uname = (username || "").trim() || email.split("@")[0];
-    const handle = `@${uname.toLowerCase().replace(/\s/g, "")}`;
+    const uname = normalizeUsername(username) || email.split("@")[0];
+    const handle = toHandle(uname) || `@${String(uname).toLowerCase()}`;
+
+    const availability = await checkUsernameAvailability(uname);
+    if (!availability.available && !availability.skipped) {
+      const shown = availability.error || "That username is taken.";
+      setAuthError(shown);
+      return {
+        ok: false,
+        error: shown,
+        usernameTaken: true,
+        suggestions: availability.suggestions || [],
+      };
+    }
+
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -167,8 +278,14 @@ export default function useAuth() {
     });
     if (error) {
       const shown = formatAuthError(error);
+      const taken = /duplicate|unique|already|username|handle/i.test(shown);
       setAuthError(shown);
-      return { ok: false, error: shown };
+      return {
+        ok: false,
+        error: shown,
+        usernameTaken: taken,
+        suggestions: taken ? suggestUsernames(uname) : [],
+      };
     }
 
     // DB trigger should auto-follow; client backup when a session exists.
@@ -200,13 +317,18 @@ export default function useAuth() {
     return { ok: true, needsEmailConfirmation: true };
   }, []);
 
-  const requestPasswordReset = useCallback(async (email) => {
+  const requestPasswordReset = useCallback(async (identifier) => {
     if (isLocalMode()) return { ok: false, error: LOCAL_SIGNUP_PAUSED };
     if (!isSupabaseConfigured()) return { ok: false, error: "Supabase is not configured" };
     setAuthError(null);
+    const resolved = await resolveEmailForLogin(identifier);
+    if (!resolved.ok || !resolved.email) {
+      // Same generic copy as email-only reset to avoid account enumeration.
+      return { ok: true };
+    }
     const redirectTo =
       typeof window !== "undefined" ? `${window.location.origin}/reset-password` : undefined;
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    const { error } = await supabase.auth.resetPasswordForEmail(resolved.email, {
       redirectTo,
     });
     if (error) {
@@ -215,7 +337,7 @@ export default function useAuth() {
       return { ok: false, error: shown };
     }
     return { ok: true };
-  }, []);
+  }, [resolveEmailForLogin]);
 
   const updatePassword = useCallback(async (newPassword) => {
     if (isLocalMode()) return { ok: false, error: LOCAL_SIGNUP_PAUSED };
@@ -227,6 +349,7 @@ export default function useAuth() {
       setAuthError(shown);
       return { ok: false, error: shown };
     }
+    clearPasswordRecoveryPending();
     return { ok: true };
   }, []);
 
@@ -264,8 +387,11 @@ export default function useAuth() {
       clearAuthError: () => setAuthError(null),
       signInWithEmailPassword,
       signUp,
+      checkUsernameAvailability,
       requestPasswordReset,
       updatePassword,
+      isPasswordRecoveryPending,
+      clearPasswordRecoveryPending,
       signOut,
       refreshProfile,
       enterLocalSession,
@@ -284,8 +410,11 @@ export default function useAuth() {
       authError,
       signInWithEmailPassword,
       signUp,
+      checkUsernameAvailability,
       requestPasswordReset,
       updatePassword,
+      isPasswordRecoveryPending,
+      clearPasswordRecoveryPending,
       signOut,
       refreshProfile,
       enterLocalSession,
