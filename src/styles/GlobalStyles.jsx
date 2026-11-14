@@ -2137,6 +2137,137 @@ export const GlobalStyles = () => (
       padding: 0 14px;
       flex-shrink: 0;
     }
+
+    /* Mobile / tablet: compact row under Top 5 — small art, restrained type */
+    .lab-home-month.is-compact {
+      display: flex;
+      flex-direction: column;
+      margin: 0;
+      min-width: 0;
+    }
+    .lab-home-month.is-compact .lab-home-sec {
+      padding: 0 0 10px;
+      font-weight: 500;
+      line-height: 1.15;
+      min-height: 0;
+      align-items: center;
+    }
+    .lab-home-month.is-compact .lab-home-month-card {
+      flex-direction: row;
+      align-items: flex-start;
+      border-radius: 14px;
+      flex: 0 0 auto;
+    }
+    .lab-home-month.is-compact .lab-home-month-art {
+      width: 76px;
+      min-width: 76px;
+      height: 120px;
+      max-height: 120px;
+      aspect-ratio: auto;
+      align-self: flex-start;
+      flex-shrink: 0;
+      object-fit: cover;
+    }
+    .lab-home-month.is-compact .lab-home-month-copy {
+      flex: 1;
+      min-width: 0;
+      gap: 2px;
+      padding: 10px 12px 12px;
+    }
+    .lab-home-month.is-compact .lab-home-month-title {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.015em;
+      line-height: 1.25;
+    }
+    .lab-home-month.is-compact .lab-home-month-handle {
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .lab-home-month.is-compact .lab-home-month-bio-wrap {
+      width: 100%;
+      margin-top: 4px;
+    }
+    .lab-home-month.is-compact .lab-home-month-bio {
+      margin: 0;
+      font-size: 11px;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      white-space: normal;
+    }
+    .lab-home-month.is-compact .lab-home-month-bio.is-open {
+      display: block;
+      -webkit-line-clamp: unset;
+      overflow: visible;
+    }
+    .lab-home-month.is-compact .lab-home-month-bio-more {
+      display: inline-block;
+      margin-top: 2px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--accent);
+      font-family: var(--ff-body);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      line-height: 1.3;
+      cursor: pointer;
+    }
+    .lab-home-month.is-compact .lab-home-month-bio-more:active {
+      color: var(--accent3);
+    }
+    .lab-home-month.is-compact .lab-home-month-mix {
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .lab-home-month.is-compact .lab-home-month-mix img {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+    }
+    .lab-home-month.is-compact .lab-home-month-mix b {
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .lab-home-month.is-compact .lab-home-month-mix span {
+      font-size: 10px;
+    }
+    .lab-home-month.is-compact .lab-home-month-mix .lab-home-play {
+      height: 30px;
+      padding: 0 11px;
+      font-size: 12px;
+    }
+    /* Equal section rhythm below desktop Home rail (Continue → Fresh → Top 5 → DJ) */
+    @media (max-width: 1079px) {
+      .lab-home-main {
+        display: flex;
+        flex-direction: column;
+      }
+      .lab-home-hero {
+        margin-bottom: 12px;
+      }
+      .lab-home-shelves {
+        gap: 0;
+        margin: 0;
+      }
+      .lab-home-crates-block,
+      .lab-home-ranks,
+      .lab-home-month.is-compact {
+        margin: 0;
+        margin-top: 18px;
+      }
+      .lab-home-main .lab-home-sec {
+        padding: 0 0 10px;
+        line-height: 1.15;
+        min-height: 0;
+        align-items: center;
+      }
+    }
+
     @media (max-width: 720px) {
       .lab-home-hero {
         height: 210px;

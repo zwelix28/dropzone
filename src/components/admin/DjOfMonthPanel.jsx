@@ -77,8 +77,8 @@ export default function DjOfMonthPanel({ users, episodes, adminId }) {
     <section className="admin-panel admin-dj-panel">
       <h2 className="admin-panel-title">DJ of the month</h2>
       <p className="admin-panel-desc">
-        This is the desktop Home card next to Top 5 this week. Choose a Deep House Lab profile, one published mix,
-        a photo, and a bio (up to 1000 characters).
+        Shown on Home for everyone — next to Top 5 on desktop, and under Top 5 on mobile. Choose a Deep House Lab
+        profile, one published mix, a photo, and a bio (up to 1000 characters).
       </p>
       {isLocalMode() ? (
         <p style={{ color: "var(--orange)", fontSize: 13, lineHeight: 1.5, marginBottom: 16 }}>
@@ -170,7 +170,7 @@ export default function DjOfMonthPanel({ users, episodes, adminId }) {
       ) : null}
       {saved ? (
         <p style={{ color: "var(--green)", fontSize: 13, marginTop: 12 }}>
-          Saved. Open Home on a desktop window to see DJ of the month.
+          Saved. Open Home to see DJ of the month on desktop and mobile.
         </p>
       ) : null}
 
