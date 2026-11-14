@@ -1,4 +1,6 @@
-/** Ensures only one preview audio element plays at a time across the app. */
+import { silenceOrphanMainPlayers } from "./mainPlayerAudio.js";
+
+/** Ensures only one preview / mix audio owner plays at a time across the app. */
 const pauseHandlers = new Map();
 
 export function registerExclusiveAudioOwner(ownerId, pauseFn) {
@@ -9,6 +11,8 @@ export function registerExclusiveAudioOwner(ownerId, pauseFn) {
 }
 
 export function requestExclusivePlayback(ownerId) {
+  // Kill remount-orphaned main <audio> elements before other owners pause.
+  silenceOrphanMainPlayers();
   for (const [id, pause] of pauseHandlers) {
     if (id !== ownerId) pause();
   }

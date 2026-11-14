@@ -1,5 +1,6 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import AppToast from "../components/AppToast.jsx";
 import AuthModal from "../components/AuthModal.jsx";
 import DesktopNowPlaying from "../components/DesktopNowPlaying.jsx";
 import MobileBottomNav from "../components/MobileBottomNav.jsx";
@@ -18,7 +19,18 @@ import { isLocalMode } from "../lib/localMode.js";
 import { isPasswordRecoveryPending } from "../lib/passwordRecovery.js";
 
 export default function AppLayout() {
-  const { auth, player, users, notificationsByUser, markAllRead, markRead, refreshNotifications, dmUnreadCount } = useApp();
+  const {
+    auth,
+    player,
+    users,
+    notificationsByUser,
+    markAllRead,
+    markRead,
+    refreshNotifications,
+    dmUnreadCount,
+    toast,
+    dismissToast,
+  } = useApp();
   const localMode = isLocalMode();
   const [showNotifications, setShowNotifications] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
@@ -131,6 +143,15 @@ export default function AppLayout() {
     navigate("/", { replace: true });
   };
 
+  const toastLift =
+    showCompactPlayerBar && showMobileTabNav
+      ? "player-tabs"
+      : showCompactPlayerBar
+        ? "player"
+        : showMobileTabNav
+          ? "tabs"
+          : "none";
+
   if (isGuestAuthSurface) {
     return (
       <>
@@ -138,6 +159,7 @@ export default function AppLayout() {
         <GlobalStyles />
         <Outlet />
         {auth.showAuth ? <AuthModal onClose={() => auth.setShowAuth(false)} /> : null}
+        <AppToast toast={toast} onDismiss={dismissToast} lift="none" />
       </>
     );
   }
@@ -148,6 +170,7 @@ export default function AppLayout() {
         <FontLoader />
         <GlobalStyles />
         <PendingApprovalGate username={auth.currentUser?.username} onLogout={() => void handleLogout()} />
+        <AppToast toast={toast} onDismiss={dismissToast} lift="none" />
       </>
     );
   }
@@ -363,6 +386,8 @@ export default function AppLayout() {
           isMobile={isMobile}
         />
       ) : null}
+
+      <AppToast toast={toast} onDismiss={dismissToast} lift={toastLift} />
     </>
   );
 }

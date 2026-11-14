@@ -6,6 +6,11 @@ import {
 } from "../lib/audioExclusive.js";
 import { releaseWarmPlayback, withMediaTimeFragment } from "../lib/audioPrefetch.js";
 import {
+  getMainPlayerAudio,
+  pauseMainPlayerAudio,
+  silenceOrphanMainPlayers,
+} from "../lib/mainPlayerAudio.js";
+import {
   episodeHasAudioSource,
   episodeHasGuestPlayback,
   invalidateMixPlaybackUrlCache,
@@ -34,6 +39,7 @@ import {
   syncMediaSessionPositionState,
 } from "../lib/mediaSession.js";
 import { createStationIdOverlay } from "../lib/stationIdOverlay.js";
+import { isMixStreamable } from "../lib/mixVisibility.js";
 
 const SAVE_INTERVAL_MS = 10000;
 /** Max automatic recoveries after a stream error / stall for one track load. */
@@ -115,11 +121,14 @@ export default function usePlayer({
   guestPreviewOnly = false,
   isAuthenticated = false,
   userId = null,
+  allowAdminPreview = false,
   getPlaylist = null,
   getSuspendPlayback = null,
   onDurationKnown = null,
   getArtistName = null,
 } = {}) {
+  const allowAdminPreviewRef = useRef(allowAdminPreview);
+  allowAdminPreviewRef.current = allowAdminPreview;
   const [currentTrack, setCurrentTrack] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -166,10 +175,9 @@ export default function usePlayer({
     });
   }
 
-  if (!audioRef.current && typeof Audio !== "undefined") {
-    audioRef.current = new Audio();
-    // Buffer ahead while playing / after src is set — cuts mid-track stalls.
-    audioRef.current.preload = "auto";
+  // One shared element for the whole app — remounts must not spawn a second stream.
+  if (!audioRef.current) {
+    audioRef.current = getMainPlayerAudio();
   }
 
   const snapshotSession = useCallback((overrides = {}) => {
@@ -233,8 +241,10 @@ export default function usePlayer({
   useEffect(() => registerExclusiveAudioOwner(AUDIO_OWNER_MAIN, pause), [pause]);
 
   const startPlayback = useCallback(async () => {
-    const audio = audioRef.current;
+    const audio = getMainPlayerAudio() || audioRef.current;
+    audioRef.current = audio;
     if (!audio || isSuspended()) return false;
+    silenceOrphanMainPlayers();
     requestExclusivePlayback(AUDIO_OWNER_MAIN);
     try {
       await audio.play();
@@ -262,12 +272,21 @@ export default function usePlayer({
 
   const playTrack = useCallback(
     async (ep) => {
-      const audio = audioRef.current;
+      const audio = getMainPlayerAudio() || audioRef.current;
+      audioRef.current = audio;
       if (!audio || !ep) return;
       if (isSuspended()) {
         pause();
         return;
       }
+      // Pre-save / hidden: not streamable for free (or paid) accounts; admins may preview.
+      if (!isMixStreamable(ep, { allowAdminPreview: allowAdminPreviewRef.current })) {
+        return;
+      }
+
+      // Guarantee a single audible mix stream before any toggle / load.
+      silenceOrphanMainPlayers();
+      requestExclusivePlayback(AUDIO_OWNER_MAIN);
 
       const rememberInQueue = (mixId) => {
         const order = queueOrderRef.current;
@@ -763,6 +782,10 @@ export default function usePlayer({
   useEffect(() => {
     return () => {
       stationIdRef.current?.dispose();
+      // Pause the shared element on remount/unmount so an orphan never keeps sounding
+      // while a new hook instance starts another stream.
+      pauseMainPlayerAudio();
+      silenceOrphanMainPlayers();
     };
   }, []);
 
@@ -888,8 +911,11 @@ export default function usePlayer({
       if (sessionRestoredRef.current && currentTrackRef.current?.id === episode.id) return true;
       sessionRestoredRef.current = true;
 
-      const audio = audioRef.current;
+      const audio = getMainPlayerAudio() || audioRef.current;
+      audioRef.current = audio;
       if (!audio) return false;
+      silenceOrphanMainPlayers();
+      requestExclusivePlayback(AUDIO_OWNER_MAIN);
 
       if (typeof session?.volume === "number" && Number.isFinite(session.volume)) {
         setVolume(session.volume);

@@ -13,8 +13,19 @@ import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 import { GENRES } from "../constants/genres.js";
 import { defaultMixDescription, isAutoMixDescription } from "../constants/mixTitle.js";
 import { PLAN_FREE, PLAN_PAID, PLAN_PRO } from "../constants/plans.js";
-import { profileRowToUser } from "../lib/maps.js";
+import { mixRowToEpisode, profileRowToUser } from "../lib/maps.js";
 import { MIX_STATUS_APPROVED, MIX_STATUS_PENDING, MIX_STATUS_REJECTED } from "../lib/mixStatus.js";
+import {
+  MIX_VISIBILITY_HIDDEN,
+  MIX_VISIBILITY_LIVE,
+  MIX_VISIBILITY_PRESAVE,
+  formatGoesLiveDate,
+  fromDatetimeLocalValue,
+  mixVisibilityColor,
+  mixVisibilityLabel,
+  normalizeMixVisibility,
+  toDatetimeLocalValue,
+} from "../lib/mixVisibility.js";
 import {
   normalizeTracklist,
   resolveMixTracklist,
@@ -57,6 +68,8 @@ export default function AdminDashboardPage() {
   const [logs, setLogs] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [submissionCursor, setSubmissionCursor] = useState(0);
+  const [catalogMixes, setCatalogMixes] = useState([]);
+  const [presaveDrafts, setPresaveDrafts] = useState({});
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -121,11 +134,37 @@ export default function AdminDashboardPage() {
     setSubmissions(data || []);
   }, []);
 
+  /** Approved mixes including hidden (public catalog omits hidden). */
+  const loadCatalogMixes = useCallback(async () => {
+    if (!isSupabaseConfigured()) return;
+    const { data, error: err } = await supabase
+      .from("mixes")
+      .select("*")
+      .eq("status", MIX_STATUS_APPROVED)
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (err) {
+      setError(err.message);
+      setCatalogMixes([]);
+      return;
+    }
+    const list = (data || []).map(mixRowToEpisode).filter(Boolean);
+    setCatalogMixes(list);
+    setPresaveDrafts((prev) => {
+      const next = { ...prev };
+      for (const ep of list) {
+        if (next[ep.id] == null) next[ep.id] = toDatetimeLocalValue(ep.goesLiveAt);
+      }
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     loadProfiles();
     loadLogs();
     loadSubmissions();
-  }, [loadProfiles, loadLogs, loadSubmissions]);
+    loadCatalogMixes();
+  }, [loadProfiles, loadLogs, loadSubmissions, loadCatalogMixes]);
 
   useEffect(() => {
     if (!mixParam || !submissions.length) return;
@@ -156,9 +195,15 @@ export default function AdminDashboardPage() {
     const verified = profiles.filter((p) => p.verified).length;
     const admins = profiles.filter((p) => p.isAdmin).length;
     const pending = profiles.filter((p) => !p.isBanned && p.isApproved === false).length;
+    const liveCount = catalogMixes.filter((m) => normalizeMixVisibility(m.visibility) === MIX_VISIBILITY_LIVE).length;
+    const presaveCount = catalogMixes.filter((m) => normalizeMixVisibility(m.visibility) === MIX_VISIBILITY_PRESAVE).length;
+    const hiddenCount = catalogMixes.filter((m) => normalizeMixVisibility(m.visibility) === MIX_VISIBILITY_HIDDEN).length;
     return {
       users: profiles.length,
-      mixes: episodes.length,
+      mixes: catalogMixes.length || episodes.length,
+      liveCount,
+      presaveCount,
+      hiddenCount,
       banned,
       verifiedArtists: verified,
       admins,
@@ -370,6 +415,67 @@ export default function AdminDashboardPage() {
     }
     await writeLog("delete_mix", "mix", mixId, { title });
     await loadSubmissions();
+    await loadCatalogMixes();
+    await refreshMixes();
+  };
+
+  const setMixRelease = async (mix, visibility, { goesLiveAtLocal } = {}) => {
+    const title = mix.title || "Untitled Mix";
+    let goesLiveAt = mix.goesLiveAt || null;
+    if (visibility === MIX_VISIBILITY_PRESAVE) {
+      const fromDraft =
+        goesLiveAtLocal !== undefined ? goesLiveAtLocal : presaveDrafts[mix.id];
+      goesLiveAt = fromDatetimeLocalValue(fromDraft);
+      if (!goesLiveAt) {
+        const typed = window.prompt(
+          `Set the Pre-save release date/time for “${title}” (YYYY-MM-DD or leave blank for TBA).`,
+          formatGoesLiveDate(mix.goesLiveAt) || "",
+        );
+        if (typed === null) return;
+        const trimmed = typed.trim();
+        if (trimmed) {
+          const parsed = new Date(trimmed);
+          if (Number.isNaN(parsed.getTime())) {
+            setError("Could not parse that release date.");
+            return;
+          }
+          goesLiveAt = parsed.toISOString();
+        } else {
+          goesLiveAt = null;
+        }
+      }
+    }
+    if (visibility === MIX_VISIBILITY_LIVE) {
+      goesLiveAt = new Date().toISOString();
+    }
+    if (visibility === MIX_VISIBILITY_HIDDEN) {
+      goesLiveAt = null;
+    }
+
+    setBusy(true);
+    setError(null);
+    const { error: err } = await supabase
+      .from("mixes")
+      .update({
+        visibility,
+        goes_live_at: goesLiveAt,
+      })
+      .eq("id", mix.id);
+    setBusy(false);
+    if (err) {
+      setError(
+        /visibility|goes_live_at/i.test(err.message || "")
+          ? "Release states aren’t set up yet. Run supabase/mix-release-states.sql in the Supabase SQL Editor."
+          : err.message,
+      );
+      return;
+    }
+    await writeLog("set_mix_release", "mix", mix.id, {
+      title,
+      visibility,
+      goes_live_at: goesLiveAt,
+    });
+    await loadCatalogMixes();
     await refreshMixes();
   };
 
@@ -951,21 +1057,45 @@ export default function AdminDashboardPage() {
           <section className="admin-panel">
             <h2 className="admin-panel-title">Mix catalog</h2>
             <p className="admin-panel-desc">
-              Use <strong>Notify</strong> to re-alert members about an existing mix (in-app + push/email for anyone who
-              left those alerts on). Helpful for older drops people missed before they installed the app.
+              Control what free accounts see: <strong>Live</strong> (streamable), <strong>Pre-save</strong> (listed with
+              a release date, not streamable), or <strong>Hidden</strong> (admin-only until you go live). Notify re-alerts
+              members about a live mix.
             </p>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 10,
+                marginBottom: 14,
+                fontSize: isCompact ? 12 : 13,
+                color: "var(--text2)",
+              }}
+            >
+              <span>
+                Live: <strong style={{ color: "var(--green)" }}>{overview.liveCount}</strong>
+              </span>
+              <span>
+                Pre-save: <strong style={{ color: "var(--orange)" }}>{overview.presaveCount}</strong>
+              </span>
+              <span>
+                Hidden: <strong>{overview.hiddenCount}</strong>
+              </span>
+            </div>
             {tableShell(
           <>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)", textAlign: "left" }}>
                 <th style={{ padding: tp.thL, color: "var(--text3)", fontWeight: 600 }}>Mix</th>
+                <th style={{ padding: tp.thS, color: "var(--text3)", fontWeight: 600 }}>Release</th>
                 <th style={{ padding: tp.thL, color: "var(--text3)", fontWeight: 600 }}>Owner</th>
                 <th style={{ padding: tp.thL, color: "var(--text3)", fontWeight: 600 }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {episodes.map((ep) => {
+              {(catalogMixes.length ? catalogMixes : episodes).map((ep) => {
                 const owner = profiles.find((u) => u.id === ep.userId);
+                const visibility = normalizeMixVisibility(ep.visibility);
+                const releaseDateLabel = formatGoesLiveDate(ep.goesLiveAt);
                 return (
                   <tr key={ep.id} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ padding: tp.tdL }}>
@@ -986,6 +1116,45 @@ export default function AdminDashboardPage() {
                         {ep.id}
                       </div>
                     </td>
+                    <td style={{ padding: tp.tdS, fontSize: isCompact ? 11 : 12, verticalAlign: "top" }}>
+                      <div style={{ fontWeight: 700, color: mixVisibilityColor(visibility) }}>
+                        {mixVisibilityLabel(visibility)}
+                      </div>
+                      {visibility === MIX_VISIBILITY_PRESAVE ? (
+                        <div style={{ color: "var(--text3)", marginTop: 4 }}>
+                          {releaseDateLabel ? `Releases ${releaseDateLabel}` : "Release date TBA"}
+                        </div>
+                      ) : null}
+                      <label
+                        style={{
+                          display: "block",
+                          marginTop: 8,
+                          fontSize: 10,
+                          color: "var(--text3)",
+                        }}
+                      >
+                        Pre-save date
+                        <input
+                          type="datetime-local"
+                          value={presaveDrafts[ep.id] || ""}
+                          onChange={(e) =>
+                            setPresaveDrafts((prev) => ({ ...prev, [ep.id]: e.target.value }))
+                          }
+                          style={{
+                            display: "block",
+                            marginTop: 4,
+                            width: "100%",
+                            maxWidth: 220,
+                            fontSize: 11,
+                            padding: "4px 6px",
+                            borderRadius: 6,
+                            border: "1px solid var(--border)",
+                            background: "var(--surface2)",
+                            color: "var(--text)",
+                          }}
+                        />
+                      </label>
+                    </td>
                     <td style={{ padding: tp.tdL, fontSize: isCompact ? 11 : 12 }}>
                       {owner ? (
                         <>
@@ -998,12 +1167,77 @@ export default function AdminDashboardPage() {
                     </td>
                     <td style={{ padding: tp.tdL }}>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {visibility !== MIX_VISIBILITY_LIVE ? (
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            style={{ fontSize: isCompact ? 11 : 12, padding: isCompact ? "4px 10px" : "6px 12px" }}
+                            disabled={busy}
+                            onClick={() => void setMixRelease(ep, MIX_VISIBILITY_LIVE)}
+                            title="Make this mix streamable on the site"
+                          >
+                            Go live
+                          </button>
+                        ) : null}
+                        {visibility !== MIX_VISIBILITY_PRESAVE ? (
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            style={{
+                              fontSize: isCompact ? 11 : 12,
+                              color: "var(--orange)",
+                              padding: isCompact ? "4px 8px" : undefined,
+                            }}
+                            disabled={busy}
+                            onClick={() =>
+                              void setMixRelease(ep, MIX_VISIBILITY_PRESAVE, {
+                                goesLiveAtLocal: presaveDrafts[ep.id],
+                              })
+                            }
+                          >
+                            Pre-save
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            style={{
+                              fontSize: isCompact ? 11 : 12,
+                              color: "var(--orange)",
+                              padding: isCompact ? "4px 8px" : undefined,
+                            }}
+                            disabled={busy}
+                            onClick={() =>
+                              void setMixRelease(ep, MIX_VISIBILITY_PRESAVE, {
+                                goesLiveAtLocal: presaveDrafts[ep.id],
+                              })
+                            }
+                          >
+                            Save date
+                          </button>
+                        )}
+                        {visibility !== MIX_VISIBILITY_HIDDEN ? (
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            style={{ fontSize: isCompact ? 11 : 12, padding: isCompact ? "4px 8px" : undefined }}
+                            disabled={busy}
+                            onClick={() => void setMixRelease(ep, MIX_VISIBILITY_HIDDEN)}
+                          >
+                            Hide
+                          </button>
+                        ) : null}
                         <button
                           type="button"
-                          className="btn btn-primary"
-                          style={{ fontSize: isCompact ? 11 : 12, padding: isCompact ? "4px 10px" : "6px 12px" }}
-                          disabled={busy}
+                          className="btn btn-ghost"
+                          style={{ fontSize: isCompact ? 11 : 12, padding: isCompact ? "4px 8px" : undefined }}
+                          disabled={busy || visibility !== MIX_VISIBILITY_LIVE}
                           onClick={() => void notifyMix(ep.id, ep.title || "Untitled Mix")}
+                          title={
+                            visibility === MIX_VISIBILITY_LIVE
+                              ? "Notify members"
+                              : "Only live mixes can notify members"
+                          }
                         >
                           <Icon name="bell" size={14} />
                           Notify

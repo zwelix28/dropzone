@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
+import MixCrateCard from "../components/MixCrateCard.jsx";
 import PageHeader from "../components/PageHeader.jsx";
 import ProfileListeningStats from "../components/ProfileListeningStats.jsx";
 import TrackCard from "../components/TrackCard.jsx";
@@ -15,6 +16,7 @@ const MOBILE_MIXES_PAGE_SIZE = 10;
 
 export default function ProfilePage() {
   const { auth, episodes, users, player, likedMixIds } = useApp();
+  const navigate = useNavigate();
   const user = auth.currentUser;
   const isCompact = useMediaQuery("(max-width: 720px)");
   const isAdmin = Boolean(user?.isAdmin);
@@ -270,27 +272,40 @@ export default function ProfilePage() {
                 ) : null}
 
                 <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: isCompact
-                      ? "1fr"
-                      : "repeat(auto-fill, minmax(176px, 1fr))",
-                    gap: isCompact ? 8 : 14,
-                  }}
+                  className={isCompact ? undefined : "profile-mixes-crate-grid"}
+                  style={
+                    isCompact
+                      ? {
+                          display: "grid",
+                          gridTemplateColumns: "1fr",
+                          gap: 8,
+                        }
+                      : undefined
+                  }
                 >
-                  {visibleMixes.map((ep) => (
-                    <TrackCard
-                      key={ep.id}
-                      episode={ep}
-                      users={users}
-                      compact={isCompact}
-                      layout={isCompact ? "row" : "stack"}
-                      fullTitle={!isCompact}
-                      isActive={player.currentTrack?.id === ep.id}
-                      isPlaying={player.isPlaying && player.currentTrack?.id === ep.id}
-                      onPlay={player.playTrack}
-                    />
-                  ))}
+                  {visibleMixes.map((ep) =>
+                    isCompact ? (
+                      <TrackCard
+                        key={ep.id}
+                        episode={ep}
+                        users={users}
+                        compact
+                        layout="row"
+                        isActive={player.currentTrack?.id === ep.id}
+                        isPlaying={player.isPlaying && player.currentTrack?.id === ep.id}
+                        onPlay={player.playTrack}
+                      />
+                    ) : (
+                      <MixCrateCard
+                        key={ep.id}
+                        episode={ep}
+                        isActive={player.currentTrack?.id === ep.id}
+                        isPlaying={player.isPlaying && player.currentTrack?.id === ep.id}
+                        onPlay={player.playTrack}
+                        onOpen={(mix) => navigate(`/mix/${mix.id}`, { state: { from: "/profile" } })}
+                      />
+                    ),
+                  )}
                 </div>
 
                 {isCompact && totalMixPages > 1 ? (
