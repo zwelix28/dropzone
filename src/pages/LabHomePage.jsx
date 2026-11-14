@@ -105,6 +105,108 @@ function progressPct(positionSec, durationSec) {
   return Math.min(99, Math.max(1, Math.round((pos / dur) * 100)));
 }
 
+function DjOfMonthCard({
+  compact = false,
+  djFeature,
+  djUser,
+  djMix,
+  playingDj,
+  onPlay,
+}) {
+  const bio = (djFeature?.bio || "").trim();
+  const bioRef = useRef(null);
+  const [bioOpen, setBioOpen] = useState(false);
+  const [bioNeedsMore, setBioNeedsMore] = useState(false);
+
+  useEffect(() => {
+    setBioOpen(false);
+  }, [bio, djFeature?.profileId]);
+
+  useEffect(() => {
+    if (!bio || !compact) {
+      setBioNeedsMore(false);
+      return undefined;
+    }
+    const el = bioRef.current;
+    if (!el) return undefined;
+
+    const measure = () => {
+      if (bioOpen) return;
+      setBioNeedsMore(el.scrollHeight > el.clientHeight + 1);
+    };
+
+    measure();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    ro?.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [bio, bioOpen, compact]);
+
+  if (!djFeature) return null;
+
+  return (
+    <aside
+      className={`lab-home-month${compact ? " is-compact" : ""}${bioOpen ? " is-bio-open" : ""}`}
+      aria-label="DJ of the month"
+    >
+      <h2 className="lab-home-sec">
+        <span>DJ of the month</span>
+      </h2>
+      <div className="lab-home-month-card">
+        <img
+          className="lab-home-month-art"
+          src={djFeature.photoUrl || "/logo.png"}
+          alt=""
+          onError={handleArtworkError}
+        />
+        <div className="lab-home-month-copy">
+          <h3 className="lab-home-month-title">{djUser?.username || "DJ"}</h3>
+          {djUser ? (
+            <Link className="lab-home-month-handle" to={`/user/${djUser.id}`}>
+              {djUser.handle}
+            </Link>
+          ) : null}
+          {bio ? (
+            <div className="lab-home-month-bio-wrap">
+              <p
+                ref={bioRef}
+                className={`lab-home-month-bio${bioOpen ? " is-open" : ""}`}
+              >
+                {bio}
+              </p>
+              {compact && (bioNeedsMore || bioOpen) ? (
+                <button
+                  type="button"
+                  className="lab-home-month-bio-more"
+                  aria-expanded={bioOpen}
+                  onClick={() => setBioOpen((open) => !open)}
+                >
+                  {bioOpen ? "Less" : "More"}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {djMix ? (
+            <div className="lab-home-month-mix">
+              <img src={resolveMixArtwork(djMix.coverUrl)} alt="" onError={handleArtworkError} />
+              <div>
+                <b>{djMix.title}</b>
+                <span>{fmtPlayerTime(djMix.durationSecs)}</span>
+              </div>
+              <button type="button" className="lab-home-play" onClick={() => void onPlay?.(djMix)}>
+                {playingDj ? "Pause" : "Play"}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
 export default function LabHomePage() {
   const { episodes, users, player, auth } = useApp();
   const navigate = useNavigate();
@@ -452,45 +554,29 @@ export default function LabHomePage() {
             </div>
           )}
         </section>
+
+        {!isDesktopHome && djFeature ? (
+          <DjOfMonthCard
+            compact
+            djFeature={djFeature}
+            djUser={djUser}
+            djMix={djMix}
+            playingDj={playingDj}
+            onPlay={player.playTrack}
+          />
+        ) : null}
         </div>
 
         {isDesktopHome && (djFeature || floorEvents.length > 0) ? (
           <div className="lab-home-rail">
             {djFeature ? (
-              <aside className="lab-home-month" aria-label="DJ of the month">
-                <h2 className="lab-home-sec">
-                  <span>DJ of the month</span>
-                </h2>
-                <div className="lab-home-month-card">
-                  <img
-                    className="lab-home-month-art"
-                    src={djFeature.photoUrl || "/logo.png"}
-                    alt=""
-                    onError={handleArtworkError}
-                  />
-                  <div className="lab-home-month-copy">
-                    <h3 className="lab-home-month-title">{djUser?.username || "DJ"}</h3>
-                    {djUser ? (
-                      <Link className="lab-home-month-handle" to={`/user/${djUser.id}`}>
-                        {djUser.handle}
-                      </Link>
-                    ) : null}
-                    {djFeature.bio ? <p className="lab-home-month-bio">{djFeature.bio}</p> : null}
-                    {djMix ? (
-                      <div className="lab-home-month-mix">
-                        <img src={resolveMixArtwork(djMix.coverUrl)} alt="" onError={handleArtworkError} />
-                        <div>
-                          <b>{djMix.title}</b>
-                          <span>{fmtPlayerTime(djMix.durationSecs)}</span>
-                        </div>
-                        <button type="button" className="lab-home-play" onClick={() => void player.playTrack(djMix)}>
-                          {playingDj ? "Pause" : "Play"}
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              </aside>
+              <DjOfMonthCard
+                djFeature={djFeature}
+                djUser={djUser}
+                djMix={djMix}
+                playingDj={playingDj}
+                onPlay={player.playTrack}
+              />
             ) : null}
 
             {floorEvents.length > 0 ? (
