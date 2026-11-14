@@ -18,7 +18,7 @@ create table if not exists public.profiles (
   verified boolean not null default false,
   is_admin boolean not null default false,
   is_banned boolean not null default false,
-  is_approved boolean not null default false,
+  is_approved boolean not null default true,
   plan text not null default 'free' check (plan in ('free', 'paid', 'pro')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

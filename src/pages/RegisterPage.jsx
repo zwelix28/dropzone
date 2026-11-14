@@ -121,7 +121,10 @@ export default function RegisterPage() {
           <div className="auth-head auth-head-solo">
             <div>
               <h2 className="auth-title">Create account</h2>
-              <p className="auth-sub">Join the Lab — same Home, crates, and player waiting inside.</p>
+              <p className="auth-sub">
+                Step into the Lab for deep cuts, late-night crates, and a player built for long listens — not
+                algorithms.
+              </p>
             </div>
           </div>
 
