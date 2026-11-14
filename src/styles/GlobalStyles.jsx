@@ -1612,14 +1612,292 @@ export const GlobalStyles = () => (
       scrollbar-width: none;
     }
     .lab-home-crates::-webkit-scrollbar { display: none; }
-    .lab-home-crate {
-      position: relative;
-      width: 148px;
+    .app-toast-host {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+      /* Above player bar (800) and mobile tab nav (810) */
+      z-index: 920;
+      display: flex;
+      justify-content: center;
+      pointer-events: none;
+      padding: 0 16px;
+    }
+    .app-toast-host.is-above-player {
+      bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    }
+    .app-toast-host.is-above-tabs {
+      bottom: calc(var(--mobile-tab-nav-height) + 16px + env(safe-area-inset-bottom, 0px));
+    }
+    .app-toast-host.is-above-player-tabs {
+      bottom: calc(var(--mobile-tab-nav-height) + 88px + env(safe-area-inset-bottom, 0px));
+    }
+    .app-toast {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      max-width: min(420px, 100%);
+      width: fit-content;
+      padding: 12px 16px;
+      border-radius: var(--r2);
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      background:
+        radial-gradient(120% 140% at 0% 0%, rgba(56, 189, 248, 0.14), transparent 55%),
+        linear-gradient(160deg, rgba(26, 34, 53, 0.98), rgba(17, 24, 39, 0.98));
+      box-shadow:
+        0 14px 36px rgba(0, 0, 0, 0.55),
+        0 0 0 1px rgba(255, 255, 255, 0.03),
+        0 0 28px rgba(56, 189, 248, 0.08);
+      color: var(--text);
+      font-family: var(--ff-body);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      animation: app-toast-in 0.22s ease-out;
+    }
+    .app-toast.is-ok {
+      border-color: rgba(56, 189, 248, 0.36);
+    }
+    .app-toast.is-presave {
+      border-color: rgba(251, 146, 60, 0.4);
+      background:
+        radial-gradient(120% 140% at 0% 0%, rgba(251, 146, 60, 0.14), transparent 55%),
+        linear-gradient(160deg, rgba(26, 34, 53, 0.98), rgba(17, 24, 39, 0.98));
+      box-shadow:
+        0 14px 36px rgba(0, 0, 0, 0.55),
+        0 0 0 1px rgba(255, 255, 255, 0.03),
+        0 0 28px rgba(251, 146, 60, 0.08);
+    }
+    .app-toast.is-presave .app-toast-icon {
+      background: rgba(251, 146, 60, 0.16);
+      color: var(--orange);
+    }
+    .app-toast-icon {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(56, 189, 248, 0.14);
+      color: var(--accent);
+    }
+    .app-toast-copy {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .app-toast-copy strong {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      line-height: 1.3;
+      color: var(--text);
+    }
+    .app-toast-copy span {
+      font-size: 12px;
+      color: var(--text2);
+      line-height: 1.4;
+    }
+    .app-toast-close {
+      flex-shrink: 0;
+      border: 0;
+      background: transparent;
+      color: var(--text3);
+      padding: 2px;
+      cursor: pointer;
+      border-radius: 8px;
+    }
+    .app-toast-close:hover {
+      color: var(--accent3);
+    }
+    @keyframes app-toast-in {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    @media (max-width: 720px) {
+      .app-toast {
+        max-width: min(360px, calc(100vw - 24px));
+        padding: 11px 14px;
+        border-radius: 14px;
+      }
+      .app-toast-host.is-above-player {
+        bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+      }
+      .app-toast-host.is-above-player-tabs {
+        bottom: calc(var(--mobile-tab-nav-height) + 78px + env(safe-area-inset-bottom, 0px));
+      }
+    }
+
+    /* Pre-save CTA after a successful library save */
+    .btn.is-presaved,
+    .mix-detail-action-btn.is-presaved,
+    .lab-home-chip.is-presaved {
+      background: rgba(251, 146, 60, 0.16) !important;
+      border-color: rgba(251, 146, 60, 0.55) !important;
+      color: var(--orange) !important;
+    }
+
+    .profile-mixes-crate-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+      gap: 18px 14px;
+    }
+    .profile-mixes-crate-grid .lab-home-crate-card {
+      width: 100%;
+    }
+    .profile-mixes-crate-grid .lab-home-crate-art {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 1;
+    }
+    .profile-mixes-crate-grid .lab-home-crate-play {
+      right: 10px;
+      bottom: 10px;
+      width: 40px;
+      height: 40px;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+    .profile-mixes-crate-grid .lab-home-crate-card:hover .lab-home-crate-play,
+    .profile-mixes-crate-grid .lab-home-crate-card.is-active .lab-home-crate-play,
+    .profile-mixes-crate-grid .lab-home-crate-card:focus-visible .lab-home-crate-play {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .profile-mixes-crate-grid .lab-home-crate-presave-badge {
+      top: 8px;
+      left: 8px;
+      font-size: 10px;
+      padding: 3px 8px;
+    }
+    .profile-mixes-crate-grid .lab-home-crate-copy b {
+      font-size: 13px;
+    }
+    .profile-mixes-crate-grid .lab-home-crate-meta,
+    .profile-mixes-crate-grid .lab-home-crate-release {
+      font-size: 11px;
+    }
+
+    /* Fresh crates — shared mobile/desktop card (bezel-less cover + copy) */
+    .lab-home-crate-card {
+      width: 132px;
       flex: none;
       scroll-snap-align: start;
-      text-decoration: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 0;
+      border: 0;
+      background: none;
       color: inherit;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
     }
+    .lab-home-crate-art {
+      position: relative;
+      display: block;
+      width: 132px;
+      height: 132px;
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--surface2);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+    }
+    .lab-home-crate-art img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .lab-home-crate-play {
+      position: absolute;
+      right: 8px;
+      bottom: 8px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--accent2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4), 0 0 16px var(--glow);
+      opacity: 1;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .lab-home-crate-presave-badge {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      z-index: 3;
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      padding: 2px 6px;
+      line-height: 1.2;
+      pointer-events: none;
+    }
+    .lab-home-crate-card.is-presave .lab-home-crate-art {
+      box-shadow: 0 0 0 1px rgba(251, 146, 60, 0.35), 0 6px 18px rgba(0, 0, 0, 0.28);
+    }
+    .lab-home-crate-copy {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .lab-home-crate-copy b {
+      margin: 0;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.3;
+      color: var(--text);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      white-space: normal;
+      word-break: break-word;
+    }
+    .lab-home-crate-copy .sub {
+      display: block;
+      margin: 0;
+      color: var(--text2);
+      font-size: 11px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .lab-home-crate-meta {
+      color: var(--text3);
+      font-size: 10px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .lab-home-crate-release {
+      display: block;
+      margin: 0;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--orange);
+      line-height: 1.3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    /* Legacy vinyl helpers (other shelves may still reference) */
     .lab-home-crate-vinyl {
       position: absolute;
       left: 34px;
@@ -1653,16 +1931,6 @@ export const GlobalStyles = () => (
       height: 118px;
       border-radius: 14px;
       background: #141414;
-    }
-    .lab-home-crate b {
-      display: block;
-      margin-top: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      line-height: 1.3;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
     }
     .lab-home-row {
       display: flex;
@@ -1905,7 +2173,7 @@ export const GlobalStyles = () => (
         transform: translate(26.67%, -50%);
       }
       .lab-home-sec { font-weight: 500; }
-      .lab-home-crate b,
+      .lab-home-crate-copy b,
       .lab-home-shelf-card b { font-weight: 500; }
       .lab-home-ranks-list {
         display: flex;
@@ -2056,10 +2324,10 @@ export const GlobalStyles = () => (
         margin-top: 2px;
       }
 
-      /* Fresh crates — separated rounded squares in a horizontal slider */
+      /* Fresh crates — bezel-less mobile rail (matches desktop structure) */
       .lab-home-crates-pane {
         display: flex;
-        gap: 9px;
+        gap: 12px;
         overflow-x: auto;
         scroll-snap-type: x mandatory;
         -webkit-overflow-scrolling: touch;
@@ -2070,44 +2338,6 @@ export const GlobalStyles = () => (
         scrollbar-width: none;
       }
       .lab-home-crates-pane::-webkit-scrollbar { display: none; }
-      .lab-home-crates-pane .lab-home-crate {
-        width: 106px;
-        flex: none;
-        display: flex;
-        flex-direction: column;
-        align-items: stretch;
-        gap: 7px;
-        padding: 9px;
-        scroll-snap-align: start;
-        border: 1px solid var(--border);
-        border-radius: 13px;
-        background: var(--surface);
-      }
-      .lab-home-crates-pane .lab-home-crate-vinyl {
-        display: none;
-      }
-      .lab-home-crates-pane .lab-home-crate-cover {
-        position: static;
-        width: 88%;
-        height: auto;
-        aspect-ratio: 1;
-        flex-shrink: 0;
-        align-self: center;
-        border-radius: 9px;
-      }
-      .lab-home-crate-copy {
-        min-width: 0;
-      }
-      .lab-home-crates-pane .lab-home-crate b {
-        margin-top: 0;
-        font-size: 12px;
-        font-weight: 700;
-        white-space: normal;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-      }
     }
     @media (min-width: 1080px) {
       .lab-home { max-width: none; padding: 28px 36px 40px; }
@@ -2600,7 +2830,7 @@ export const GlobalStyles = () => (
         font-variant-numeric: tabular-nums;
       }
 
-      /* Fresh crates — match Continue Listening streaming rail */
+      /* Fresh crates — desktop rail (larger art, hover play) */
       .lab-home-crates-pane.is-desktop-rail {
         display: flex;
         flex-direction: row;
@@ -2619,99 +2849,56 @@ export const GlobalStyles = () => (
         scrollbar-width: none;
       }
       .lab-home-crates-pane.is-desktop-rail::-webkit-scrollbar { display: none; }
-      .lab-home-crate-card {
+      .lab-home-crates-pane.is-desktop-rail .lab-home-crate-card {
         width: 156px;
-        flex: none;
-        scroll-snap-align: start;
-        display: flex;
-        flex-direction: column;
         gap: 10px;
-        padding: 0;
-        border: 0;
-        background: none;
-        color: inherit;
-        font: inherit;
-        text-align: left;
-        cursor: pointer;
       }
-      .lab-home-crate-art {
-        position: relative;
-        display: block;
+      .lab-home-crates-pane.is-desktop-rail .lab-home-crate-art {
         width: 156px;
         height: 156px;
-        border-radius: 12px;
-        overflow: hidden;
-        background: var(--surface2);
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
       }
-      .lab-home-crate-art img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-      }
-      .lab-home-crate-play {
-        position: absolute;
+      .lab-home-crates-pane.is-desktop-rail .lab-home-crate-play {
         right: 10px;
         bottom: 10px;
         width: 40px;
         height: 40px;
-        border-radius: 50%;
-        background: var(--accent2);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45), 0 0 20px var(--glow);
         opacity: 0;
         transform: translateY(6px);
         transition: opacity 0.18s ease, transform 0.18s ease;
-        pointer-events: none;
-        z-index: 2;
       }
-      .lab-home-crate-card:hover .lab-home-crate-play,
-      .lab-home-crate-card.is-active .lab-home-crate-play,
-      .lab-home-crate-card:focus-visible .lab-home-crate-play {
+      .lab-home-crates-pane.is-desktop-rail .lab-home-crate-card:hover .lab-home-crate-play,
+      .lab-home-crates-pane.is-desktop-rail .lab-home-crate-card.is-active .lab-home-crate-play,
+      .lab-home-crates-pane.is-desktop-rail .lab-home-crate-card:focus-visible .lab-home-crate-play {
         opacity: 1;
         transform: translateY(0);
       }
-      .lab-home-crate-card.is-active .lab-home-crate-art {
+      .lab-home-crates-pane.is-desktop-rail .lab-home-crate-card.is-active .lab-home-crate-art {
         box-shadow:
           0 0 0 1px rgba(56, 189, 248, 0.45),
           0 8px 28px rgba(0, 0, 0, 0.35);
       }
+      .lab-home-crates-pane.is-desktop-rail .lab-home-crate-presave-badge {
+        top: 8px;
+        left: 8px;
+        font-size: 10px;
+        padding: 3px 8px;
+      }
       .lab-home-crates-pane.is-desktop-rail .lab-home-crate-copy {
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
         gap: 3px;
       }
       .lab-home-crates-pane.is-desktop-rail .lab-home-crate-copy b {
-        margin: 0;
         font-size: 13px;
-        font-weight: 700;
-        line-height: 1.3;
-        color: var(--text);
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        white-space: normal;
-        word-break: break-word;
       }
       .lab-home-crates-pane.is-desktop-rail .lab-home-crate-copy .sub {
-        display: block;
-        margin: 0;
-        color: var(--text2);
         font-size: 12px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
       }
-      .lab-home-crate-meta {
-        color: var(--text3);
+      .lab-home-crates-pane.is-desktop-rail .lab-home-crate-meta,
+      .lab-home-crates-pane.is-desktop-rail .lab-home-crate-release {
         font-size: 11px;
-        font-weight: 600;
-        font-variant-numeric: tabular-nums;
+      }
+      .lab-home-crates-pane.is-desktop-rail .lab-home-crate-card.is-presave .lab-home-crate-art {
+        box-shadow: 0 0 0 1px rgba(251, 146, 60, 0.35), 0 8px 24px rgba(0, 0, 0, 0.28);
       }
 
       /* Top 5 — full-width ranked list, titles wrap end-to-end */
@@ -4120,6 +4307,29 @@ export const GlobalStyles = () => (
       opacity: 1;
       transform: scale(1);
     }
+    .mixes-row-presave {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(7, 9, 15, 0.45);
+      pointer-events: none;
+    }
+    .mixes-row-presave-line {
+      margin: 6px 0 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--orange);
+      line-height: 1.35;
+    }
+    .library-row-presave-note {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--orange);
+      line-height: 1.45;
+    }
     .mixes-row-body {
       min-width: 0;
       display: flex;
@@ -4318,18 +4528,24 @@ export const GlobalStyles = () => (
       align-items: center;
       gap: 0;
       padding: 8px 10px 8px 8px;
+      border-radius: 16px;
     }
     .library-mobile-art {
       position: relative;
       flex-shrink: 0;
       width: 72px;
       height: 72px;
-      border-radius: 8px;
+      border-radius: 12px;
       overflow: hidden;
       border: none;
       padding: 0;
       cursor: pointer;
       background: var(--bg2);
+    }
+    .library-mobile-art.is-presave {
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
     }
     .library-mobile-art img {
       width: 100%;
@@ -4344,6 +4560,52 @@ export const GlobalStyles = () => (
       display: flex;
       align-items: center;
       justify-content: center;
+    }
+    .library-mobile-presave-chip {
+      position: absolute;
+      top: 5px;
+      left: 5px;
+      z-index: 2;
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      line-height: 1.2;
+      padding: 2px 5px;
+      border-radius: 999px;
+      border: 1px solid rgba(251, 146, 60, 0.45);
+      background: rgba(7, 9, 15, 0.72);
+      color: var(--orange);
+      pointer-events: none;
+    }
+    .library-mobile-unsave {
+      align-self: flex-start;
+      font-size: 11px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      color: var(--orange);
+      border-color: rgba(251, 146, 60, 0.4);
+    }
+
+    /* Keep Mixes / Library action buttons pill-shaped like desktop chips */
+    .mixes-page .btn,
+    .library-page .btn {
+      border-radius: 999px;
+    }
+    .mixes-page.is-compact .track-card.track-card-row,
+    .library-page.is-compact .track-card.track-card-row {
+      border-radius: 16px;
+    }
+    .mixes-page.is-compact .track-card.track-card-row img,
+    .mixes-mobile-grid .track-card-row img {
+      border-radius: 12px;
+    }
+    .library-mobile-copy {
+      min-width: 0;
+      flex: 1;
+    }
+    .library-mobile-copy .mixes-row-presave-line {
+      margin-top: 2px;
+      font-size: 11px;
     }
     .library-mobile-play {
       width: 28px;
@@ -5616,7 +5878,7 @@ export const GlobalStyles = () => (
       display: flex;
       align-items: stretch;
       justify-content: space-between;
-      gap: 6px;
+      gap: 8px;
       width: 100%;
     }
     .mix-detail-action-btn {
@@ -5627,23 +5889,29 @@ export const GlobalStyles = () => (
       align-items: center;
       justify-content: center;
       gap: 4px;
-      padding: 8px 6px;
-      border-radius: 12px;
+      min-height: 44px;
+      padding: 8px 12px;
+      border-radius: 999px !important;
       border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--text2);
+      background: transparent;
+      color: var(--text);
       font-size: 10px;
       font-weight: 600;
       letter-spacing: 0.02em;
       line-height: 1.1;
       cursor: pointer;
       -webkit-tap-highlight-color: transparent;
+      overflow: hidden;
     }
     .mix-detail-action-btn.is-primary,
     .mix-detail-action-btn.is-on {
       color: var(--bg);
       background: var(--accent2);
       border-color: var(--accent2);
+      font-weight: 700;
+    }
+    .mixes-row-actions .btn {
+      border-radius: 999px;
     }
     /* Mobile primary tab bar — under mini player */
     .mobile-bottom-nav {

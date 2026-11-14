@@ -14,6 +14,11 @@ import {
 } from "../lib/floorEvents.js";
 import { fmtDuration, fmtPlayerTime } from "../lib/format.js";
 import { isMixesItem } from "../lib/contentType.js";
+import {
+  formatPresaveReleaseLine,
+  isMixPresave,
+  isMixStreamable,
+} from "../lib/mixVisibility.js";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { prefetchMixPlayback } from "../lib/audioUrls.js";
 import { fetchLibrarySessions, getLibrarySessionsQuick } from "../lib/playbackProgress.js";
@@ -137,9 +142,14 @@ export default function LabHomePage() {
   const [sessions, setSessions] = useState(
     () => getLibrarySessionsQuick(auth.session?.user?.id, episodes),
   );
-  const spinning = player.currentTrack && mixes.some((episode) => episode.id === player.currentTrack.id)
-    ? mixes.find((episode) => episode.id === player.currentTrack.id)
-    : mixes[0] || null;
+  const streamableMixes = useMemo(
+    () => mixes.filter((episode) => isMixStreamable(episode)),
+    [mixes],
+  );
+  const spinning =
+    player.currentTrack && streamableMixes.some((episode) => episode.id === player.currentTrack.id)
+      ? streamableMixes.find((episode) => episode.id === player.currentTrack.id)
+      : streamableMixes[0] || null;
 
   // Fresh crates: newest first — up to 10 so desktop can fill the shelf.
   const crates = mixes.slice(0, 10);
@@ -375,58 +385,48 @@ export default function LabHomePage() {
             {crates.map((episode) => {
               const active = player.currentTrack?.id === episode.id;
               const isPlaying = active && player.isPlaying;
-
-              if (isDesktopHome) {
-                return (
-                  <button
-                    key={episode.id}
-                    type="button"
-                    className={`lab-home-crate-card${active ? " is-active" : ""}`}
-                    title={episode.title}
-                    onClick={() => void player.playTrack(episode)}
-                  >
-                    <span className="lab-home-crate-art">
-                      <img
-                        src={resolveMixArtwork(episode.coverUrl)}
-                        alt=""
-                        onError={handleArtworkError}
-                      />
-                      <span className="lab-home-crate-play" aria-hidden="true">
-                        <Icon name={isPlaying ? "pause" : "play"} size={18} color="#07090F" />
-                      </span>
-                    </span>
-                    <span className="lab-home-crate-copy">
-                      <b>{shelfMixTitle(episode.title)}</b>
-                      <span className="sub">{artistName(episode, users)}</span>
-                      <span className="lab-home-crate-meta">{fmtDuration(episode.durationSecs)}</span>
-                    </span>
-                  </button>
-                );
-              }
+              const streamable = isMixStreamable(episode, {
+                allowAdminPreview: Boolean(auth.currentUser?.isAdmin),
+              });
+              const presave = isMixPresave(episode);
+              const presaveLine = formatPresaveReleaseLine(episode.goesLiveAt);
+              const crateTitle = presave ? `${episode.title} — ${presaveLine}` : episode.title;
 
               return (
-                <Link
+                <button
                   key={episode.id}
-                  className="lab-home-crate"
-                  to={`/mix/${episode.id}`}
-                  state={{ from: "/home" }}
-                  title={episode.title}
+                  type="button"
+                  className={`lab-home-crate-card${active ? " is-active" : ""}${presave ? " is-presave" : ""}${isDesktopHome ? "" : " is-mobile"}`}
+                  title={crateTitle}
+                  onClick={() => {
+                    if (streamable) void player.playTrack(episode);
+                    else openMix(episode);
+                  }}
                 >
-                  <div className="lab-home-crate-vinyl" aria-hidden="true">
-                    <span>
-                      <img src={resolveMixArtwork(episode.coverUrl)} alt="" onError={handleArtworkError} />
-                    </span>
-                  </div>
-                  <img
-                    className="lab-home-crate-cover"
-                    src={resolveMixArtwork(episode.coverUrl)}
-                    alt=""
-                    onError={handleArtworkError}
-                  />
+                  <span className="lab-home-crate-art">
+                    <img
+                      src={resolveMixArtwork(episode.coverUrl)}
+                      alt=""
+                      onError={handleArtworkError}
+                    />
+                    {presave ? (
+                      <span className="lab-home-crate-presave-badge tag tag-orange">Pre-save</span>
+                    ) : (
+                      <span className="lab-home-crate-play" aria-hidden="true">
+                        <Icon name={isPlaying ? "pause" : "play"} size={isDesktopHome ? 18 : 14} color="#07090F" />
+                      </span>
+                    )}
+                  </span>
                   <span className="lab-home-crate-copy">
                     <b>{shelfMixTitle(episode.title)}</b>
+                    <span className="sub">{artistName(episode, users)}</span>
+                    {presave ? (
+                      <span className="lab-home-crate-release">{presaveLine}</span>
+                    ) : (
+                      <span className="lab-home-crate-meta">{fmtDuration(episode.durationSecs)}</span>
+                    )}
                   </span>
-                </Link>
+                </button>
               );
             })}
           </div>

@@ -8,6 +8,11 @@ import { fmt, fmtDuration } from "../lib/format.js";
 import { handleArtworkError, resolveMixArtwork } from "../constants/artwork.js";
 import { isProPlan } from "../constants/plans.js";
 import { useApp } from "../context/AppContext.jsx";
+import {
+  formatPresaveReleaseLine,
+  isMixPresave,
+  isMixStreamable,
+} from "../lib/mixVisibility.js";
 
 /**
  * Mix grid card. Card click opens the mix page without starting playback.
@@ -31,6 +36,10 @@ export default function TrackCard({
   const location = useLocation();
   const user = users.find((u) => u.id === episode.userId);
   const showDownloads = isProPlan(auth.currentUser);
+  const isAdmin = Boolean(auth.currentUser?.isAdmin);
+  const streamable = isMixStreamable(episode, { allowAdminPreview: isAdmin });
+  const presave = isMixPresave(episode);
+  const presaveLine = presave ? formatPresaveReleaseLine(episode.goesLiveAt) : null;
   const isRow = layout === "row";
   const pad = isRow ? "8px 10px 8px 8px" : compact ? "8px 10px" : fullTitle ? "12px 14px" : "14px 16px";
   const titleSize = isRow ? 13 : compact ? 12 : fullTitle ? 13 : 14;
@@ -53,6 +62,7 @@ export default function TrackCard({
   const handlePlayClick = (e) => {
     e.stopPropagation();
     e.preventDefault();
+    if (!streamable) return;
     onPlay?.(episode);
   };
 
@@ -73,7 +83,7 @@ export default function TrackCard({
           flexShrink: 0,
           width: artSize || "100%",
           height: artSize || undefined,
-          borderRadius: isRow ? 8 : shrinkArt ? 10 : undefined,
+          borderRadius: isRow ? 12 : shrinkArt ? 12 : undefined,
           overflow: isRow || shrinkArt ? "hidden" : undefined,
         }}
       >
@@ -111,32 +121,60 @@ export default function TrackCard({
           }}
           className="track-card-play-layer"
         >
-          <button
-            type="button"
-            className="track-card-play-btn"
-            aria-label={isActive && isPlaying ? "Pause mix" : "Play mix"}
-            title={isActive && isPlaying ? "Pause" : "Play"}
-            onClick={handlePlayClick}
-            style={{
-              width: playBtn,
-              height: playBtn,
-              borderRadius: "50%",
-              border: "none",
-              padding: 0,
-              background: "var(--accent2)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 0 24px var(--glow)",
-              cursor: "pointer",
-              animation: isActive && isPlaying ? "glow 2s ease-in-out infinite" : undefined,
-            }}
-          >
-            <Icon name={isActive && isPlaying ? "pause" : "play"} size={playIcon} color="#07090F" />
-          </button>
+          {streamable ? (
+            <button
+              type="button"
+              className="track-card-play-btn"
+              aria-label={isActive && isPlaying ? "Pause mix" : "Play mix"}
+              title={isActive && isPlaying ? "Pause" : "Play"}
+              onClick={handlePlayClick}
+              style={{
+                width: playBtn,
+                height: playBtn,
+                borderRadius: "50%",
+                border: "none",
+                padding: 0,
+                background: "var(--accent2)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 0 24px var(--glow)",
+                cursor: "pointer",
+                animation: isActive && isPlaying ? "glow 2s ease-in-out infinite" : undefined,
+              }}
+            >
+              <Icon name={isActive && isPlaying ? "pause" : "play"} size={playIcon} color="#07090F" />
+            </button>
+          ) : (
+            <span
+              className="tag tag-orange"
+              style={{ fontSize: genreTagSize, padding: "4px 10px", fontWeight: 700 }}
+            >
+              Pre-save
+            </span>
+          )}
         </div>
         {!isRow ? (
           <>
+            <div
+              style={{
+                position: "absolute",
+                top: cornerPad,
+                left: cornerPad,
+                zIndex: 4,
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                alignItems: "flex-start",
+                maxWidth: "70%",
+              }}
+            >
+              {presave ? (
+                <span className="tag tag-orange" style={{ fontSize: genreTagSize, padding: compact ? "2px 8px" : undefined }}>
+                  Pre-save
+                </span>
+              ) : null}
+            </div>
             <div
               style={{
                 position: "absolute",
@@ -183,6 +221,19 @@ export default function TrackCard({
       }}
     >
       {episode.title}
+      {presaveLine ? (
+        <div
+          style={{
+            marginTop: 4,
+            fontSize: Math.max(10, titleSize - 2),
+            fontWeight: 600,
+            color: "var(--orange)",
+            lineHeight: 1.3,
+          }}
+        >
+          {presaveLine}
+        </div>
+      ) : null}
     </div>
   );
 
@@ -256,6 +307,11 @@ export default function TrackCard({
             {fmt(episode.downloads)}
           </span>
         ) : null}
+        {isRow && presave ? (
+          <span className="tag tag-orange" style={{ fontSize: genreTagSize, padding: "2px 6px" }}>
+            Pre-save
+          </span>
+        ) : null}
         {isRow ? (
           <span className="tag tag-blue" style={{ fontSize: genreTagSize, padding: "2px 6px" }}>
             {episode.genre}
@@ -282,7 +338,7 @@ export default function TrackCard({
       }}
       style={{
         cursor: "pointer",
-        ...(compact || isRow ? { borderRadius: 12 } : undefined),
+        ...(compact || isRow ? { borderRadius: 16 } : undefined),
         ...(isRow
           ? {
               display: "flex",

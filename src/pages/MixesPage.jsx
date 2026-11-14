@@ -13,16 +13,31 @@ import { useApp } from "../context/AppContext.jsx";
 import useMediaQuery from "../hooks/useMediaQuery.js";
 import { isMixesItem } from "../lib/contentType.js";
 import { fmt, fmtDuration } from "../lib/format.js";
+import {
+  formatPresaveReleaseLine,
+  isMixPresave,
+  isMixStreamable,
+} from "../lib/mixVisibility.js";
 import { scrollAppMainToTop } from "../lib/scrollAppMain.js";
 
 const CHIP_GENRES = ["All", ...GENRES.slice(0, 6)];
 const DESKTOP_PAGE_SIZE = 8;
 const MOBILE_PAGE_SIZE = 12;
 
-function MixListRow({ episode, user, isActive, isPlaying, onPlay }) {
+function MixListRow({
+  episode,
+  user,
+  isActive,
+  isPlaying,
+  onPlay,
+  allowAdminPreview = false,
+}) {
   const navigate = useNavigate();
   const location = useLocation();
   const description = (episode.description || "").trim();
+  const streamable = isMixStreamable(episode, { allowAdminPreview });
+  const presave = isMixPresave(episode);
+  const presaveLine = formatPresaveReleaseLine(episode.goesLiveAt);
 
   const openMix = () => {
     navigate(`/mix/${episode.id}`, { state: { from: location.pathname } });
@@ -31,31 +46,39 @@ function MixListRow({ episode, user, isActive, isPlaying, onPlay }) {
   const handlePlay = (event) => {
     event.stopPropagation();
     event.preventDefault();
+    if (!streamable) return;
     onPlay?.(episode);
   };
 
   return (
-    <article className={`mixes-row${isActive ? " is-active" : ""}`}>
+    <article className={`mixes-row${isActive ? " is-active" : ""}${presave ? " is-presave" : ""}`}>
       <div className="mixes-row-art">
         <img
           src={resolveMixArtwork(episode.coverUrl)}
           alt=""
           onError={handleArtworkError}
         />
-        <button
-          type="button"
-          className="mixes-row-play"
-          aria-label={isActive && isPlaying ? "Pause mix" : "Play mix"}
-          onClick={handlePlay}
-        >
-          <Icon name={isActive && isPlaying ? "pause" : "play"} size={22} color="#07090F" />
-        </button>
+        {streamable ? (
+          <button
+            type="button"
+            className="mixes-row-play"
+            aria-label={isActive && isPlaying ? "Pause mix" : "Play mix"}
+            onClick={handlePlay}
+          >
+            <Icon name={isActive && isPlaying ? "pause" : "play"} size={22} color="#07090F" />
+          </button>
+        ) : (
+          <div className="mixes-row-presave" aria-hidden="true">
+            <span className="tag tag-orange">Pre-save</span>
+          </div>
+        )}
       </div>
 
       <div className="mixes-row-body">
         <div className="mixes-row-top">
           <div className="mixes-row-copy">
             <h2 className="mixes-row-title">{episode.title || "Untitled Mix"}</h2>
+            {presave ? <p className="mixes-row-presave-line">{presaveLine}</p> : null}
             {user ? (
               <Link to={`/user/${user.id}`} className="mixes-row-artist" onClick={(e) => e.stopPropagation()}>
                 <UserAvatar user={user} size={22} />
@@ -72,6 +95,7 @@ function MixListRow({ episode, user, isActive, isPlaying, onPlay }) {
         {description ? <p className="mixes-row-desc">{description}</p> : null}
 
         <div className="mixes-row-meta">
+          {presave ? <span className="tag tag-orange">Pre-save</span> : null}
           {episode.genre ? <span className="tag tag-blue">{episode.genre}</span> : null}
           <span>{fmtDuration(episode.durationSecs)}</span>
           <span>
@@ -81,10 +105,6 @@ function MixListRow({ episode, user, isActive, isPlaying, onPlay }) {
         </div>
 
         <div className="mixes-row-actions">
-          <button type="button" className="btn btn-primary" onClick={handlePlay}>
-            <Icon name={isActive && isPlaying ? "pause" : "play"} size={15} />
-            {isActive && isPlaying ? "Pause" : "Play"}
-          </button>
           <button type="button" className="btn btn-ghost" onClick={openMix}>
             View mix
           </button>
@@ -96,12 +116,13 @@ function MixListRow({ episode, user, isActive, isPlaying, onPlay }) {
 
 /** Full-length mixes. Singles / songs live on Discover. */
 export default function MixesPage() {
-  const { episodes, users, player } = useApp();
+  const { auth, episodes, users, player } = useApp();
   const [params] = useSearchParams();
   const q = params.get("q") || "";
   const isCompact = useMediaQuery("(max-width: 720px)");
   const [genre, setGenre] = useState("All");
   const [page, setPage] = useState(1);
+  const allowAdminPreview = Boolean(auth.currentUser?.isAdmin);
 
   const filtered = useMemo(() => {
     return episodes.filter((ep) => {
@@ -207,6 +228,7 @@ export default function MixesPage() {
                       isActive={player.currentTrack?.id === ep.id}
                       isPlaying={player.isPlaying && player.currentTrack?.id === ep.id}
                       onPlay={player.playTrack}
+                      allowAdminPreview={allowAdminPreview}
                     />
                   </div>
                 );

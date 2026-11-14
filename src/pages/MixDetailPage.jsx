@@ -21,6 +21,13 @@ import { FEATURE_MIX_COMMENTS, signedInHomePath } from "../featureFlags.js";
 import { episodeHasAudioSource } from "../lib/audioUrls.js";
 import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
 import { fetchMixById } from "../lib/mixLookup.js";
+import {
+  formatPresaveReleaseLine,
+  isMixPresave,
+  isMixStreamable,
+} from "../lib/mixVisibility.js";
+import { hasMixPresave } from "../lib/mixPresaves.js";
+import { presaveMixToLibrary, unsaveMixFromLibrary } from "../lib/presaveToLibrary.js";
 import { shareMix } from "../lib/shareMix.js";
 import {
   normalizeTracklist,
@@ -36,8 +43,10 @@ export default function MixDetailPage() {
   const [searchParams] = useSearchParams();
   const highlightCommentId = searchParams.get("comment");
   const focusComments = searchParams.get("comments") === "1";
-  const { auth, episodes, users, player, trackEvent, updateMix } = useApp();
+  const { auth, episodes, users, player, trackEvent, updateMix, showToast } = useApp();
   const isCompact = useMediaQuery("(max-width: 720px)");
+  const [presaveBusy, setPresaveBusy] = useState(false);
+  const [presaveSaved, setPresaveSaved] = useState(false);
 
   const episodeFromCatalog = useMemo(() => episodes.find((e) => e.id === id) || null, [episodes, id]);
   const [fetchedEpisode, setFetchedEpisode] = useState(null);
@@ -127,6 +136,22 @@ export default function MixDetailPage() {
     return () => window.clearTimeout(t);
   }, [episode?.id, focusComments, highlightCommentId]);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const uid = auth.session?.user?.id;
+      if (!uid || !episode?.id || !isMixPresave(episode)) {
+        setPresaveSaved(false);
+        return;
+      }
+      const saved = await hasMixPresave(uid, episode.id);
+      if (!cancelled) setPresaveSaved(saved);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [auth.session?.user?.id, episode]);
+
   const browseRoot = auth.session?.user?.id ? signedInHomePath() : "/";
   const isLoading = lookupState === "loading" || (lookupState === "idle" && !episodeFromCatalog);
 
@@ -154,6 +179,47 @@ export default function MixDetailPage() {
   const hasDownloadAccess =
     (!episode.isForSale || isOwner || purchaseUnlocked) &&
     canDownloadMix(auth.currentUser, { isOwner, purchaseUnlocked });
+  const streamable = isMixStreamable(episode, { allowAdminPreview: isAdmin });
+  const presave = isMixPresave(episode);
+  const presaveLine = formatPresaveReleaseLine(episode.goesLiveAt);
+
+  const handlePlay = () => {
+    if (!streamable) return;
+    player.playTrack(episode);
+    trackEvent({ kind: "play", episodeId: episode.id, actorUserId: auth.currentUser?.id });
+  };
+
+  const handlePresave = async () => {
+    const userId = auth.session?.user?.id;
+    if (!userId) {
+      auth.setShowAuth(true);
+      return;
+    }
+    setPresaveBusy(true);
+    const result = presaveSaved
+      ? await unsaveMixFromLibrary({
+          userId,
+          mixId: episode.id,
+          mixTitle: episode.title,
+        })
+      : await presaveMixToLibrary({
+          userId,
+          mixId: episode.id,
+          mixTitle: episode.title,
+        });
+    setPresaveBusy(false);
+    if (!result.ok) {
+      showToast({
+        tone: "presave",
+        icon: "x",
+        title: presaveSaved ? "Couldn’t unsave" : "Couldn’t pre-save",
+        message: result.error || "Please try again.",
+      });
+      return;
+    }
+    setPresaveSaved(!presaveSaved);
+    showToast(result.toast);
+  };
 
   const handleDownload = async () => {
     if (!loggedIn) {
@@ -245,7 +311,7 @@ export default function MixDetailPage() {
           gap: isCompact ? 14 : 32,
           background: "var(--surface)",
           border: "1px solid var(--border)",
-          borderRadius: isCompact ? 12 : 16,
+          borderRadius: 16,
           padding: isCompact ? 14 : 24,
           marginBottom: isCompact ? 16 : 22,
         }}
@@ -262,7 +328,7 @@ export default function MixDetailPage() {
               margin: isCompact ? "0 auto" : undefined,
               display: "block",
               aspectRatio: "1 / 1",
-              borderRadius: isCompact ? 10 : 12,
+              borderRadius: 12,
               objectFit: "cover",
               border: "1px solid var(--border)",
             }}
@@ -292,13 +358,18 @@ export default function MixDetailPage() {
                 <span className="tag tag-blue" style={{ fontSize: isCompact ? 10 : undefined, padding: isCompact ? "2px 8px" : undefined }}>
                   {episode.genre}
                 </span>
+                {presave ? (
+                  <span className="tag tag-orange" style={{ fontSize: isCompact ? 10 : undefined, padding: isCompact ? "2px 8px" : undefined }}>
+                    Pre-save
+                  </span>
+                ) : null}
                 {Array.isArray(episode.tags) &&
                   episode.tags.slice(0, isCompact ? 4 : 6).map((t) => (
                     <span key={t} className="tag" style={{ fontSize: isCompact ? 10 : undefined, padding: isCompact ? "2px 8px" : undefined }}>
                       {t}
                     </span>
                   ))}
-                <MixLiveListeners mixId={episode.id} size={isCompact ? "sm" : "md"} />
+                {streamable ? <MixLiveListeners mixId={episode.id} size={isCompact ? "sm" : "md"} /> : null}
               </div>
 
               <h1
@@ -319,6 +390,29 @@ export default function MixDetailPage() {
               >
                 {episode.title}
               </h1>
+
+              {presave ? (
+                <p
+                  className="mix-presave-banner"
+                  style={{
+                    display: "inline-block",
+                    width: "fit-content",
+                    maxWidth: "100%",
+                    margin: "0 0 12px",
+                    padding: isCompact ? "8px 12px" : "9px 14px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(251,146,60,0.35)",
+                    background: "rgba(251,146,60,0.08)",
+                    color: "var(--orange)",
+                    fontSize: isCompact ? 13 : 14,
+                    fontWeight: 600,
+                    lineHeight: 1.35,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {presaveLine}
+                </p>
+              ) : null}
 
               {user ? (
                 <div style={{ display: "flex", alignItems: "center", gap: isCompact ? 8 : 10, marginBottom: 0, flexWrap: "wrap" }}>
@@ -353,19 +447,45 @@ export default function MixDetailPage() {
                 <div className="mix-detail-action-row" role="toolbar" aria-label="Mix actions">
                   <button
                     type="button"
-                    className="mix-detail-action-btn is-primary"
-                    onClick={() => {
-                      player.playTrack(episode);
-                      trackEvent({ kind: "play", episodeId: episode.id, actorUserId: auth.currentUser?.id });
+                    className={`mix-detail-action-btn is-primary${!streamable && presaveSaved ? " is-presaved" : ""}`}
+                    onClick={streamable ? handlePlay : () => void handlePresave()}
+                    disabled={!streamable && presaveBusy}
+                    title={
+                      !streamable
+                        ? presaveSaved
+                          ? "Unsave from Library"
+                          : presave
+                            ? `Save to Library — ${presaveLine}`
+                            : "Not available to stream yet"
+                        : episodeHasAudioSource(episode)
+                          ? "Play"
+                          : "No audio source available for this mix"
+                    }
+                    style={{
+                      opacity: streamable ? (episodeHasAudioSource(episode) ? 1 : 0.6) : 1,
                     }}
-                    title={episodeHasAudioSource(episode) ? "Play" : "No audio source available for this mix"}
-                    style={{ opacity: episodeHasAudioSource(episode) ? 1 : 0.6 }}
                   >
-                    <Icon
-                      name={player.currentTrack?.id === episode.id && player.isPlaying ? "pause" : "play"}
-                      size={18}
-                    />
-                    <span>{player.currentTrack?.id === episode.id && player.isPlaying ? "Pause" : "Play"}</span>
+                    {streamable ? (
+                      <Icon
+                        name={
+                          player.currentTrack?.id === episode.id && player.isPlaying ? "pause" : "play"
+                        }
+                        size={18}
+                      />
+                    ) : null}
+                    <span>
+                      {!streamable
+                        ? presaveBusy
+                          ? presaveSaved
+                            ? "Removing…"
+                            : "Saving…"
+                          : presaveSaved
+                            ? "Unsave"
+                            : "Pre-save"
+                        : player.currentTrack?.id === episode.id && player.isPlaying
+                          ? "Pause"
+                          : "Play"}
+                    </span>
                   </button>
                   <LikeButton
                     mixId={episode.id}
@@ -465,14 +585,22 @@ export default function MixDetailPage() {
               >
                 <button
                   type="button"
-                  className="lab-home-chip is-on"
-                  onClick={() => {
-                    player.playTrack(episode);
-                    trackEvent({ kind: "play", episodeId: episode.id, actorUserId: auth.currentUser?.id });
-                  }}
-                  title={episodeHasAudioSource(episode) ? "Play" : "No audio source available for this mix"}
+                  className={`lab-home-chip is-on${!streamable && presaveSaved ? " is-presaved" : ""}`}
+                  onClick={streamable ? handlePlay : () => void handlePresave()}
+                  disabled={!streamable && presaveBusy}
+                  title={
+                    !streamable
+                      ? presaveSaved
+                        ? "Unsave from Library"
+                        : presave
+                          ? `Save to Library — ${presaveLine}`
+                          : "Not available to stream yet"
+                      : episodeHasAudioSource(episode)
+                        ? "Play"
+                        : "No audio source available for this mix"
+                  }
                   style={{
-                    opacity: episodeHasAudioSource(episode) ? 1 : 0.6,
+                    opacity: streamable ? (episodeHasAudioSource(episode) ? 1 : 0.6) : 1,
                     minWidth: 0,
                     boxSizing: "border-box",
                     display: "inline-flex",
@@ -481,11 +609,25 @@ export default function MixDetailPage() {
                     gap: 6,
                   }}
                 >
-                  <Icon
-                    name={player.currentTrack?.id === episode.id && player.isPlaying ? "pause" : "play"}
-                    size={16}
-                  />
-                  {player.currentTrack?.id === episode.id && player.isPlaying ? "Pause" : "Play"}
+                  {streamable ? (
+                    <Icon
+                      name={
+                        player.currentTrack?.id === episode.id && player.isPlaying ? "pause" : "play"
+                      }
+                      size={16}
+                    />
+                  ) : null}
+                  {!streamable
+                    ? presaveBusy
+                      ? presaveSaved
+                        ? "Removing…"
+                        : "Saving…"
+                      : presaveSaved
+                        ? "Unsave"
+                        : "Pre-save"
+                    : player.currentTrack?.id === episode.id && player.isPlaying
+                      ? "Pause"
+                      : "Play"}
                 </button>
                 <LikeButton mixId={episode.id} variant="inline" size="md" />
                 {FEATURE_MIX_COMMENTS ? (

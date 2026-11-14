@@ -1,6 +1,7 @@
 import { normalizePlan } from "../constants/plans.js";
 import { extractMixAudioPathFromLegacyPublicUrl } from "./audioUrls.js";
 import { normalizeMixStatus } from "./mixStatus.js";
+import { normalizeMixVisibility } from "./mixVisibility.js";
 
 export function mixRowToEpisode(row) {
   if (!row) return null;
@@ -32,6 +33,8 @@ export function mixRowToEpisode(row) {
     salesCount: row.sales_count ?? 0,
     contentType: row.content_type === "single" ? "single" : "mix",
     status: normalizeMixStatus(row.status),
+    visibility: normalizeMixVisibility(row.visibility),
+    goesLiveAt: row.goes_live_at ?? null,
     reviewNote: row.review_note ?? "",
     reviewedAt: row.reviewed_at ?? null,
     submittedAt: row.submitted_at ?? null,

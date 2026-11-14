@@ -15,7 +15,7 @@ import {
 import { listLocalUploadEpisodes } from "../lib/localUploads.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 import { mixRowToEpisode, notificationRowToApp, profileRowToUser } from "../lib/maps.js";
-import { isMixApproved } from "../lib/mixStatus.js";
+import { isMixCatalogVisible } from "../lib/mixVisibility.js";
 import { readPlayerSession } from "../lib/playerSession.js";
 
 const AppContext = createContext(null);
@@ -29,6 +29,31 @@ export function AppProvider({ children }) {
   const usersRef = useRef([]);
   const getPlaylist = useCallback(() => episodesRef.current, []);
   const durationBackfillGenRef = useRef(0);
+  const [toast, setToast] = useState(null);
+  const toastTimerRef = useRef(0);
+
+  const dismissToast = useCallback(() => {
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = 0;
+    }
+    setToast(null);
+  }, []);
+
+  const showToast = useCallback((next) => {
+    if (!next) {
+      setToast(null);
+      return;
+    }
+    setToast({
+      id: Date.now(),
+      tone: next.tone || "ok",
+      icon: next.icon || "check",
+      title: next.title || "",
+      message: next.message || "",
+      durationMs: next.durationMs ?? 3200,
+    });
+  }, []);
 
   const applyKnownMixDuration = useCallback((mixId, durationSecs) => {
     const sec = Math.round(Number(durationSecs) || 0);
@@ -54,6 +79,7 @@ export function AppProvider({ children }) {
     guestPreviewOnly: !auth.session?.user?.id,
     isAuthenticated: Boolean(auth.session?.user?.id),
     userId: auth.session?.user?.id ?? null,
+    allowAdminPreview: Boolean(auth.currentUser?.isAdmin),
     getPlaylist,
     getSuspendPlayback: () => forYouRouteRef.current,
     onDurationKnown: applyKnownMixDuration,
@@ -101,8 +127,8 @@ export function AppProvider({ children }) {
       return [];
     }
     setDataError(null);
-    // Submissions awaiting (or refused) admin review never enter the public catalog.
-    const list = (data || []).map(mixRowToEpisode).filter(isMixApproved);
+    // Pending/rejected + hidden never enter the public catalog; pre-save does (not streamable).
+    const list = (data || []).map(mixRowToEpisode).filter(isMixCatalogVisible);
     setEpisodes(list);
 
     const gen = ++durationBackfillGenRef.current;
@@ -509,6 +535,9 @@ export function AppProvider({ children }) {
       refreshDmUnreadCount,
       markDmThreadRead,
       markDmThreadUnread,
+      toast,
+      showToast,
+      dismissToast,
     }),
     [
       auth,
@@ -534,6 +563,9 @@ export function AppProvider({ children }) {
       refreshDmUnreadCount,
       markDmThreadRead,
       markDmThreadUnread,
+      toast,
+      showToast,
+      dismissToast,
     ],
   );
 

@@ -13,6 +13,12 @@ import {
   dismissLibrarySession,
   fetchLibrarySessions,
 } from "../lib/playbackProgress.js";
+import { listMixPresaves, removeMixPresave } from "../lib/mixPresaves.js";
+import {
+  formatPresaveReleaseLine,
+  isMixPresave,
+  isMixStreamable,
+} from "../lib/mixVisibility.js";
 import { scrollAppMainToTop } from "../lib/scrollAppMain.js";
 
 const DESKTOP_PAGE_SIZE = 8;
@@ -34,6 +40,9 @@ function LibraryListRow({
   dur,
   pct,
   busy,
+  streamable,
+  presave,
+  presaveLine,
   onResume,
   onRemove,
 }) {
@@ -49,32 +58,40 @@ function LibraryListRow({
   const handleResume = (event) => {
     event.stopPropagation();
     event.preventDefault();
+    if (!streamable) return;
     onResume?.(session);
   };
 
   return (
-    <article className={`mixes-row library-row${isActive ? " is-active" : ""}`}>
+    <article className={`mixes-row library-row${isActive ? " is-active" : ""}${presave ? " is-presave" : ""}`}>
       <div className="mixes-row-art">
         <img
           src={resolveMixArtwork(episode.coverUrl)}
           alt=""
           onError={handleArtworkError}
         />
-        <button
-          type="button"
-          className="mixes-row-play"
-          aria-label={isPlaying ? `Pause ${episode.title}` : `Resume ${episode.title}`}
-          disabled={busy}
-          onClick={handleResume}
-        >
-          <Icon name={isPlaying ? "pause" : "play"} size={22} color="#07090F" />
-        </button>
+        {streamable ? (
+          <button
+            type="button"
+            className="mixes-row-play"
+            aria-label={isPlaying ? `Pause ${episode.title}` : `Resume ${episode.title}`}
+            disabled={busy}
+            onClick={handleResume}
+          >
+            <Icon name={isPlaying ? "pause" : "play"} size={22} color="#07090F" />
+          </button>
+        ) : (
+          <div className="mixes-row-presave" aria-hidden="true">
+            <span className="tag tag-orange">Pre-save</span>
+          </div>
+        )}
       </div>
 
       <div className="mixes-row-body">
         <div className="mixes-row-top">
           <div className="mixes-row-copy">
             <h2 className="mixes-row-title">{episode.title || "Untitled Mix"}</h2>
+            {presave ? <p className="mixes-row-presave-line">{presaveLine}</p> : null}
             {user ? (
               <Link to={`/user/${user.id}`} className="mixes-row-artist" onClick={(e) => e.stopPropagation()}>
                 <UserAvatar user={user} size={22} />
@@ -86,8 +103,12 @@ function LibraryListRow({
           <button
             type="button"
             className="btn btn-ghost library-row-remove"
-            aria-label={`Remove ${episode.title} from library`}
-            title="Remove session"
+            aria-label={
+              presave || session.isLibraryPresave
+                ? `Unsave ${episode.title}`
+                : `Remove ${episode.title} from library`
+            }
+            title={presave || session.isLibraryPresave ? "Unsave" : "Remove session"}
             disabled={busy}
             onClick={(e) => {
               e.stopPropagation();
@@ -100,29 +121,48 @@ function LibraryListRow({
 
         {description ? <p className="mixes-row-desc">{description}</p> : null}
 
-        <div className="library-row-progress">
-          <div className="progress-wrap" style={{ height: 4 }}>
-            <div className="progress-fill" style={{ width: `${pct}%`, height: "100%" }} />
+        {streamable ? (
+          <div className="library-row-progress">
+            <div className="progress-wrap" style={{ height: 4 }}>
+              <div className="progress-fill" style={{ width: `${pct}%`, height: "100%" }} />
+            </div>
+            <div className="library-row-progress-meta">
+              <span>
+                {fmtPlayerTime(livePos)}
+                {dur > 0 ? ` / ${fmtPlayerTime(dur)}` : ""} · {pct}%
+              </span>
+              <span>{session.updatedAt ? fmtStreamedAt(session.updatedAt) : "Saved"}</span>
+            </div>
           </div>
-          <div className="library-row-progress-meta">
-            <span>
-              {fmtPlayerTime(livePos)}
-              {dur > 0 ? ` / ${fmtPlayerTime(dur)}` : ""} · {pct}%
-            </span>
-            <span>{session.updatedAt ? fmtStreamedAt(session.updatedAt) : "Saved"}</span>
-          </div>
-        </div>
+        ) : (
+          <p className="library-row-presave-note">
+            Streaming unlocks when this mix goes live{presaveLine ? ` — ${presaveLine}` : ""}.
+          </p>
+        )}
 
         <div className="mixes-row-meta">
+          {presave ? <span className="tag tag-orange">Pre-save</span> : null}
           {episode.genre ? <span className="tag tag-blue">{episode.genre}</span> : null}
           {episode.durationSecs ? <span>{fmtDuration(episode.durationSecs)}</span> : null}
         </div>
 
         <div className="mixes-row-actions">
-          <button type="button" className="btn btn-primary" disabled={busy} onClick={handleResume}>
-            <Icon name={isPlaying ? "pause" : "play"} size={15} />
-            {isPlaying ? "Pause" : "Resume"}
-          </button>
+          {streamable ? (
+            <button type="button" className="btn btn-primary" disabled={busy} onClick={handleResume}>
+              <Icon name={isPlaying ? "pause" : "play"} size={15} />
+              {isPlaying ? "Pause" : "Resume"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-ghost is-presaved"
+              disabled={busy}
+              onClick={() => onRemove?.(session.mixId)}
+              title="Remove this pre-save from Library"
+            >
+              Unsave
+            </button>
+          )}
           <button type="button" className="btn btn-ghost" onClick={openMix}>
             View mix
           </button>
@@ -137,58 +177,92 @@ function LibraryMobileRow({
   isPlaying,
   pct,
   busy,
+  streamable,
+  presave,
+  presaveLine,
   onResume,
   onRemove,
 }) {
   const episode = session.episode;
 
   return (
-    <li className="track-card track-card-row library-mobile-row">
-      <button
-        type="button"
-        aria-label={isPlaying ? `Pause ${episode.title}` : `Resume ${episode.title}`}
-        disabled={busy}
-        onClick={() => onResume?.(session)}
-        className="library-mobile-art"
-      >
-        <img
-          src={resolveMixArtwork(episode.coverUrl)}
-          alt=""
-          onError={handleArtworkError}
-        />
-        <span className="library-mobile-art-overlay">
-          <span className="library-mobile-play">
-            <Icon name={isPlaying ? "pause" : "play"} size={12} color="#07090F" />
+    <li className={`track-card track-card-row library-mobile-row${presave ? " is-presave" : ""}`}>
+      {streamable ? (
+        <button
+          type="button"
+          aria-label={isPlaying ? `Pause ${episode.title}` : `Resume ${episode.title}`}
+          disabled={busy}
+          onClick={() => onResume?.(session)}
+          className="library-mobile-art"
+        >
+          <img
+            src={resolveMixArtwork(episode.coverUrl)}
+            alt=""
+            onError={handleArtworkError}
+          />
+          <span className="library-mobile-art-overlay">
+            <span className="library-mobile-play">
+              <Icon name={isPlaying ? "pause" : "play"} size={12} color="#07090F" />
+            </span>
           </span>
-        </span>
-      </button>
+        </button>
+      ) : (
+        <Link
+          to={`/mix/${episode.id}`}
+          className="library-mobile-art is-presave"
+          aria-label={`View ${episode.title}`}
+        >
+          <img
+            src={resolveMixArtwork(episode.coverUrl)}
+            alt=""
+            onError={handleArtworkError}
+          />
+          <span className="library-mobile-presave-chip" aria-hidden="true">
+            Pre-save
+          </span>
+        </Link>
+      )}
 
       <div className="library-mobile-body">
         <div className="library-mobile-top">
-          <Link to={`/mix/${episode.id}`} className="library-mobile-title">
-            {episode.title}
-          </Link>
+          <div className="library-mobile-copy">
+            <Link to={`/mix/${episode.id}`} className="library-mobile-title">
+              {episode.title}
+            </Link>
+            {presave ? <p className="mixes-row-presave-line">{presaveLine}</p> : null}
+          </div>
           <button
             type="button"
             className="btn btn-ghost"
-            aria-label={`Remove ${episode.title} from library`}
-            title="Remove session"
+            aria-label={presave || session.isLibraryPresave ? `Unsave ${episode.title}` : `Remove ${episode.title} from library`}
+            title={presave || session.isLibraryPresave ? "Unsave" : "Remove session"}
             disabled={busy}
             onClick={() => onRemove?.(session.mixId)}
           >
             <Icon name="x" size={16} color="var(--text3)" />
           </button>
         </div>
-        <div className="progress-wrap" style={{ height: 3 }}>
-          <div className="progress-fill" style={{ width: `${pct}%`, height: "100%" }} />
-        </div>
+        {streamable ? (
+          <div className="progress-wrap" style={{ height: 3 }}>
+            <div className="progress-fill" style={{ width: `${pct}%`, height: "100%" }} />
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="btn btn-ghost library-mobile-unsave"
+            disabled={busy}
+            onClick={() => onRemove?.(session.mixId)}
+          >
+            Unsave
+          </button>
+        )}
       </div>
     </li>
   );
 }
 
 export default function LibraryPage() {
-  const { auth, episodes, users, player } = useApp();
+  const { auth, episodes, users, player, showToast } = useApp();
   const [params] = useSearchParams();
   const q = (params.get("q") || "").trim().toLowerCase();
   const isCompact = useMediaQuery("(max-width: 720px)");
@@ -209,8 +283,28 @@ export default function LibraryPage() {
       return;
     }
     if (!silent) setLoading(true);
-    const list = await fetchLibrarySessions(userId, episodesRef.current);
-    setSessions(list);
+    const catalog = episodesRef.current;
+    const byId = new Map(catalog.map((ep) => [ep.id, ep]));
+    const [progressList, presaveRows] = await Promise.all([
+      fetchLibrarySessions(userId, catalog),
+      listMixPresaves(userId),
+    ]);
+    const progressIds = new Set(progressList.map((s) => s.mixId));
+    const presaveSessions = (presaveRows || [])
+      .filter((row) => row.mixId && !progressIds.has(row.mixId) && byId.has(row.mixId))
+      .map((row) => {
+        const episode = byId.get(row.mixId);
+        return {
+          mixId: row.mixId,
+          positionSec: 0,
+          durationSec: Number(episode?.durationSecs) || 0,
+          totalListenedSec: 0,
+          updatedAt: row.createdAt || null,
+          episode,
+          isLibraryPresave: true,
+        };
+      });
+    setSessions([...presaveSessions, ...progressList]);
     loadedUserIdRef.current = userId;
     setLoading(false);
   }, [userId]);
@@ -231,14 +325,16 @@ export default function LibraryPage() {
   useEffect(() => {
     if (!userId) return;
     const opts = { guestPreviewOnly: false, isAuthenticated: true, preferFullMix: false };
+    const canPreview = Boolean(auth.currentUser?.isAdmin);
     for (const session of sessions.slice(0, 5)) {
       if (!session?.episode?.id) continue;
+      if (!isMixStreamable(session.episode, { allowAdminPreview: canPreview })) continue;
       void prefetchMixPlayback(session.episode, opts, {
         warm: true,
         seekSec: Number(session.positionSec) || 0,
       });
     }
-  }, [userId, sessions]);
+  }, [userId, sessions, auth.currentUser?.isAdmin]);
 
   const visibleSessions = useMemo(() => {
     if (!q) return sessions;
@@ -276,17 +372,36 @@ export default function LibraryPage() {
     return <Navigate to="/" replace />;
   }
 
+  const allowAdminPreview = Boolean(auth.currentUser?.isAdmin);
+
   const handleResume = (session) => {
     if (!session?.episode) return;
+    if (!isMixStreamable(session.episode, { allowAdminPreview })) return;
     void player.playTrack(session.episode);
   };
 
   const handleRemove = async (mixId) => {
     if (!userId || !mixId) return;
     setBusyId(mixId);
-    await dismissLibrarySession(userId, mixId);
+    const row = sessions.find((s) => s.mixId === mixId);
+    const title = row?.episode?.title || "Mix";
+    const wasPresave = Boolean(row?.isLibraryPresave) || isMixPresave(row?.episode);
+    if (row?.isLibraryPresave || wasPresave) {
+      await removeMixPresave(userId, mixId);
+    }
+    if (!row?.isLibraryPresave) {
+      await dismissLibrarySession(userId, mixId);
+    }
     setSessions((prev) => prev.filter((s) => s.mixId !== mixId));
     setBusyId(null);
+    showToast({
+      tone: wasPresave ? "presave" : "ok",
+      icon: "check",
+      title: wasPresave ? "Removed from Library" : "Session removed",
+      message: wasPresave
+        ? `“${title}” is no longer saved.`
+        : `“${title}” was cleared from Library.`,
+    });
   };
 
   const goPage = (next) => {
@@ -298,7 +413,7 @@ export default function LibraryPage() {
     <div className={`fade-in mixes-page library-page${isCompact ? " is-compact" : ""}`}>
       <PageHeader icon="library" title="LIBRARY" large marginBottom={isCompact ? 16 : 20} />
       <p className="mixes-lede">
-        Pick up where you left off — full artwork and progress for every session in progress.
+        Pick up where you left off, and keep Pre-save drops ready until they go live.
       </p>
 
       {loading ? (
@@ -338,6 +453,9 @@ export default function LibraryPage() {
                     : session.positionSec;
                 const dur = (isActive && player.durationSec) || session.durationSec || ep.durationSecs || 0;
                 const pct = sessionProgressPct(livePos, dur);
+                const streamable = isMixStreamable(ep, { allowAdminPreview });
+                const presave = isMixPresave(ep);
+                const presaveLine = formatPresaveReleaseLine(ep.goesLiveAt);
                 return (
                   <LibraryMobileRow
                     key={session.mixId}
@@ -345,6 +463,9 @@ export default function LibraryPage() {
                     isPlaying={isPlaying}
                     pct={pct}
                     busy={busyId === session.mixId}
+                    streamable={streamable}
+                    presave={presave}
+                    presaveLine={presaveLine}
                     onResume={handleResume}
                     onRemove={handleRemove}
                   />
@@ -364,6 +485,9 @@ export default function LibraryPage() {
                     : session.positionSec;
                 const dur = (isActive && player.durationSec) || session.durationSec || ep.durationSecs || 0;
                 const pct = sessionProgressPct(livePos, dur);
+                const streamable = isMixStreamable(ep, { allowAdminPreview });
+                const presave = isMixPresave(ep);
+                const presaveLine = formatPresaveReleaseLine(ep.goesLiveAt);
                 return (
                   <div key={session.mixId} role="listitem">
                     <LibraryListRow
@@ -375,6 +499,9 @@ export default function LibraryPage() {
                       dur={dur}
                       pct={pct}
                       busy={busyId === session.mixId}
+                      streamable={streamable}
+                      presave={presave}
+                      presaveLine={presaveLine}
                       onResume={handleResume}
                       onRemove={handleRemove}
                     />

@@ -40,7 +40,15 @@ function formatStorageError(err, { showOpsHints = false } = {}) {
 }
 
 /** Columns added by later migrations; dropped one by one if the project has not run them yet. */
-const OPTIONAL_MIX_COLUMNS = ["submitted_at", "status", "is_for_sale", "price_zar", "content_type"];
+const OPTIONAL_MIX_COLUMNS = [
+  "submitted_at",
+  "status",
+  "is_for_sale",
+  "price_zar",
+  "content_type",
+  "visibility",
+  "goes_live_at",
+];
 
 /**
  * Insert a mix, retrying without columns the database does not know about so a
