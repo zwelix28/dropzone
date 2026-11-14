@@ -5159,28 +5159,27 @@ export const GlobalStyles = () => (
     .auth-notice.is-error { color: var(--red); }
     .auth-notice.is-ok { color: var(--green); }
     .auth-notice code { color: var(--accent); }
-    .auth-username-suggestions {
+    .auth-username-field {
+      position: relative;
       display: flex;
-      flex-wrap: wrap;
       align-items: center;
-      gap: 6px;
-      margin-top: 8px;
-      font-size: 12px;
+    }
+    .auth-username-at {
+      position: absolute;
+      left: 14px;
+      z-index: 1;
       color: var(--text3);
-    }
-    .auth-username-chip {
-      border: 1px solid var(--border);
-      background: var(--surface2);
-      color: var(--accent3);
-      border-radius: 999px;
-      padding: 4px 10px;
-      font: inherit;
-      font-size: 12px;
+      font-size: 14px;
       font-weight: 600;
-      cursor: pointer;
+      line-height: 1;
+      pointer-events: none;
+      user-select: none;
     }
-    .auth-username-chip:hover {
-      border-color: rgba(56, 189, 248, 0.45);
+    .auth-username-field .inp {
+      padding-left: 30px;
+    }
+    .auth-card .auth-username-at {
+      color: #64748B;
     }
     .auth-fields {
       display: flex;

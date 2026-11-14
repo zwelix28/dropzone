@@ -23,7 +23,6 @@ export default function RegisterPage() {
   const [busy, setBusy] = useState(false);
   const [registerInfo, setRegisterInfo] = useState(null);
   const [localError, setLocalError] = useState(null);
-  const [usernameSuggestions, setUsernameSuggestions] = useState([]);
 
   const passwordsMatch = form.password === form.confirmPassword;
   const confirmTouched = form.confirmPassword.length > 0;
@@ -59,7 +58,6 @@ export default function RegisterPage() {
   const handleSubmit = async () => {
     if (!isSupabaseConfigured()) return;
     setLocalError(null);
-    setUsernameSuggestions([]);
     if (!form.username.trim()) {
       setLocalError("Choose a username.");
       return;
@@ -77,7 +75,7 @@ export default function RegisterPage() {
     setRegisterInfo(null);
     try {
       const result = await auth.signUp(form.email.trim(), form.password, {
-        username: form.username.trim(),
+        username: form.username.trim().replace(/^@+/, ""),
         genre: form.genre,
       });
       if (result.ok) {
@@ -92,7 +90,6 @@ export default function RegisterPage() {
         }
       } else if (result.usernameTaken) {
         setLocalError(result.error || "That username is taken.");
-        setUsernameSuggestions(result.suggestions || []);
       }
     } finally {
       setBusy(false);
@@ -152,37 +149,24 @@ export default function RegisterPage() {
               <label className="auth-label" htmlFor="register-username">
                 Username
               </label>
-              <input
-                id="register-username"
-                className="inp"
-                placeholder="Your DJ name"
-                autoComplete="username"
-                value={form.username}
-                onChange={(e) => {
-                  setUsernameSuggestions([]);
-                  setForm((f) => ({ ...f, username: e.target.value }));
-                }}
-              />
-              {usernameSuggestions.length ? (
-                <div className="auth-username-suggestions">
-                  <span>Try:</span>
-                  {usernameSuggestions.map((name) => (
-                    <button
-                      key={name}
-                      type="button"
-                      className="auth-username-chip"
-                      onClick={() => {
-                        setForm((f) => ({ ...f, username: name }));
-                        setUsernameSuggestions([]);
-                        setLocalError(null);
-                        auth.clearAuthError();
-                      }}
-                    >
-                      {name}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
+              <div className="auth-username-field">
+                <span className="auth-username-at" aria-hidden="true">
+                  @
+                </span>
+                <input
+                  id="register-username"
+                  className="inp"
+                  autoComplete="username"
+                  spellCheck={false}
+                  value={form.username}
+                  onChange={(e) => {
+                    setForm((f) => ({
+                      ...f,
+                      username: e.target.value.replace(/^@+/, ""),
+                    }));
+                  }}
+                />
+              </div>
             </div>
 
             <div>
@@ -193,7 +177,7 @@ export default function RegisterPage() {
                 id="register-email"
                 className="inp"
                 type="email"
-                placeholder="dj@yourlabel.com"
+                autoComplete="email"
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
               />
