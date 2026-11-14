@@ -11,7 +11,9 @@
 --      URL: https://YOUR_PROJECT.supabase.co/functions/v1/notify-delivery
 --      HTTP Headers: Authorization: Bearer YOUR_ANON_OR_SERVICE_KEY
 --                    x-notify-secret: YOUR_NOTIFY_WEBHOOK_SECRET
---      Delivery uses record.id only (reloaded from DB); only type = new_mix is emailed/pushed.
+--      Delivery uses record.id only (reloaded from DB).
+--      Email: type = new_mix. Push: new_mix, follow, like, mix_presave
+--      (see social-activity-notifications.sql + redeploy notify-delivery).
 
 -- ---------------------------------------------------------------------------
 -- Preference columns (default on)
