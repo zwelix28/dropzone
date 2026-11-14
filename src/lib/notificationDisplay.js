@@ -14,6 +14,8 @@ const TYPE_PRESETS = {
   floor_event_rejected: { icon: "x", color: "var(--red)", category: "Floor" },
   milestone: { icon: "award", color: "var(--orange)", category: "Milestone" },
   follow: { icon: "people", color: "var(--green)", category: "Follower" },
+  like: { icon: "heart", color: "var(--red)", category: "Like" },
+  mix_presave: { icon: "library", color: "var(--orange)", category: "Pre-save" },
   dm: { icon: "mail", color: "var(--accent)", category: "Message" },
   mention: { icon: "comment", color: "var(--accent3)", category: "Mention" },
   download: { icon: "download", color: "var(--green)", category: "Download" },

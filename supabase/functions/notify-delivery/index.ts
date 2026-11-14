@@ -2,9 +2,10 @@
  * notify-delivery Edge Function
  *
  * Invoked by a Supabase Database Webhook on INSERT into public.notifications.
- * For type = new_mix:
- *   - email via Resend (if profile.notify_email_new_mix)
- *   - web push (if profile.notify_push_new_mix and subscriptions exist)
+ * Delivery by notification type:
+ *   - new_mix: email (notify_email_new_mix) + web push (notify_push_new_mix)
+ *   - follow / like / mix_presave: web push only (notify_push_new_mix)
+ *     so uploaders get phone alerts for social activity without email spam
  *
  * Deploy:  supabase functions deploy notify-delivery --no-verify-jwt
  * Secrets:
@@ -115,7 +116,7 @@ async function sendEmail(to: string, title: string, message: string, href: strin
           <p style="margin:0 0 16px">${escapeHtml(message)}</p>
           <p style="margin:0 0 24px">
             <a href="${escapeHtml(href)}" style="display:inline-block;background:#0ea5e9;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600">
-              Open mix
+              Open in Deep House Lab
             </a>
           </p>
           <p style="margin:0;font-size:12px;color:#64748b">Deep House Lab</p>
@@ -210,9 +211,13 @@ async function sendPush(
   return { ok: true, sent, failed: failures.length, failures };
 }
 
+const EMAIL_TYPES = new Set(["new_mix"]);
+const PUSH_TYPES = new Set(["new_mix", "follow", "like", "mix_presave"]);
+
 async function deliver(notification: NotificationRow) {
-  if (notification.type !== "new_mix") {
-    return { skipped: true, reason: "type_not_new_mix" };
+  const type = notification.type || "";
+  if (!PUSH_TYPES.has(type) && !EMAIL_TYPES.has(type)) {
+    return { skipped: true, reason: "type_not_delivered" };
   }
 
   const { data: profile } = await supabase
@@ -228,7 +233,7 @@ async function deliver(notification: NotificationRow) {
   const href = safeAppHref(notification.href);
   const results: Record<string, unknown> = {};
 
-  if (profile.notify_email_new_mix !== false) {
+  if (EMAIL_TYPES.has(type) && profile.notify_email_new_mix !== false) {
     const { data: userData, error: userErr } = await supabase.auth.admin.getUserById(
       notification.user_id,
     );
@@ -238,18 +243,20 @@ async function deliver(notification: NotificationRow) {
       const email = userData.user?.email ?? "";
       results.email = await sendEmail(email, notification.title, notification.message, href);
     }
-  } else {
+  } else if (EMAIL_TYPES.has(type)) {
     results.email = { skipped: true, reason: "pref_off" };
+  } else {
+    results.email = { skipped: true, reason: "type_push_only" };
   }
 
-  if (profile.notify_push_new_mix !== false) {
+  if (PUSH_TYPES.has(type) && profile.notify_push_new_mix !== false) {
     results.push = await sendPush(
       notification.user_id,
       notification.title,
       notification.message,
       href,
     );
-  } else {
+  } else if (PUSH_TYPES.has(type)) {
     results.push = { skipped: true, reason: "pref_off" };
   }
 

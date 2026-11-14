@@ -466,9 +466,34 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  owner_id uuid;
+  mix_title text;
+  uname text;
 begin
   if tg_op = 'INSERT' then
     update public.mixes set likes_count = likes_count + 1 where id = new.mix_id;
+    select m.user_id, left(coalesce(m.title, 'Untitled Mix'), 80)
+      into owner_id, mix_title
+    from public.mixes m where m.id = new.mix_id;
+    if owner_id is not null and owner_id is distinct from new.user_id then
+      select coalesce(nullif(trim(username), ''), 'Someone') into uname
+      from public.profiles where id = new.user_id;
+      insert into public.notifications (user_id, type, title, message, href, episode_id, meta)
+      values (
+        owner_id,
+        'like',
+        'New like',
+        coalesce(uname, 'Someone') || ' liked "' || mix_title || '".',
+        '/mix/' || new.mix_id::text,
+        new.mix_id,
+        jsonb_build_object(
+          'actor_id', new.user_id::text,
+          'actor_username', coalesce(uname, 'Someone'),
+          'mix_id', new.mix_id::text
+        )
+      );
+    end if;
     return new;
   elsif tg_op = 'DELETE' then
     update public.mixes set likes_count = greatest(0, likes_count - 1) where id = old.mix_id;

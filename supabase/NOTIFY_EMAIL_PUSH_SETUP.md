@@ -1,6 +1,8 @@
 # New mix email + push notifications
 
-Hooks into existing `notifications` rows (`type = new_mix`). When a mix is approved / published, every approved listener gets an in-app notification; this pipeline also sends **email** (Resend) and **Web Push**.
+Hooks into `notifications` inserts. **Email** (Resend) for `new_mix`. **Web Push** for `new_mix`, plus social alerts (`follow`, `like`, `mix_presave`) so uploaders get phone alerts when someone follows them, likes a mix, or pre-saves it.
+
+Also run `supabase/social-activity-notifications.sql` for like / pre-save / follow triggers.
 
 ## 1. SQL
 
