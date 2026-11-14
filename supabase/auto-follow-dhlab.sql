@@ -41,7 +41,7 @@ begin
     uname,
     h,
     coalesce(new.raw_user_meta_data->>'genre', 'Tech House'),
-    false
+    true
   )
   on conflict (id) do nothing;
 

@@ -1,11 +1,11 @@
--- Admin approval gate for new accounts.
+-- Account access flag (is_approved) for profiles.
 -- Run in Supabase SQL Editor after base schema / user-plans.sql.
 --
--- New signups start with is_approved = false and cannot use the app until an admin approves them.
--- Existing profiles are backfilled to approved so current users are not locked out.
+-- New signups are approved automatically (see open-registration.sql). Admins can still
+-- revoke access by setting is_approved = false. Prefer running open-registration.sql after this.
 
 alter table public.profiles
-  add column if not exists is_approved boolean not null default false;
+  add column if not exists is_approved boolean not null default true;
 
 -- Existing accounts keep access (run once when enabling this feature).
 update public.profiles set is_approved = true where is_approved is distinct from true;
@@ -14,7 +14,7 @@ update public.profiles set is_approved = true where is_approved is distinct from
 update public.profiles set is_approved = true where coalesce(is_admin, false) = true;
 
 comment on column public.profiles.is_approved is
-  'When false, user may authenticate but cannot use the app until an admin approves.';
+  'When false, user may authenticate but cannot use the app (admin revoke). New signups default to true.';
 
 -- Shared gate for RLS / RPCs (approved or admin, and not banned).
 create or replace function public.profile_can_use_app(p_user_id uuid)
@@ -61,7 +61,7 @@ begin
     uname,
     h,
     coalesce(new.raw_user_meta_data->>'genre', 'Tech House'),
-    false
+    true
   )
   on conflict (id) do nothing;
 
@@ -113,7 +113,7 @@ begin
 end;
 $$;
 
--- Point admin signup alerts at the admin panel for approval.
+-- Notify admins when someone joins (no approval wait).
 create or replace function public.notify_admins_new_user()
 returns trigger
 language plpgsql
@@ -138,14 +138,14 @@ begin
     values (
       admin_id,
       'new_user',
-      'Approval needed',
-      uname || ' (' || uhandle || ') signed up and is waiting for approval.',
-      '/admin?tab=users',
+      'New member joined',
+      uname || ' (' || uhandle || ') joined Deep House Lab.',
+      '/user/' || new.id::text,
       jsonb_build_object(
         'new_user_id', new.id::text,
         'username', uname,
         'handle', uhandle,
-        'pending_approval', true
+        'pending_approval', false
       )
     );
   end loop;
