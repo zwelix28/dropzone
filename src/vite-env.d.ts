@@ -3,6 +3,8 @@
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL: string;
   readonly VITE_SUPABASE_ANON_KEY: string;
+  /** Canonical public origin for SEO / Open Graph (no trailing slash). */
+  readonly VITE_PUBLIC_SITE_URL?: string;
   /** When true, skip cloud Supabase and use a local demo session + seed data. */
   readonly VITE_LOCAL_MODE?: string;
   readonly VITE_MAX_AUDIO_MB?: string;

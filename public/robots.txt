@@ -1,0 +1,9 @@
+# Deep House Lab — search engine crawl rules
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /settings
+Disallow: /messages
+Disallow: /reset-password
+
+Sitemap: https://deephouselab.co.za/sitemap.xml

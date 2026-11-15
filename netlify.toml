@@ -8,6 +8,11 @@
   # Public VAPID key (safe in client builds). Must match Supabase secret VAPID_PUBLIC_KEY.
   VITE_VAPID_PUBLIC_KEY = "BFu0mOBuh2MDvC4B5m1TkrnKk16C5O5tdXMDZEWIg3Fn9VKWbJF66Q1QqUBV9by2sUip_ObG8M3LSkAAcQpLf6w"
 
+# Bot-friendly HTML for mix URLs (Google/Bing/social previews). Humans still get the SPA.
+[[edge_functions]]
+  function = "seo-bots"
+  path = "/mix/*"
+
 # SPA: client-side routes (e.g. /discover, /mix/:id) must serve index.html
 [[redirects]]
   from = "/*"
