@@ -27,8 +27,10 @@ import {
   isMixStreamable,
 } from "../lib/mixVisibility.js";
 import { hasMixPresave } from "../lib/mixPresaves.js";
+import { absoluteAssetUrl, absoluteUrl } from "../lib/siteUrl.js";
 import { presaveMixToLibrary, unsaveMixFromLibrary } from "../lib/presaveToLibrary.js";
 import { shareMix } from "../lib/shareMix.js";
+import usePageSeo from "../hooks/usePageSeo.js";
 import {
   normalizeTracklist,
   resolveMixTracklist,
@@ -58,6 +60,40 @@ export default function MixDetailPage() {
     if (!episode) return null;
     return users.find((u) => u.id === episode.userId) || fetchedUser;
   }, [episode, users, fetchedUser]);
+
+  const mixSeoDescription = useMemo(() => {
+    if (!episode) return "Listen to this mix on Deep House Lab.";
+    const raw = stripTracklistFromDescription(episode.description || "").trim();
+    if (raw && !isAutoMixDescription(raw)) return raw.slice(0, 300);
+    const artist = user?.username || "a Deep House Lab DJ";
+    const genre = episode.genre ? `${episode.genre} · ` : "";
+    return `${genre}Stream “${episode.title || "Untitled Mix"}” by ${artist} on Deep House Lab.`;
+  }, [episode, user]);
+
+  usePageSeo({
+    title: episode?.title || (lookupState === "missing" ? "Mix not found" : "Mix"),
+    description: mixSeoDescription,
+    path: id ? `/mix/${id}` : "/mixes",
+    image: episode ? resolveMixArtwork(episode.coverUrl) : "/DeepHouseLabLogo.png",
+    type: "music.song",
+    noindex: lookupState === "missing",
+    jsonLd: episode
+      ? {
+          "@context": "https://schema.org",
+          "@type": "MusicRecording",
+          name: episode.title || "Untitled Mix",
+          description: mixSeoDescription,
+          url: absoluteUrl(`/mix/${episode.id}`),
+          image: absoluteAssetUrl(resolveMixArtwork(episode.coverUrl)),
+          genre: episode.genre || "Deep House",
+          byArtist: {
+            "@type": "MusicGroup",
+            name: user?.username || "Deep House Lab",
+            url: user?.id ? absoluteUrl(`/user/${user.id}`) : absoluteUrl("/"),
+          },
+        }
+      : null,
+  });
 
   const loggedIn = Boolean(auth.session?.user?.id);
   const isAdmin = Boolean(auth.currentUser?.isAdmin);

@@ -11,9 +11,11 @@ import VerifiedBadge from "../components/VerifiedBadge.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import { FEATURE_COMMUNITY, signedInHomePath } from "../featureFlags.js";
 import useMediaQuery from "../hooks/useMediaQuery.js";
+import usePageSeo from "../hooks/usePageSeo.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 import { profileRowToUser } from "../lib/maps.js";
 import { fmt } from "../lib/format.js";
+import { absoluteAssetUrl, absoluteUrl } from "../lib/siteUrl.js";
 import { scrollAppMainToTop } from "../lib/scrollAppMain.js";
 
 const MOBILE_MIXES_PAGE_SIZE = 10;
@@ -87,6 +89,29 @@ export default function UserProfilePage() {
   }, [userId, fromListId, refreshProfiles]);
 
   const profileUser = fromList || remoteUser;
+
+  usePageSeo({
+    title: profileUser?.username || (fetchDone && !profileUser ? "Artist not found" : "Artist"),
+    description: profileUser
+      ? `${profileUser.username}${profileUser.handle ? ` (${profileUser.handle})` : ""} on Deep House Lab${
+          profileUser.genre ? ` · ${profileUser.genre}` : ""
+        }.${profileUser.bio ? ` ${String(profileUser.bio).slice(0, 180)}` : " Stream their mixes and follow for new drops."}`
+      : "Discover DJs and listeners on Deep House Lab.",
+    path: userId ? `/user/${userId}` : "/",
+    image: profileUser?.avatarUrl || "/DeepHouseLabLogo.png",
+    type: "profile",
+    noindex: fetchDone && !profileUser,
+    jsonLd: profileUser
+      ? {
+          "@context": "https://schema.org",
+          "@type": "Person",
+          name: profileUser.username,
+          url: absoluteUrl(`/user/${profileUser.id}`),
+          image: absoluteAssetUrl(profileUser.avatarUrl || "/DeepHouseLabLogo.png"),
+          description: profileUser.bio || undefined,
+        }
+      : null,
+  });
 
   const usersForCards = useMemo(() => {
     const pu = fromList || remoteUser;
