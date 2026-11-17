@@ -37,6 +37,14 @@ export function isMixStreamable(mix, { allowAdminPreview = false } = {}) {
   return isMixLive(mix);
 }
 
+/**
+ * For You may play a short climax snippet for live mixes and upcoming pre-saves
+ * (so listeners can hear what’s coming without unlocking full stream).
+ */
+export function isForYouSnippetEligible(mix) {
+  return isMixLive(mix) || isMixPresave(mix);
+}
+
 export function mixVisibilityLabel(raw) {
   const v = normalizeMixVisibility(raw);
   if (v === MIX_VISIBILITY_PRESAVE) return "Pre-save";
