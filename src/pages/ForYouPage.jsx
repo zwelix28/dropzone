@@ -10,9 +10,15 @@ import { handleArtworkError, resolveMixArtwork } from "../constants/artwork.js";
 import { canDownloadMix } from "../constants/plans.js";
 import { episodeHasAudioSource } from "../lib/audioUrls.js";
 import { isForYouItem } from "../lib/contentType.js";
-import { isMixStreamable } from "../lib/mixVisibility.js";
+import {
+  formatPresaveReleaseLine,
+  isForYouSnippetEligible,
+  isMixPresave,
+} from "../lib/mixVisibility.js";
 import { isUuid } from "../lib/dmUtils.js";
 import { downloadMixWithMetadata } from "../lib/downloadMixWithMetadata.js";
+import { hasMixPresave } from "../lib/mixPresaves.js";
+import { presaveMixToLibrary, unsaveMixFromLibrary } from "../lib/presaveToLibrary.js";
 import { shareMix } from "../lib/shareMix.js";
 
 function shuffleFeed(list) {
@@ -24,22 +30,46 @@ function shuffleFeed(list) {
   return arr;
 }
 
+/** Sprinkle upcoming pre-save snippets among live mixes so listeners hear what’s coming. */
+function interleavePresaveSnippets(live, snippets) {
+  if (!snippets.length) return live;
+  if (!live.length) return snippets;
+  const out = [];
+  let si = 0;
+  for (let i = 0; i < live.length; i += 1) {
+    out.push(live[i]);
+    if ((i + 1) % 3 === 0 && si < snippets.length) {
+      out.push(snippets[si]);
+      si += 1;
+    }
+  }
+  while (si < snippets.length) {
+    out.push(snippets[si]);
+    si += 1;
+  }
+  return out;
+}
+
 function buildStableFeed(episodes, feedRef) {
-  const playable = episodes.filter(
-    (ep) => isForYouItem(ep) && isMixStreamable(ep) && episodeHasAudioSource(ep),
+  const eligible = episodes.filter(
+    (ep) => isForYouItem(ep) && isForYouSnippetEligible(ep) && episodeHasAudioSource(ep),
   );
+  const live = eligible.filter((ep) => !isMixPresave(ep));
+  const snippets = eligible.filter((ep) => isMixPresave(ep));
+  const playable = interleavePresaveSnippets(shuffleFeed(live), shuffleFeed(snippets));
+
   if (playable.length === 0) {
     feedRef.current = [];
     return [];
   }
   if (!feedRef.current?.length) {
-    feedRef.current = shuffleFeed(playable);
+    feedRef.current = playable;
     return feedRef.current;
   }
   const known = new Set(feedRef.current.map((e) => e.id));
   const fresh = playable.filter((e) => !known.has(e.id));
   if (fresh.length) {
-    feedRef.current = [...feedRef.current, ...shuffleFeed(fresh)];
+    feedRef.current = [...feedRef.current, ...fresh];
   }
   const playableIds = new Set(playable.map((e) => e.id));
   feedRef.current = feedRef.current.filter((e) => playableIds.has(e.id));
@@ -90,7 +120,7 @@ function ActionButton({ label, onClick, children, active = false, compact = fals
 }
 
 export default function ForYouPage() {
-  const { auth, episodes, users, likedMixIds, toggleLike, trackEvent } = useApp();
+  const { auth, episodes, users, likedMixIds, toggleLike, trackEvent, showToast } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -108,8 +138,11 @@ export default function ForYouPage() {
 
   const [index, setIndex] = useState(0);
   const [toast, setToast] = useState("");
+  const [presaveBusyId, setPresaveBusyId] = useState(null);
+  const [presavedIds, setPresavedIds] = useState(() => new Set());
 
   const isAuthenticated = Boolean(auth.session?.user?.id);
+  const userId = auth.session?.user?.id;
   const preview = useForYouPreview({
     isAuthenticated,
     getArtistName: (ep) => {
@@ -128,6 +161,27 @@ export default function ForYouPage() {
   const current = feed[index] || null;
   const currentUser = current ? users.find((u) => u.id === current.userId) : null;
   const liked = Boolean(current && likedMixIds.includes(current.id));
+  const currentIsPresave = Boolean(current && isMixPresave(current));
+  const currentPresaveSaved = Boolean(current && presavedIds.has(current.id));
+
+  useEffect(() => {
+    let cancelled = false;
+    const mixId = current?.id;
+    if (!userId || !currentIsPresave || !mixId) return undefined;
+    (async () => {
+      const saved = await hasMixPresave(userId, mixId);
+      if (cancelled || !saved) return;
+      setPresavedIds((prev) => {
+        if (prev.has(mixId)) return prev;
+        const next = new Set(prev);
+        next.add(mixId);
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, currentIsPresave, current?.id]);
 
   const openMix = useCallback(
     (mixId) => {
@@ -455,12 +509,18 @@ export default function ForYouPage() {
     auth.setShowAuth(true);
   };
 
-  const allowDownload = canDownloadMix(auth.currentUser, {
-    isOwner: Boolean(auth.currentUser?.id && current?.userId === auth.currentUser.id),
-  });
+  const allowDownload =
+    !currentIsPresave &&
+    canDownloadMix(auth.currentUser, {
+      isOwner: Boolean(auth.currentUser?.id && current?.userId === auth.currentUser.id),
+    });
 
   const handleDownload = async () => {
     if (!current) return;
+    if (isMixPresave(current)) {
+      setToast("Pre-save mixes unlock for full listen when they go live");
+      return;
+    }
     if (!auth.session?.user?.id) {
       promptGuestAuth("download mixes");
       return;
@@ -481,6 +541,44 @@ export default function ForYouPage() {
     }
     setToast("Downloading full mix…");
     void trackEvent({ kind: "download", episodeId: current.id, actorUserId: auth.currentUser?.id });
+  };
+
+  const handlePresaveToggle = async (episode) => {
+    if (!episode || !isMixPresave(episode)) return;
+    if (!userId) {
+      promptGuestAuth("pre-save mixes");
+      return;
+    }
+    const already = presavedIds.has(episode.id);
+    setPresaveBusyId(episode.id);
+    const result = already
+      ? await unsaveMixFromLibrary({
+          userId,
+          mixId: episode.id,
+          mixTitle: episode.title,
+        })
+      : await presaveMixToLibrary({
+          userId,
+          mixId: episode.id,
+          mixTitle: episode.title,
+        });
+    setPresaveBusyId(null);
+    if (!result.ok) {
+      showToast({
+        tone: "presave",
+        icon: "x",
+        title: already ? "Couldn’t unsave" : "Couldn’t pre-save",
+        message: result.error || "Please try again.",
+      });
+      return;
+    }
+    setPresavedIds((prev) => {
+      const next = new Set(prev);
+      if (already) next.delete(episode.id);
+      else next.add(episode.id);
+      return next;
+    });
+    showToast(result.toast);
   };
 
   if (feed.length === 0) {
@@ -510,6 +608,10 @@ export default function ForYouPage() {
           const cover = resolveMixArtwork(ep.coverUrl);
           const isActive = i === index;
           const showProgress = isActive && preview.track?.id === ep.id;
+          const isPresaveSnippet = isMixPresave(ep);
+          const presaveLine = isPresaveSnippet ? formatPresaveReleaseLine(ep.goesLiveAt) : null;
+          const snippetSaved = presavedIds.has(ep.id);
+          const snippetBusy = presaveBusyId === ep.id;
 
           return (
             <section
@@ -684,20 +786,37 @@ export default function ForYouPage() {
                       {ep.description}
                     </p>
                   ) : null}
-                  {ep.genre ? (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 8,
-                        flexWrap: "wrap",
-                      }}
-                    >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 8,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    {isPresaveSnippet ? (
+                      <span className="tag tag-orange" style={{ fontSize: 11 }}>
+                        Pre-save · Snippet
+                      </span>
+                    ) : null}
+                    {ep.genre ? (
                       <span className="tag tag-blue" style={{ fontSize: 11 }}>
                         {ep.genre}
                       </span>
-                    </div>
+                    ) : null}
+                  </div>
+                  {isPresaveSnippet && presaveLine ? (
+                    <p
+                      style={{
+                        margin: "8px 0 0",
+                        color: "var(--orange)",
+                        fontSize: 12,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {presaveLine}
+                    </p>
                   ) : null}
 
                   {isCompact && isActive ? (
@@ -756,10 +875,32 @@ export default function ForYouPage() {
                         <ActionButton compact label="Go to mix" onClick={() => openMix(ep.id)}>
                           <Icon name="goTo" size={18} color="#fff" />
                         </ActionButton>
+                        {isPresaveSnippet ? (
+                          <ActionButton
+                            compact
+                            label={
+                              snippetBusy
+                                ? snippetSaved
+                                  ? "Removing…"
+                                  : "Saving…"
+                                : snippetSaved
+                                  ? "Unsave from Library"
+                                  : "Pre-save to Library"
+                            }
+                            active={snippetSaved}
+                            onClick={() => void handlePresaveToggle(ep)}
+                          >
+                            <Icon
+                              name="library"
+                              size={18}
+                              color={snippetSaved ? "var(--orange)" : "#fff"}
+                            />
+                          </ActionButton>
+                        ) : null}
                         <ActionButton compact label="Share" onClick={() => void handleShare()}>
                           <Icon name="share" size={18} color="#fff" />
                         </ActionButton>
-                        {allowDownload ? (
+                        {allowDownload && !isPresaveSnippet ? (
                           <ActionButton
                             compact
                             label={likedMixIds.includes(ep.id) ? "Download full mix" : "Like to download"}
@@ -858,6 +999,28 @@ export default function ForYouPage() {
           <ActionButton label="Go to mix" onClick={() => openMix(current?.id)}>
             <Icon name="goTo" size={20} color="#fff" />
           </ActionButton>
+
+          {currentIsPresave ? (
+            <ActionButton
+              label={
+                presaveBusyId === current?.id
+                  ? currentPresaveSaved
+                    ? "Removing…"
+                    : "Saving…"
+                  : currentPresaveSaved
+                    ? "Unsave from Library"
+                    : "Pre-save to Library"
+              }
+              active={currentPresaveSaved}
+              onClick={() => void handlePresaveToggle(current)}
+            >
+              <Icon
+                name="library"
+                size={20}
+                color={currentPresaveSaved ? "var(--orange)" : "#fff"}
+              />
+            </ActionButton>
+          ) : null}
 
           <ActionButton label="Share" onClick={() => void handleShare()}>
             <Icon name="share" size={20} color="#fff" />
